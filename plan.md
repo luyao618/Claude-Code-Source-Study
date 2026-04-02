@@ -9,7 +9,6 @@
 ## 用户偏好
 
 - **语言**：中英混合 — 正文中文，技术术语保留英文原文（如 Agent、Tool、Prompt Cache、Dead Code Elimination）
-- **输出位置**：`/Users/yao/work/code/personal/Claude-Code-Source-Study/`
 - **执行节奏**：每次 1 篇，追求最高质量，逐篇深度阅读源码后撰写
 - **架构图**：关键章节需包含 Mermaid 架构图（详见下方「架构图规范」）
 
@@ -107,23 +106,27 @@ graph TD
 - `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` — 全局缓存与会话特定内容的分界线
 - 条件分支：`USER_TYPE === 'ant'` 的内外版本差异
 - 提示词中的行为引导技巧（代码风格约束、安全指令、工具使用优先级、false-claims 缓解）
-- 关键文件：`constants/prompts.ts`, `constants/systemPromptSections.ts`, `context.ts`
+- 关键文件：`constants/prompts.ts`, `constants/systemPromptSections.ts`, `context.ts`, `utils/systemPrompt.ts`, `utils/api.ts`, `constants/system.ts`, `constants/cyberRiskInstruction.ts`, `tools/AgentTool/forkSubagent.ts`
 
 **第 5 篇：对话循环 — query.ts 如何驱动一次完整的 AI 交互**
-- 消息组装：system prompt + user context + memory attachments + messages
-- API 调用：流式响应处理、tool_use 解析、stop_reason 分支
-- 工具执行循环：model 请求 tool → 执行 → 结果回传 → model 继续
-- 错误恢复：重试策略、fallback 模型切换、prompt_too_long 处理
-- 流事件模型：`StreamEvent`, `RequestStartEvent`, `ProgressMessage`
-- 关键文件：`query.ts`, `services/api/claude.ts`, `services/api/withRetry.ts`
+- AsyncGenerator 状态机：`query()` / `queryLoop()` 的 `while(true)` 显式状态机设计，`State` 类型与 7+ 个 `continue` 站点，`transition` 字段记录跳转原因
+- 消息预处理管线：applyToolResultBudget → snipCompact → microcompact → contextCollapse → autocompact（成本递增顺序）
+- API 调用与流式响应：`deps.callModel()` → `queryModelWithStreaming` → `withRetry` AsyncGenerator 重试层（区分前台/后台 529、指数退避、`FallbackTriggeredError`）
+- 暂扣-恢复模式：prompt-too-long / max_output_tokens 错误在流中暂扣（withhold），尝试 collapse drain → reactive compact → 多轮恢复
+- 工具执行双模式：`StreamingToolExecutor`（流式并行）vs `runTools()`（批量），`partitionToolCalls()` 的并发安全分区
+- 附件注入：Memory 预取（`using` 关键字）、Skill 发现预取、queued commands drain
+- 依赖注入：`QueryDeps`（4 个方法）+ `QueryConfig`（不可变环境快照，刻意排除 `feature()` gate 以保留 DCE）
+- 关键文件：`query.ts`, `query/deps.ts`, `query/config.ts`, `query/stopHooks.ts`, `services/api/claude.ts`, `services/api/withRetry.ts`, `services/tools/toolOrchestration.ts`, `services/tools/StreamingToolExecutor.ts`
 
 **第 6 篇：上下文管理 — 无限对话的秘密**
-- Token 预算管理：`getEffectiveContextWindowSize()`, `getAutoCompactThreshold()`
-- 自动压缩触发：`calculateTokenWarningState()` 的三级阈值（Warning/Error/AutoCompact）
-- 压缩实现：`compactConversation()` — 用模型自己总结之前的对话
-- 微压缩（MicroCompact）与反应式压缩（ReactiveCompact）
-- 文件状态缓存：`FileStateCache` LRU 避免重复读文件
-- 关键文件：`services/compact/autoCompact.ts`, `services/compact/compact.ts`, `utils/fileStateCache.ts`
+- Token 预算管理三函数：`getEffectiveContextWindowSize()`, `getAutoCompactThreshold()`, `calculateTokenWarningState()` 四级告警（Warning/Error/AutoCompact/Blocking）
+- Microcompact 三路径：Time-based（直接清理冷缓存）、Cached MC（cache_edits API 保护热缓存）、API Context Management（原生策略委托）
+- Full Compact：`compactConversation()` 用模型总结对话，9 维结构化 prompt，`<analysis>` chain-of-thought 然后剥离
+- Session Memory Compact：免 API 调用，直接复用后台提取的 session memory 作为总结
+- 熔断器：连续失败 3 次后停止 auto-compact 尝试（避免每天浪费 25 万次 API 调用）
+- 文件状态缓存：`FileStateCache` LRU（max 100 条 / 25MB），路径标准化，`isPartialView` 标记
+- Compact 后上下文重建：最多 5 个文件恢复（5K token/文件），Plan/Skill/MCP 指令重注入
+- 关键文件：`services/compact/autoCompact.ts`, `services/compact/compact.ts`, `services/compact/microCompact.ts`, `services/compact/prompt.ts`, `services/compact/sessionMemoryCompact.ts`, `services/compact/apiMicrocompact.ts`, `services/compact/postCompactCleanup.ts`, `utils/fileStateCache.ts`
 
 **第 7 篇：Prompt Cache — 让每次 API 调用都省钱的缓存策略**
 - `CacheSafeParams`：fork agent 与 parent 共享 prompt cache 的参数对齐
@@ -291,7 +294,6 @@ graph TD
 
 计划书和所有文章写入独立的学习项目目录：
 ```
-/Users/yao/work/code/personal/Claude-Code-Source-Study/
 ├── plan.md                    (本计划书)
 ├── 00-目录与阅读指引.md
 ├── 01-项目全景.md
@@ -306,7 +308,7 @@ graph TD
 每篇文章作为一个独立 task，使用以下 prompt 模式：
 
 ```
-请基于 /Users/yao/work/code/aswsome-project/claude-code-cli/ 源码，
+请基于 Claude Code CLI 源码，
 撰写第 X 篇技术文章：「{标题}」
 
 要求：
@@ -317,7 +319,6 @@ graph TD
 5. 附核心代码片段（每篇 3-8 个代码块）
 6. 每篇结尾总结 2-3 个可迁移到自己项目的设计模式
 7. 字数 3000-5000 字
-8. 写入到 "/Users/yao/work/code/personal/Claude-Code-Source-Study/{XX}-{标题}.md"
 
 重点关注这些文件：{列出该篇对应的关键文件}
 
@@ -338,7 +339,7 @@ graph TD
 
 每 5 篇完成后，执行一次：
 ```
-请审阅 "/Users/yao/work/code/personal/Claude-Code-Source-Study/" 目录下已完成的文章，检查：
+请审阅已完成的文章，检查：
 1. 技术准确性（代码引用是否正确）
 2. 一致性（术语使用、文章间交叉引用）
 3. 可读性（是否对初中级程序员友好）

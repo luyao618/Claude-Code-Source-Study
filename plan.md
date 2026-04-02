@@ -48,12 +48,12 @@
 | 第 3 篇：状态管理 | `graph LR` | Store ↔ React Context ↔ ToolUseContext 的数据流 |
 | 第 4 篇：System Prompt | `graph TD` | Prompt 分段组装流程（static → dynamic boundary → session-specific） |
 | 第 5 篇：对话循环 | `sequenceDiagram` | User → query.ts → API → Tool → API 的完整交互时序 |
-| 第 6 篇：上下文压缩与恢复 | `graph LR` | Token 预算管理与 Auto-compact 触发流程 |
+| 第 6 篇：上下文管理 | `graph LR` | Token 预算管理与 Auto-compact 触发流程 |
 | 第 9 篇：工具系统 | `classDiagram` | Tool 接口与 buildTool 的类型关系 |
-| 第 11 篇：Agent 系统 | `sequenceDiagram` | runAgent() 的完整生命周期时序图 |
-| 第 14 篇：MCP | `graph TD` | MCP 连接与 Tool 发现流程 |
-| 第 15 篇：权限系统 | `flowchart TD` | Permission check 决策流程图 |
-| 第 16 篇：Settings | `graph TD` | 6 层配置合并优先级图 |
+| 第 12 篇：Agent 系统 | `sequenceDiagram` | runAgent() 的完整生命周期时序图 |
+| 第 15 篇：MCP | `graph TD` | MCP 连接与 Tool 发现流程 |
+| 第 16 篇：权限系统 | `flowchart TD` | Permission check 决策流程图 |
+| 第 17 篇：Settings | `graph TD` | 6 层配置合并优先级图 |
 
 其他章节视内容需要可选添加 Mermaid 图。
 
@@ -71,13 +71,13 @@ graph TD
 
 ### Part 1: 全局架构（3 篇）
 
-**第 1 篇：项目全景 — 一个 AI CLI 产品的技术蓝图**
+**第 1 篇：项目全景 — 一个 AI CLI 产品的技术蓝图** ✅
 - 技术栈选型分析（Bun + TypeScript + Ink + Commander.js 为什么这样选）
 - 启动链路：`cli.tsx` → `main.tsx`（通过 Commander `preAction` 调用 `init()`）→ `setup.ts` → `replLauncher.tsx`
 - 模块依赖全景图：`main.tsx` → `commands.ts`/`tools.ts`/`services/`/`components/`
 - 关键文件：`main.tsx`, `query.ts`, `Tool.ts`, `commands.ts`, `tools.ts`
 
-**第 2 篇：启动优化 — 毫秒级 CLI 启动的工程艺术**
+**第 2 篇：启动优化 — 毫秒级 CLI 启动的工程艺术** ✅
 - 快速路径（Fast Path）：`--version` 零 import 返回，10+ 条瀑布式快速路径链
 - 侧效果前置：`startMdmRawRead()`, `startKeychainPrefetch()` 利用 ~135ms 模块求值并行 I/O
 - API 预连接：`preconnectAnthropicApi()` 在用户打字时完成 TCP+TLS 握手
@@ -87,7 +87,7 @@ graph TD
 - 启动性能度量：`profileCheckpoint()` 双模式（采样日志 + 详细分析）
 - 关键文件：`entrypoints/cli.tsx`, `main.tsx:1-20,907-967`, `entrypoints/init.ts`, `utils/apiPreconnect.ts`, `utils/earlyInput.ts`, `utils/secureStorage/keychainPrefetch.ts`, `utils/settings/mdm/rawRead.ts`, `utils/startupProfiler.ts`
 
-**第 3 篇：状态管理 — React 与非 React 世界的状态桥接**
+**第 3 篇：状态管理 — React 与非 React 世界的状态桥接** ✅
 - 三层状态架构：bootstrap/state（Session 全局）→ Store + AppState（UI 层）→ ToolUseContext（运行时上下文容器）
 - 35 行极简 Store 实现（`state/store.ts`）：`getState/setState/subscribe` + `Object.is` 相等性检查
 - `AppState` 类型设计：`DeepImmutable<T>` 包装、70+ 字段按领域分组（mcp, plugins, tasks 等）
@@ -101,14 +101,15 @@ graph TD
 
 ### Part 2: AI 核心（5 篇）
 
-**第 4 篇：System Prompt 工程 — 精密控制模型行为的提示词体系**
+**第 4 篇：System Prompt 工程 — 精密控制模型行为的提示词体系** ✅
 - 分段构建与 `systemPromptSection()` / `DANGEROUS_uncachedSystemPromptSection()`
 - `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` — 全局缓存与会话特定内容的分界线
+- `splitSysPromptPrefix()` 与 `buildSystemPromptBlocks()` 的缓存分块机制
 - 条件分支：`USER_TYPE === 'ant'` 的内外版本差异
 - 提示词中的行为引导技巧（代码风格约束、安全指令、工具使用优先级、false-claims 缓解）
 - 关键文件：`constants/prompts.ts`, `constants/systemPromptSections.ts`, `context.ts`, `utils/systemPrompt.ts`, `utils/api.ts`, `constants/system.ts`, `constants/cyberRiskInstruction.ts`, `tools/AgentTool/forkSubagent.ts`
 
-**第 5 篇：对话循环 — query.ts 如何驱动一次完整的 AI 交互**
+**第 5 篇：对话循环 — query.ts 如何驱动一次完整的 AI 交互** ✅
 - AsyncGenerator 状态机：`query()` / `queryLoop()` 的 `while(true)` 显式状态机设计，`State` 类型与 7+ 个 `continue` 站点，`transition` 字段记录跳转原因
 - 消息预处理管线：applyToolResultBudget → snipCompact → microcompact → contextCollapse → autocompact（成本递增顺序）
 - API 调用与流式响应：`deps.callModel()` → `queryModelWithStreaming` → `withRetry` AsyncGenerator 重试层（区分前台/后台 529、指数退避、`FallbackTriggeredError`）
@@ -118,7 +119,7 @@ graph TD
 - 依赖注入：`QueryDeps`（4 个方法）+ `QueryConfig`（不可变环境快照，刻意排除 `feature()` gate 以保留 DCE）
 - 关键文件：`query.ts`, `query/deps.ts`, `query/config.ts`, `query/stopHooks.ts`, `services/api/claude.ts`, `services/api/withRetry.ts`, `services/tools/toolOrchestration.ts`, `services/tools/StreamingToolExecutor.ts`
 
-**第 6 篇：上下文压缩与恢复 — 无限对话的秘密**
+**第 6 篇：上下文管理 — 无限对话的秘密** ✅
 - Token 预算管理三函数：`getEffectiveContextWindowSize()`, `getAutoCompactThreshold()`, `calculateTokenWarningState()` 四级告警（Warning/Error/AutoCompact/Blocking）
 - 本地 Microcompact 两路径：Time-based（构造新消息对象清理冷缓存）、Cached MC（cache_edits API 保护热缓存）
 - API-level Context Management：独立于 microcompactMessages() 的并行机制，通过 claude.ts 注入 API 请求参数
@@ -129,12 +130,14 @@ graph TD
 - Compact 后上下文重建：最多 5 个文件恢复（5K token/文件），Plan/Skill/MCP 指令重注入
 - 关键文件：`services/compact/autoCompact.ts`, `services/compact/compact.ts`, `services/compact/microCompact.ts`, `services/compact/prompt.ts`, `services/compact/sessionMemoryCompact.ts`, `services/compact/apiMicrocompact.ts`, `services/compact/postCompactCleanup.ts`, `utils/fileStateCache.ts`
 
-**第 7 篇：Prompt Cache — 让每次 API 调用都省钱的缓存策略**
+**第 7 篇：Prompt Cache — 跨模块的缓存策略如何降低 API 成本**
+- 横切视角：Prompt Cache 机制如何贯穿 System Prompt（第 4 篇）、对话循环（第 5 篇）、上下文管理（第 6 篇）三个模块
 - `CacheSafeParams`：fork agent 与 parent 共享 prompt cache 的参数对齐
-- `splitSysPromptPrefix()`：系统提示词的 global/session scope 拆分
-- `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` 如何最大化 cache hit 率
 - `saveCacheSafeParams()` / `getLastCacheSafeParams()`：跨 turn 缓存参数复用
-- 关键文件：`utils/forkedAgent.ts`, `utils/api.ts`, `constants/prompts.ts`, `services/api/claude.ts`
+- Fork Subagent 的 byte-exact prompt threading：复用父线程已渲染的 system prompt 字节避免缓存失效
+- `cache_edits` 机制：Cached Microcompact 如何在保护 prompt cache 的同时清理工具结果
+- Prompt Cache 的全局与组织级别作用域策略（global / org / null 的选择逻辑）
+- 关键文件：`utils/forkedAgent.ts`, `utils/api.ts`, `constants/prompts.ts`, `services/api/claude.ts`, `services/compact/microCompact.ts`
 
 **第 8 篇：Thinking 与推理控制 — 让模型"想"多少**
 - `ThinkingConfig` 三种模式：`adaptive` / `enabled` (带 budget) / `disabled`
@@ -145,7 +148,7 @@ graph TD
 
 ---
 
-### Part 3: 工具与 Agent 系统（6 篇）
+### Part 3: 工具、命令与 Agent 系统（7 篇）
 
 **第 9 篇：工具系统设计 — buildTool() 的抽象之美**
 - `Tool` 接口全貌：name, inputSchema, call(), isEnabled(), isReadOnly(), checkPermissions(), render*()
@@ -164,7 +167,15 @@ graph TD
 - 进度展示：2 秒阈值显示进度、后台任务自动转换
 - 关键文件：`tools/BashTool/BashTool.tsx`, `tools/BashTool/bashPermissions.ts`, `tools/BashTool/bashSecurity.ts`
 
-**第 11 篇：Agent 系统 — 从单体到多智能体协作**
+**第 11 篇：命令系统 — 斜杠命令的聚合与扩展架构**
+- 命令类型：`prompt`（生成 prompt 发给模型）、`local`（本地执行）、`local-jsx`（本地执行带 JSX UI）
+- 懒加载：local 命令通过 `load()` 延迟加载模块
+- Skills 扩展：markdown frontmatter 定义的自定义命令
+- Plugin commands：插件提供的额外命令
+- Workflow commands：从 Agent 定义中提取的 `/agent:name` 命令
+- 关键文件：`commands.ts`, `types/command.ts`, `skills/loadSkillsDir.ts`
+
+**第 12 篇：Agent 系统 — 从单体到多智能体协作**
 - `AgentDefinition` 数据结构：description, tools, prompt, model, permissionMode, mcpServers, hooks, maxTurns
 - Agent 定义来源：built-in（代码定义）、用户自定义（`.claude/agents/` markdown）、plugin
 - `runAgent()` 生命周期：初始化 MCP → 创建 subagent context → query loop → 清理
@@ -172,21 +183,21 @@ graph TD
 - 内置 Agent 类型：Explore（只读搜索）、Plan（只读设计）、General-purpose、Verification
 - 关键文件：`tools/AgentTool/runAgent.ts`, `tools/AgentTool/loadAgentsDir.ts`, `tools/AgentTool/AgentTool.tsx`
 
-**第 12 篇：内置 Agent 设计模式 — Explore、Plan、Verification 的 prompt 设计**
+**第 13 篇：内置 Agent 设计模式 — Explore、Plan、Verification 的 prompt 设计**
 - Explore Agent：READ-ONLY 模式、高效搜索指令、并行工具调用提示
 - Plan Agent：架构师角色、设计流程引导、输出格式约束
 - Verification Agent：对抗性验证、PASS/FAIL/PARTIAL 评判协议
 - 自定义 Agent 定义：markdown frontmatter 配置全解
 - 关键文件：`tools/AgentTool/built-in/exploreAgent.ts`, `planAgent.ts`, `verificationAgent.ts`
 
-**第 13 篇：任务系统 — Agent 的并发执行引擎**
+**第 14 篇：任务系统 — Agent 的并发执行引擎**
 - Task 类型体系：`LocalShellTask`（shell 命令）、`LocalAgentTask`（本地 agent）、`RemoteAgentTask`（远程）、`DreamTask`
 - 前台 vs 后台：`registerForeground()` / `backgroundExistingForegroundTask()`
 - `TaskOutput`：流式输出收集与磁盘持久化
 - Agent 协作模型：coordinator mode, in-process teammates, fork subagent
 - 关键文件：`tasks/`, `tools/AgentTool/forkSubagent.ts`, `coordinator/coordinatorMode.ts`
 
-**第 14 篇：MCP 协议实现 — 连接外部工具的标准化桥梁**
+**第 15 篇：MCP 协议实现 — 连接外部工具的标准化桥梁**
 - 传输层：stdio / SSE / HTTP / WebSocket / SDK 五种 transport
 - 配置层级：local / user / project / dynamic / enterprise / managed
 - 服务器生命周期：`connectToServer()` → `fetchToolsForClient()` → `cleanup()`
@@ -198,7 +209,7 @@ graph TD
 
 ### Part 4: 安全与工程（5 篇）
 
-**第 15 篇：权限系统 — AI 安全的最后一道防线**
+**第 16 篇：权限系统 — AI 安全的最后一道防线**
 - 三种权限模式：`default` / `plan`（只读 + 确认）/ `bypass`（完全自动）
 - 规则系统：`alwaysAllowRules` / `alwaysDenyRules` / `alwaysAskRules`，按 source 分层
 - `getDenyRuleForTool()` 查找链
@@ -206,7 +217,7 @@ graph TD
 - Classifier-assisted auto-mode：用模型本身判断操作安全性
 - 关键文件：`utils/permissions/permissions.ts`, `utils/permissions/PermissionMode.ts`
 
-**第 16 篇：Settings 系统 — 多层配置的合并之道**
+**第 17 篇：Settings 系统 — 多层配置的合并之道**
 - 6 层配置源：local → user → project → enterprise → managed → remote-managed
 - Drop-in 目录模式：`managed-settings.d/*.json` 按字母顺序合并
 - MDM（Mobile Device Management）集成：macOS plutil / Windows Registry
@@ -214,7 +225,7 @@ graph TD
 - 验证：Zod schema + `filterInvalidPermissionRules()`
 - 关键文件：`utils/settings/settings.ts`, `utils/settings/types.ts`, `utils/settings/constants.ts`
 
-**第 17 篇：Hooks 系统 — 用 Shell 命令扩展 AI 行为**
+**第 18 篇：Hooks 系统 — 用 Shell 命令扩展 AI 行为**
 - Hook 事件类型：pre/post tool call, session start, pre/post compact, notification
 - 执行模型：`spawn()` + `wrapSpawn()` + `TaskOutput` 收集输出
 - Hook 输出协议：JSON 输出 schema（sync/async 类型）
@@ -222,7 +233,7 @@ graph TD
 - Frontmatter hooks：Agent/Skill 定义中的 hooks 注册
 - 关键文件：`utils/hooks.ts`, `utils/hooks/hooksConfigSnapshot.ts`, `types/hooks.ts`
 
-**第 18 篇：Feature Flag 与编译期优化 — 同一份代码构建两个产品**
+**第 19 篇：Feature Flag 与编译期优化 — 同一份代码构建两个产品**
 - `bun:bundle` 的 `feature()` 机制：编译期常量折叠 + DCE
 - 内部 vs 外部构建差异：`PROACTIVE`, `KAIROS`, `VOICE_MODE`, `COORDINATOR_MODE` 等
 - `process.env.USER_TYPE === 'ant'` 运行时分支
@@ -230,7 +241,7 @@ graph TD
 - GrowthBook A/B 测试集成：`getFeatureValue_CACHED_MAY_BE_STALE()`
 - 关键文件：`commands.ts:48-100`, `tools.ts:14-55`, `constants/prompts.ts`
 
-**第 19 篇：API 调用与错误恢复 — 面向不可靠网络的鲁棒设计**
+**第 20 篇：API 调用与错误恢复 — 面向不可靠网络的鲁棒设计**
 - `withRetry` 策略：最多 10 次重试、指数退避、`BASE_DELAY_MS = 500`
 - 529 (过载) 特殊处理：仅前台查询重试、最多 3 次、后台请求立即放弃
 - Fast mode / fallback 降级：过载时自动降级到更小模型
@@ -240,28 +251,21 @@ graph TD
 
 ---
 
-### Part 5: 终端 UI 与用户体验（4 篇）
+### Part 5: 终端 UI 与用户体验（3 篇）
 
-**第 20 篇：Ink 框架深度定制 — 在终端中运行 React**
+**第 21 篇：Ink 框架深度定制 — 在终端中运行 React**
 - Forked Ink 的架构：reconciler → layout (Yoga) → render → terminal output
 - 自定义扩展：virtual scroll、ANSI 优化、terminal querying、focus management
 - 性能优化：`line-width-cache`, `node-cache`, `optimizer.ts`
 - 关键文件：`ink/reconciler.ts`, `ink/layout/`, `ink/render-node-to-output.ts`, `ink/root.ts`
 
-**第 21 篇：设计系统 — 终端 UI 的组件化实践**
+**第 22 篇：设计系统 — 终端 UI 的组件化实践**
 - 基础组件：`ThemedText`, `ThemedBox`, `Dialog`, `Pane`, `Divider`, `ProgressBar`, `Tabs`
 - 主题系统：`ThemeProvider` + `Theme` 类型 + dark/light mode
 - 工具 UI 协议：每个工具的 `renderToolUseMessage` / `renderToolResultMessage` / `renderToolUseProgressMessage`
 - 关键文件：`components/design-system/`, `utils/theme.ts`, `tools/BashTool/UI.tsx`
 
-**第 22 篇：命令系统 — 50+ 斜杠命令的可扩展架构**
-- 命令类型：`prompt`（生成 prompt 发给模型）vs `local`（本地执行带 JSX UI）
-- 懒加载：local 命令通过 `load()` 延迟加载模块
-- Skills 扩展：markdown frontmatter 定义的自定义命令
-- Plugin commands：插件提供的额外命令
-- 关键文件：`commands.ts`, `types/command.ts`, `skills/loadSkillsDir.ts`
-
-**第 23 篇：Memory 系统 — 让 AI 记住上下文的机制**
+**第 23 篇：Memory 系统 — AI 记忆的多层架构**
 - CLAUDE.md 发现链：project root → parent dirs → home dir → additional dirs
 - Auto-memory：`memdir/` 自动记忆系统
 - Session memory：`services/SessionMemory/` 会话记忆
@@ -332,9 +336,9 @@ graph TD
 
 1. **Phase 1（第 1-3 篇）**：全局架构，建立基础认知
 2. **Phase 2（第 4-8 篇）**：AI 核心，最有价值的部分
-3. **Phase 3（第 9-14 篇）**：工具与 Agent，实战性最强
-4. **Phase 4（第 15-19 篇）**：安全与工程，生产级视角
-5. **Phase 5（第 20-25 篇）**：UI、命令、总结
+3. **Phase 3（第 9-15 篇）**：工具、命令与 Agent，实战性最强
+4. **Phase 4（第 16-20 篇）**：安全与工程，生产级视角
+5. **Phase 5（第 21-25 篇）**：UI、Memory、总结
 
 ### 质量检查
 

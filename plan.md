@@ -48,7 +48,7 @@
 | 第 3 篇：状态管理 | `graph LR` | Store ↔ React Context ↔ ToolUseContext 的数据流 |
 | 第 4 篇：System Prompt | `graph TD` | Prompt 分段组装流程（static → dynamic boundary → session-specific） |
 | 第 5 篇：对话循环 | `sequenceDiagram` | User → query.ts → API → Tool → API 的完整交互时序 |
-| 第 6 篇：上下文管理 | `graph LR` | Token 预算管理与 Auto-compact 触发流程 |
+| 第 6 篇：上下文压缩与恢复 | `graph LR` | Token 预算管理与 Auto-compact 触发流程 |
 | 第 9 篇：工具系统 | `classDiagram` | Tool 接口与 buildTool 的类型关系 |
 | 第 11 篇：Agent 系统 | `sequenceDiagram` | runAgent() 的完整生命周期时序图 |
 | 第 14 篇：MCP | `graph TD` | MCP 连接与 Tool 发现流程 |
@@ -118,13 +118,14 @@ graph TD
 - 依赖注入：`QueryDeps`（4 个方法）+ `QueryConfig`（不可变环境快照，刻意排除 `feature()` gate 以保留 DCE）
 - 关键文件：`query.ts`, `query/deps.ts`, `query/config.ts`, `query/stopHooks.ts`, `services/api/claude.ts`, `services/api/withRetry.ts`, `services/tools/toolOrchestration.ts`, `services/tools/StreamingToolExecutor.ts`
 
-**第 6 篇：上下文管理 — 无限对话的秘密**
+**第 6 篇：上下文压缩与恢复 — 无限对话的秘密**
 - Token 预算管理三函数：`getEffectiveContextWindowSize()`, `getAutoCompactThreshold()`, `calculateTokenWarningState()` 四级告警（Warning/Error/AutoCompact/Blocking）
-- Microcompact 三路径：Time-based（直接清理冷缓存）、Cached MC（cache_edits API 保护热缓存）、API Context Management（原生策略委托）
+- 本地 Microcompact 两路径：Time-based（构造新消息对象清理冷缓存）、Cached MC（cache_edits API 保护热缓存）
+- API-level Context Management：独立于 microcompactMessages() 的并行机制，通过 claude.ts 注入 API 请求参数
 - Full Compact：`compactConversation()` 用模型总结对话，9 维结构化 prompt，`<analysis>` chain-of-thought 然后剥离
 - Session Memory Compact：免 API 调用，直接复用后台提取的 session memory 作为总结
 - 熔断器：连续失败 3 次后停止 auto-compact 尝试（避免每天浪费 25 万次 API 调用）
-- 文件状态缓存：`FileStateCache` LRU（max 100 条 / 25MB），路径标准化，`isPartialView` 标记
+- 文件读写安全状态追踪：`FileStateCache` LRU（max 100 条 / 25MB），`isPartialView` 约束 Edit/Write 前必须先 Read，compact 后文件恢复索引
 - Compact 后上下文重建：最多 5 个文件恢复（5K token/文件），Plan/Skill/MCP 指令重注入
 - 关键文件：`services/compact/autoCompact.ts`, `services/compact/compact.ts`, `services/compact/microCompact.ts`, `services/compact/prompt.ts`, `services/compact/sessionMemoryCompact.ts`, `services/compact/apiMicrocompact.ts`, `services/compact/postCompactCleanup.ts`, `utils/fileStateCache.ts`
 

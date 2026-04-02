@@ -1,12 +1,12 @@
 # 第 19 篇：Feature Flag 与编译期优化 — 同一份代码构建两个产品
 
-> 本篇揭示 Claude Code CLI 如何用一套代码库同时维护内部版和外部版两个产品。你将看到 Bun 的 `feature()` 编译期常量折叠、`process.env.USER_TYPE` 构建时 `--define` 常量、`MACRO.*` 构建时值注入、以及 GrowthBook A/B 测试平台如何在不同的时间维度上协同工作。
+> 本篇揭示 Claude Code 如何用一套代码库同时维护内部版和外部版两个产品。你将看到 Bun 的 `feature()` 编译期常量折叠、`process.env.USER_TYPE` 构建时 `--define` 常量、`MACRO.*` 构建时值注入、以及 GrowthBook A/B 测试平台如何在不同的时间维度上协同工作。
 
 ## 为什么需要多层 Feature Flag？
 
 假设你是一家 AI 公司的工程师，你的产品既有面向公众的开源版本，也有内部员工使用的增强版本。内部版有更多实验性功能（语音模式、多 Agent 协调器、后台任务引擎），但你不想维护两个独立的代码仓库。
 
-Claude Code CLI 面临的正是这个问题。它的解决方案是**三层 Feature Flag 体系**，每层解决不同的问题：
+Claude Code 面临的正是这个问题。它的解决方案是**三层 Feature Flag 体系**，每层解决不同的问题：
 
 | 层级 | 机制 | 决策时机 | 目的 |
 |------|------|---------|------|
@@ -667,4 +667,4 @@ getFeatureValue()  // 阻塞还是非阻塞？新鲜还是过时？
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

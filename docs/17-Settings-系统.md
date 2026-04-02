@@ -1,6 +1,6 @@
 # 第 17 篇：Settings 系统 — 多层配置的合并之道
 
-> 本篇是《深入 Claude Code CLI 源码》系列第 17 篇。我们将剖析 Settings 系统如何从 5 个正式配置源（加 1 个 Plugin 基底层）中读取、验证、合并配置，以及如何在运行时监听变更并热更新 —— 一个面向企业级部署的多层配置合并架构。
+> 本篇是《深入 Claude Code 源码》系列第 17 篇。我们将剖析 Settings 系统如何从 5 个正式配置源（加 1 个 Plugin 基底层）中读取、验证、合并配置，以及如何在运行时监听变更并热更新 —— 一个面向企业级部署的多层配置合并架构。
 
 ## 为什么需要多层配置？
 
@@ -834,10 +834,10 @@ function startMdmPoll(): void {
 
 ## 下一篇预告
 
-[第 18 篇：Hooks 系统 — 用 Shell 命令扩展 AI 行为](./18-Hooks-系统.md)
+[第 18 篇：Hooks 系统 — 用 Shell 命令扩展 AI 行为](./18-Hooks系统.md)
 
 我们将深入 Hooks 系统，看 Claude Code 如何让用户通过简单的 Shell 命令（和 HTTP 请求），在工具执行前后、会话开始/结束、compact 前后等关键时机注入自定义逻辑。你会看到一套精巧的事件匹配、输出协议和安全边界设计。
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

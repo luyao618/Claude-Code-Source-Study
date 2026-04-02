@@ -1,6 +1,6 @@
 # 第 8 篇：Thinking 与推理控制 — 让模型"想"多少
 
-> 本篇是《深入 Claude Code CLI 源码》系列的第 8 篇。我们将深入分析 Claude Code 如何精细控制模型的推理深度——从 Extended Thinking 的三种模式、Effort 级别系统、`ultrathink` 关键词触发，到 Advisor 这一"更强模型审阅"机制。
+> 本篇是《深入 Claude Code 源码》系列的第 8 篇。我们将深入分析 Claude Code 如何精细控制模型的推理深度——从 Extended Thinking 的三种模式、Effort 级别系统、`ultrathink` 关键词触发，到 Advisor 这一"更强模型审阅"机制。
 >
 > 这些机制共同回答了一个核心问题：**在速度、质量和成本之间，如何给用户最大的控制权？**
 
@@ -938,4 +938,4 @@ graph TD
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

@@ -1,6 +1,6 @@
 # 第 18 篇：Hooks 系统 — 用 Shell 命令扩展 AI 行为
 
-> 本篇是《深入 Claude Code CLI 源码》系列第 18 篇。我们将深入 Hooks 系统的完整实现，揭示 Claude Code 如何让用户在 AI 生命周期的关键节点注入自定义逻辑，以及这套系统在安全性、可扩展性和性能上的精巧设计。
+> 本篇是《深入 Claude Code 源码》系列第 18 篇。我们将深入 Hooks 系统的完整实现，揭示 Claude Code 如何让用户在 AI 生命周期的关键节点注入自定义逻辑，以及这套系统在安全性、可扩展性和性能上的精巧设计。
 
 ## 为什么需要 Hooks？
 
@@ -797,4 +797,4 @@ export const promptRequestSchema = lazySchema(() =>
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

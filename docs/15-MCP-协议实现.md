@@ -1,6 +1,6 @@
 # 第 15 篇：MCP 协议实现 — 连接外部工具的标准化桥梁
 
-> 本篇是《深入 Claude Code CLI 源码》系列的第 15 篇。我们将剖析 Claude Code 如何实现 Model Context Protocol（MCP），包括类型系统设计、多层配置合并、传输层适配、连接生命周期管理、Tool 发现与代理，以及认证体系。
+> 本篇是《深入 Claude Code 源码》系列的第 15 篇。我们将剖析 Claude Code 如何实现 Model Context Protocol（MCP），包括类型系统设计、多层配置合并、传输层适配、连接生命周期管理、Tool 发现与代理，以及认证体系。
 
 ## 为什么需要 MCP？
 
@@ -977,4 +977,4 @@ Channel 通知的注册逻辑尤其值得关注——它经过多层门控（`ga
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

@@ -1,6 +1,6 @@
 # 第 12 篇：Agent 系统 — 从单体到多智能体协作
 
-> 本篇是《深入 Claude Code CLI 源码》系列的第 12 篇。我们将深入剖析 Agent 子系统的完整架构：从 Agent 定义的数据结构与加载机制，到 `runAgent()` 的完整生命周期，再到 `createSubagentContext()` 如何实现 context 隔离与选择性共享。
+> 本篇是《深入 Claude Code 源码》系列的第 12 篇。我们将深入剖析 Agent 子系统的完整架构：从 Agent 定义的数据结构与加载机制，到 `runAgent()` 的完整生命周期，再到 `createSubagentContext()` 如何实现 context 隔离与选择性共享。
 
 ## 为什么需要多 Agent？
 
@@ -971,10 +971,10 @@ export function loadAgentMemoryPrompt(agentType, scope) {
 
 ## 下一篇预告
 
-[第 13 篇：内置 Agent 设计模式 — Explore、Plan、Verification 的 prompt 设计](./13-内置-Agent-设计模式.md)
+[第 13 篇：内置 Agent 设计模式 — Explore、Plan、Verification 的 prompt 设计](./13-内置Agent设计模式.md)
 
 我们将深入分析每个内置 Agent 的 System Prompt 设计技巧：Explore 如何引导高效并行搜索，Plan 如何引导结构化规划输出，Verification 如何用对抗性 prompt 防止模型"偷懒"。这些 prompt 工程技巧可以直接应用到你自己的 Agent 系统中。
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

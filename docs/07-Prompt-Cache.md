@@ -1,6 +1,6 @@
 # 第 7 篇：Prompt Cache — 跨模块的缓存策略如何降低 API 成本
 
-> 本篇是《深入 Claude Code CLI 源码》系列的第 7 篇。我们将从一个横切视角，解析 Prompt Cache 机制如何贯穿 System Prompt、对话循环、上下文管理三大模块，以及 Fork Agent 如何通过精密的参数对齐实现跨进程缓存共享。
+> 本篇是《深入 Claude Code 源码》系列的第 7 篇。我们将从一个横切视角，解析 Prompt Cache 机制如何贯穿 System Prompt、对话循环、上下文管理三大模块，以及 Fork Agent 如何通过精密的参数对齐实现跨进程缓存共享。
 
 ## 为什么需要理解 Prompt Cache？
 
@@ -814,4 +814,4 @@ graph TD
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

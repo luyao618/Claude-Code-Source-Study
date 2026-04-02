@@ -1,6 +1,6 @@
 # 第 10 篇：BashTool 深度剖析 — 最复杂的单个工具
 
-> 本篇是《深入 Claude Code CLI 源码》系列第 10 篇。BashTool 是 Claude Code 中代码量最大、安全逻辑最复杂的单个工具，总计约 12,400 行代码。我们将从命令语义分析、多层安全防线、沙箱执行、输出处理、权限匹配五个维度，完整剖析它如何让 AI 安全地执行 Shell 命令。
+> 本篇是《深入 Claude Code 源码》系列第 10 篇。BashTool 是 Claude Code 中代码量最大、安全逻辑最复杂的单个工具，总计约 12,400 行代码。我们将从命令语义分析、多层安全防线、沙箱执行、输出处理、权限匹配五个维度，完整剖析它如何让 AI 安全地执行 Shell 命令。
 
 ## 为什么 BashTool 是最复杂的工具？
 
@@ -768,4 +768,4 @@ const DESTRUCTIVE_PATTERNS: DestructivePattern[] = [
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

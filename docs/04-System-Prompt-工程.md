@@ -1,6 +1,6 @@
 # 第 4 篇：System Prompt 工程 — 精密控制模型行为的提示词体系
 
-> 本篇是《深入 Claude Code CLI 源码》系列的第 4 篇。我们将深入 `constants/prompts.ts`（约 915 行）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
+> 本篇是《深入 Claude Code 源码》系列的第 4 篇。我们将深入 `constants/prompts.ts`（约 915 行）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
 
 ## 为什么 System Prompt 值得单独一篇？
 
@@ -675,4 +675,4 @@ System Prompt 不是一个大字符串模板，而是由十几个独立函数生
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

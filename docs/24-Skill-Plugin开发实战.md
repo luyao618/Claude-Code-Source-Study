@@ -1,6 +1,6 @@
 # 第 24 篇：Skill/Plugin 开发实战 — 基于源码理解扩展点
 
-> 本篇是《深入 Claude Code CLI 源码》系列的第 24 篇。前面 23 篇我们深入分析了 Claude Code 的内部架构，现在是时候"反过来用"了 —— 站在扩展开发者的视角，理解如何编写自定义 Agent、Skill、Plugin 和 Hook 脚本。本篇的独特价值在于：每一个配置字段、每一个行为约定，我们都能追溯到源码中的具体实现。
+> 本篇是《深入 Claude Code 源码》系列的第 24 篇。前面 23 篇我们深入分析了 Claude Code 的内部架构，现在是时候"反过来用"了 —— 站在扩展开发者的视角，理解如何编写自定义 Agent、Skill、Plugin 和 Hook 脚本。本篇的独特价值在于：每一个配置字段、每一个行为约定，我们都能追溯到源码中的具体实现。
 
 ## 为什么需要理解扩展点？
 
@@ -927,4 +927,4 @@ Claude Code 的扩展系统（Agent、Skill、Plugin）都遵循同一模式：
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

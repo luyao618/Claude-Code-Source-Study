@@ -1,6 +1,6 @@
 # 第 13 篇：内置 Agent 设计模式 — Explore、Plan、Verification 的 Prompt 设计
 
-> 本篇是《深入 Claude Code CLI 源码》系列第 13 篇。我们将深入 6 个内置 Agent 的 System Prompt 设计，揭示如何通过 prompt 工程将同一套工具系统塑造出截然不同的 Agent 人格与行为模式，并解析自定义 Agent 的 markdown frontmatter 配置全貌。
+> 本篇是《深入 Claude Code 源码》系列第 13 篇。我们将深入 6 个内置 Agent 的 System Prompt 设计，揭示如何通过 prompt 工程将同一套工具系统塑造出截然不同的 Agent 人格与行为模式，并解析自定义 Agent 的 markdown frontmatter 配置全貌。
 
 ## 为什么需要内置 Agent？
 
@@ -686,4 +686,4 @@ Agent 定义支持 6 级来源（built-in → plugin → user → project → fl
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

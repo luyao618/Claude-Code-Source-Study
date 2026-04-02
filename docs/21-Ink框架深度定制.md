@@ -1,6 +1,6 @@
 # 第 21 篇：Ink 框架深度定制 — 在终端中运行 React
 
-> 本篇深入 Claude Code CLI 的 forked Ink 框架（`ink/` 目录，约 90 个文件），揭示如何在终端中构建一个完整的 React 渲染引擎：从自定义 Reconciler、Yoga 布局、双缓冲渲染管线，到虚拟滚动、鼠标事件、文本选择等深度定制。
+> 本篇深入 Claude Code 的 forked Ink 框架（`ink/` 目录，约 90 个文件），揭示如何在终端中构建一个完整的 React 渲染引擎：从自定义 Reconciler、Yoga 布局、双缓冲渲染管线，到虚拟滚动、鼠标事件、文本选择等深度定制。
 
 ## 为什么要 Fork Ink？
 
@@ -745,4 +745,4 @@ TerminalQuerier 的 DECRQM 查询机制用于探测其他终端能力（如 Kitt
 
 ---
 
-*本文基于 Claude Code CLI 开源源码分析撰写。*
+*全部内容请关注 https://github.com/luyao618/Claude-Code-Source-Study (求一颗免费的小星星)*

@@ -53,7 +53,7 @@
 | 第 12 篇：Agent 系统 | `sequenceDiagram` | runAgent() 的完整生命周期时序图 |
 | 第 15 篇：MCP | `graph TD` | MCP 连接与 Tool 发现流程 |
 | 第 16 篇：权限系统 | `flowchart TD` | Permission check 决策流程图 |
-| 第 17 篇：Settings | `graph TD` | 6 层配置合并优先级图 |
+| 第 17 篇：Settings | `graph TD` | 5+1 层配置合并优先级图 + Policy 内部 4 层 first-source-wins |
 
 其他章节视内容需要可选添加 Mermaid 图。
 
@@ -130,124 +130,205 @@ graph TD
 - Compact 后上下文重建：最多 5 个文件恢复（5K token/文件），Plan/Skill/MCP 指令重注入
 - 关键文件：`services/compact/autoCompact.ts`, `services/compact/compact.ts`, `services/compact/microCompact.ts`, `services/compact/prompt.ts`, `services/compact/sessionMemoryCompact.ts`, `services/compact/apiMicrocompact.ts`, `services/compact/postCompactCleanup.ts`, `utils/fileStateCache.ts`
 
-**第 7 篇：Prompt Cache — 跨模块的缓存策略如何降低 API 成本**
+**第 7 篇：Prompt Cache — 跨模块的缓存策略如何降低 API 成本** ✅
 - 横切视角：Prompt Cache 机制如何贯穿 System Prompt（第 4 篇）、对话循环（第 5 篇）、上下文管理（第 6 篇）三个模块
-- `CacheSafeParams`：fork agent 与 parent 共享 prompt cache 的参数对齐
-- `saveCacheSafeParams()` / `getLastCacheSafeParams()`：跨 turn 缓存参数复用
-- Fork Subagent 的 byte-exact prompt threading：复用父线程已渲染的 system prompt 字节避免缓存失效
-- `cache_edits` 机制：Cached Microcompact 如何在保护 prompt cache 的同时清理工具结果
-- Prompt Cache 的全局与组织级别作用域策略（global / org / null 的选择逻辑）
-- 关键文件：`utils/forkedAgent.ts`, `utils/api.ts`, `constants/prompts.ts`, `services/api/claude.ts`, `services/compact/microCompact.ts`
+- `cache_control` 标记的两层放置策略：System Prompt 块（global/org scope）、消息历史（每请求仅一个消息级标记，避免 KVCC 页浪费）；工具数组当前不标记 `cache_control`（接口预留但主路径未使用），字节稳定性由 `toolSchemaCache` 保证
+- `splitSysPromptPrefix()` 的拆分模式：Global cache（静态 `global` + 动态 `null`，无 MCP 工具时）、有 MCP 工具降级（`skipGlobalCacheForSystemPrompt`，全部 `org`）、默认（`org`）；`GlobalCacheStrategy` 当前仅 `system_prompt` / `none`（`tool_based` 为类型定义保留值）
+- `getCacheControl()` 与 `should1hCacheTTL()`：5 分钟 vs 1 小时 TTL，eligibility 在 session 级锁存（latch）
+- `CacheSafeParams`：fork agent 与 parent 共享 prompt cache 的 5 要素对齐（system prompt, tools, model, messages prefix, thinking config）
+- `saveCacheSafeParams()` / `getLastCacheSafeParams()`：跨 turn 缓存参数复用（模块级 slot，post-turn hooks 写入）
+- Fork Subagent 的 byte-exact prompt threading：复用父线程已渲染的 system prompt 字节避免 GrowthBook cold→warm 导致缓存失效
+- `contentReplacementState` 克隆：fork 子进程复制父线程的工具结果替换决策，保证序列化字节一致
+- `cache_edits` + `cache_reference` 机制：Cached Microcompact 在缓存热态下通过 API 指令删除工具结果，pinned edits 保证后续请求位置一致
+- Time-based vs Cached Microcompact 两条路径：缓存冷态直接清理内容 vs 缓存热态使用 cache_edits API
+- `skipCacheWrite`：fire-and-forget fork 将 cache_control 标记移至倒数第二条消息，避免污染 KVCC
+- Latch 模式：AFK header / cache editing header / fast mode header 一旦开启不关闭，防止 mid-session 翻转破坏缓存
+- `toolSchemaCache`：工具 schema session 级缓存，防止 GrowthBook 翻转导致工具定义抖动
+- Prompt Cache Break Detection：12 维度的两阶段检测机制（pre-call 快照 + post-call token 对比），`notifyCacheDeletion()` 抑制 false positive
+- `systemPromptSection()` vs `DANGEROUS_uncachedSystemPromptSection()`：缓存安全的 section 注册 API
+- 关键文件：`utils/forkedAgent.ts`, `utils/api.ts`, `constants/prompts.ts`, `constants/systemPromptSections.ts`, `services/api/claude.ts`, `services/compact/microCompact.ts`, `services/api/promptCacheBreakDetection.ts`, `tools/AgentTool/forkSubagent.ts`, `utils/toolResultStorage.ts`
 
-**第 8 篇：Thinking 与推理控制 — 让模型"想"多少**
+**第 8 篇：Thinking 与推理控制 — 让模型"想"多少** ✅
 - `ThinkingConfig` 三种模式：`adaptive` / `enabled` (带 budget) / `disabled`
-- `ultrathink` 关键词触发深度思考
-- Extended Thinking 与 effort 级别的交互
-- 模型能力检测：`modelSupportsAdvisor()`（定义在 `utils/advisor.ts`）, 3P 模型覆盖
-- 关键文件：`utils/thinking.ts`, `utils/effort.ts`, `utils/advisor.ts`, `services/api/claude.ts`
+- `shouldEnableThinkingByDefault()` 的优先级链：环境变量 → Settings → 默认开启
+- 模型能力检测三层：`modelSupportsThinking()` → `modelSupportsAdaptiveThinking()` → `modelSupportsISP()`，3P 模型通过 `get3PModelCapabilityOverride()` 覆盖
+- Effort 四级（low/medium/high/max）：`resolveAppliedEffort()` 优先级链（env → appState → model default），`max` 自动降级为 `high`（非 Opus 4.6）
+- `ultrathink` 关键词触发：编译期 `feature('ULTRATHINK')` + GrowthBook 运行时门控，通过 Attachment 系统注入 prompt 层指令（不改写 API effort 参数）
+- Advisor 机制：server-side tool `advisor`，由 API 服务端将对话转发给更强审阅模型，1P + Foundry 可用（排除 Bedrock/Vertex），Opus/Sonnet 4.6 支持
+- Thinking block 的流式处理：签名绑定、孤儿消息过滤、`thinkingClearLatched` 会话级单向锁存器（>1h 空闲后清理旧 thinking，`/clear` 和 `/compact` 重置）
+- Effort 与 Thinking 的关系：两个独立的 API 控制面，`configureEffortParams()` 不依赖 `hasThinking` 分支
+- 运维逃生阀：6 个 Kill Switch 环境变量（`CLAUDE_CODE_DISABLE_THINKING` 等）+ ant 用户特殊分支
+- 关键文件：`utils/thinking.ts`, `utils/effort.ts`, `utils/advisor.ts`, `commands/advisor.ts`, `commands/effort/effort.tsx`, `services/api/claude.ts`, `services/compact/apiMicrocompact.ts`, `utils/model/modelSupportOverrides.ts`, `utils/betas.ts`, `utils/attachments.ts`, `utils/messages.ts`, `components/PromptInput/PromptInput.tsx`
 
 ---
 
 ### Part 3: 工具、命令与 Agent 系统（7 篇）
 
-**第 9 篇：工具系统设计 — buildTool() 的抽象之美**
-- `Tool` 接口全貌：name, inputSchema, call(), isEnabled(), isReadOnly(), checkPermissions(), render*()
-- `buildTool<I>(def: ToolDef<I>)` 的 builder 模式
-- 输入验证：JSON Schema + Zod 双重验证
-- 工具注册表：`tools.ts` 的 `getAllBaseTools()` 单一来源
-- 条件注册：`feature()` 门控 + `isEnabled()` 运行时检查
-- 关键文件：`Tool.ts`, `tools.ts`, `tools/BashTool/BashTool.tsx`
+**第 9 篇：工具系统设计 — buildTool() 的抽象之美** ✅
+- `Tool` 接口全貌：30+ 方法/属性，分为身份标识、Schema、核心方法、安全与权限、UI 渲染协议（6 个 render 方法）、结果序列化
+- `buildTool<D>(def: D)` 的 builder 模式：`TOOL_DEFAULTS` 提供 fail-closed 安全默认值，`BuiltTool<D>` 类型层精确模拟 spread 语义
+- `ToolDef` 类型：通过 `DefaultableToolKeys` 将 7 个方法变为可选，`satisfies ToolDef<...>` 保留字面量类型
+- `lazySchema()`：8 行延迟 Zod Schema 构造，配合 getter 实现按需求值
+- 工具注册表：`tools.ts` 的 `getAllBaseTools()` 单一来源，三层条件注册漏斗（编译期 DCE → 模块加载时 env → 运行时 isEnabled()）
+- 工具执行编排：`partitionToolCalls()` 按 `isConcurrencySafe` 分区为并发/串行 batch，`assembleToolPool()` 排序保证 prompt cache 稳定性
+- ToolSearch 延迟加载：`isDeferredTool()` 判定 + `ToolSearchTool` 关键词/精确搜索 + `tool_reference` 块展开 + 三级启用策略（tst/tst-auto/standard）
+- 关键文件：`Tool.ts`, `tools.ts`, `utils/lazySchema.ts`, `services/tools/toolOrchestration.ts`, `tools/ToolSearchTool/ToolSearchTool.ts`, `utils/toolSearch.ts`, `tools/ToolSearchTool/prompt.ts`
 
-**第 10 篇：BashTool 深度剖析 — 最复杂的单个工具**
-- 命令语义分析：`BASH_SEARCH_COMMANDS`, `BASH_READ_COMMANDS`, `BASH_LIST_COMMANDS`
-- 安全防线：`parseForSecurity()` AST 分析、`checkReadOnlyConstraints()`
-- 沙箱执行：`SandboxManager`, `shouldUseSandbox()`
-- 输出处理：截断策略、图片输出检测、大结果存储到磁盘
-- 权限匹配：通配符模式 `matchWildcardPattern()`, 前缀提取
-- 进度展示：2 秒阈值显示进度、后台任务自动转换
-- 关键文件：`tools/BashTool/BashTool.tsx`, `tools/BashTool/bashPermissions.ts`, `tools/BashTool/bashSecurity.ts`
+**第 10 篇：BashTool 深度剖析 — 最复杂的单个工具** ✅
+- 命令语义分类：四组语义集合（`BASH_SEARCH_COMMANDS`, `BASH_READ_COMMANDS`, `BASH_LIST_COMMANDS`, `BASH_SEMANTIC_NEUTRAL_COMMANDS`）+ 退出码语义解释（`commandSemantics.ts`）
+- 四层纵深安全防线：输入验证（`validateInput` sleep 检测）→ 安全分析（`bashSecurity.ts` 23 种检查 + `ast.ts` tree-sitter FAIL-CLOSED 白名单）→ 权限判定（`bashPermissions.ts` 规则匹配 + 环境变量/包装器剥离 + 智能规则建议）→ 只读验证（`readOnlyValidation.ts` 100+ 命令的安全标志白名单）
+- 沙箱执行：`shouldUseSandbox()` 决策 + `containsExcludedCommand()` 复合命令拆分 + 迭代剥离不动点算法 + Prompt 中注入沙箱配置（规范化 `$TMPDIR` 保护 Prompt Cache）
+- AsyncGenerator 执行模型：`runShellCommand` 生成器驱动进度更新，2 秒阈值延迟显示，四种后台化方式（AI 主动 / 超时自动 / 用户 Ctrl+B / Assistant 模式 15s 预算）
+- 输出处理：30K 字符触发持久化（硬链接 + 64MB 上限截断 + `<persisted-output>` 预览），图片输出检测与压缩
+- sed 编辑特殊处理：`sedEditParser.ts` 解析 → 文件编辑化 UI 渲染 → `_simulatedSedEdit` 模拟执行消除 TOCTOU 竞态（字段从模型 schema 中隐藏防止绕过权限）
+- 破坏性命令警告：`destructiveCommandWarning.ts` 为 git reset --hard / force push / rm -rf / kubectl delete 等提供可视化警告
+- 关键文件：`tools/BashTool/BashTool.tsx`, `tools/BashTool/bashPermissions.ts`, `tools/BashTool/bashSecurity.ts`, `tools/BashTool/readOnlyValidation.ts`, `tools/BashTool/pathValidation.ts`, `tools/BashTool/shouldUseSandbox.ts`, `tools/BashTool/commandSemantics.ts`, `tools/BashTool/sedEditParser.ts`, `tools/BashTool/prompt.ts`, `utils/bash/ast.ts`
 
-**第 11 篇：命令系统 — 斜杠命令的聚合与扩展架构**
-- 命令类型：`prompt`（生成 prompt 发给模型）、`local`（本地执行）、`local-jsx`（本地执行带 JSX UI）
-- 懒加载：local 命令通过 `load()` 延迟加载模块
-- Skills 扩展：markdown frontmatter 定义的自定义命令
-- Plugin commands：插件提供的额外命令
-- Workflow commands：从 Agent 定义中提取的 `/agent:name` 命令
-- 关键文件：`commands.ts`, `types/command.ts`, `skills/loadSkillsDir.ts`
+**第 11 篇：命令系统 — 斜杠命令的聚合与扩展架构** ✅
+- `Command` 联合类型：`PromptCommand | LocalCommand | LocalJSXCommand` 三种执行模型统一到 `CommandBase`
+- `CommandBase` 的发现协议：`availability`（身份门控）vs `isEnabled()`（功能开关）分离
+- 懒加载分层：`local`/`local-jsx` 通过 `load()` 延迟 import；内建 `prompt` 命令多数直接导入实现文件（`commit.ts`、`security-review.ts` 等）；特重模块（`/insights` 113KB）用 shim 延迟
+- 六源聚合：`loadAllCommands()` 并行加载 Bundled Skill、Builtin Plugin Skill、Skill Dir、Workflow、Plugin Commands、Plugin Skills + 内建 COMMANDS()
+- `getCommands()`：memoized 加载 + 每次调用重新过滤 `meetsAvailabilityRequirement()` + `isCommandEnabled()`；动态 Skill 插入到第一个 COMMANDS() 命令之前
+- Skill 加载流水线：5 层目录 → `parseSkillFrontmatterFields()` + 独立的 `parseSkillPaths()` → `createSkillCommand()` → realpath 去重 → 条件 Skill 按路径激活
+- 动态 Skill 发现：`discoverSkillDirsForPaths()` 从文件路径向上遍历发现嵌套 `.claude/skills/`
+- MCP Skill 桥接：`mcpSkillBuilders.ts` 写一次注册表打破循环依赖
+- SkillTool 双集合：展示列表 `getSkillToolCommands()`（System Prompt 中给模型看的）vs 执行集合 `SkillTool.getAllCommands()`（额外并入 `AppState.mcp.commands` 中 MCP Skills）
+- Plugin 命令命名：`pluginName + 路径命名空间 + 基名`，支持多级嵌套（`plugin:sub:cmd`）
+- 缓存管理：多层 `memoize` + Signal 通知 + `clearCommandsCache()` 级联清理
+- 关键文件：`commands.ts`, `types/command.ts`, `skills/loadSkillsDir.ts`, `skills/bundledSkills.ts`, `skills/mcpSkillBuilders.ts`, `utils/plugins/loadPluginCommands.ts`, `utils/processUserInput/processSlashCommand.tsx`, `tools/SkillTool/SkillTool.ts`, `tools/SkillTool/prompt.ts`
 
-**第 12 篇：Agent 系统 — 从单体到多智能体协作**
-- `AgentDefinition` 数据结构：description, tools, prompt, model, permissionMode, mcpServers, hooks, maxTurns
-- Agent 定义来源：built-in（代码定义）、用户自定义（`.claude/agents/` markdown）、plugin
-- `runAgent()` 生命周期：初始化 MCP → 创建 subagent context → query loop → 清理
-- `createSubagentContext()`：context 隔离 vs `setAppStateForTasks` 共享
-- 内置 Agent 类型：Explore（只读搜索）、Plan（只读设计）、General-purpose、Verification
-- 关键文件：`tools/AgentTool/runAgent.ts`, `tools/AgentTool/loadAgentsDir.ts`, `tools/AgentTool/AgentTool.tsx`
+**第 12 篇：Agent 系统 — 从单体到多智能体协作** ✅
+- `AgentDefinition` 三种类型（`BuiltInAgentDefinition` / `CustomAgentDefinition` / `PluginAgentDefinition`）与 `BaseAgentDefinition` 的 20+ 字段
+- Agent 定义多源加载：`getAgentDefinitionsWithOverrides()` 聚合 built-in + plugin + custom，`getActiveAgentsFromList()` 按 `[built-in, plugin, user, project, flag, managed]` 优先级去重
+- `runAgent()` 六阶段生命周期：初始化（模型/消息/context 裁剪）→ 权限与 Prompt → MCP 初始化 → `createSubagentContext()` 隔离 → `query()` 循环 → `finally` 清理（MCP/hooks/cache/bash tasks/todos/perfetto）
+- `createSubagentContext()`：默认全隔离 + 显式 opt-in 共享（`shareSetAppState`/`shareSetResponseLength`/`shareAbortController`），`setAppStateForTasks` 总是共享（防止后台 bash 任务变孤儿进程），`localDenialTracking` 隔离时新建，`pushApiMetricsEntry`/`updateAttributionState` 联动共享
+- 工具解析三层过滤：`ALL_AGENT_DISALLOWED_TOOLS` → `ASYNC_AGENT_ALLOWED_TOOLS` → Agent 定义级 `tools`/`disallowedTools`，每层有硬编码例外通道（MCP 穿透、plan ExitPlanMode、in-process teammate 额外工具）
+- Fork Subagent：`buildForkedMessages()` 构建 byte-identical API 前缀实现 prompt cache 共享，双重防递归（`isInForkChild()` 消息扫描 + `querySource` 持久化抗 autocompact）
+- 内置 Agent 类型：general-purpose（全工具通用工人）、Explore（只读搜索、haiku 模型、`omitClaudeMd`）、Plan（只读架构师）、Verification（对抗性验证、`criticalSystemReminder_EXPERIMENTAL`、允许 /tmp 临时脚本）、Claude Code Guide（动态注入用户配置的唯一 `toolUseContext` 感知 Agent）、Coordinator Mode 短路返回专用集合
+- 异步 Agent 生命周期：`runAsyncAgentLifecycle()` 驱动，先状态转换再丰富化通知
+- Agent 记忆系统：三种 scope（user/project/local），`loadAgentMemoryPrompt()` fire-and-forget 目录创建
+- 关键文件：`tools/AgentTool/runAgent.ts`, `tools/AgentTool/loadAgentsDir.ts`, `tools/AgentTool/AgentTool.tsx`, `tools/AgentTool/forkSubagent.ts`, `tools/AgentTool/agentToolUtils.ts`, `tools/AgentTool/builtInAgents.ts`, `utils/forkedAgent.ts`, `constants/tools.ts`, `tools/AgentTool/agentMemory.ts`
 
-**第 13 篇：内置 Agent 设计模式 — Explore、Plan、Verification 的 prompt 设计**
-- Explore Agent：READ-ONLY 模式、高效搜索指令、并行工具调用提示
-- Plan Agent：架构师角色、设计流程引导、输出格式约束
-- Verification Agent：对抗性验证、PASS/FAIL/PARTIAL 评判协议
-- 自定义 Agent 定义：markdown frontmatter 配置全解
-- 关键文件：`tools/AgentTool/built-in/exploreAgent.ts`, `planAgent.ts`, `verificationAgent.ts`
+**第 13 篇：内置 Agent 设计模式 — Explore、Plan、Verification 的 Prompt 设计** ✅
+- 5 个内置 Agent 注册与门控机制（`builtInAgents.ts` 的 `getBuiltInAgents()`，feature flag + GrowthBook 双重门控）
+- Explore Agent：READ-ONLY 硬约束（穷举禁止行为）、Haiku 模型（外部用户）、`omitClaudeMd` 节约 5-15 Gtok/周、彻底程度参数（quick/medium/very thorough）
+- Plan Agent：架构师角色、结构化 4 步流程引导、强制 "Critical Files" 输出格式、复用 `EXPLORE_AGENT.tools`
+- Verification Agent：对抗性验证 prompt（元认知：预判模型 5 种逃避借口）、按变更类型分类验证策略、PASS/FAIL/PARTIAL 三级 verdict 协议、`criticalSystemReminder_EXPERIMENTAL` 每轮重注入、正反例对比教学
+- General-purpose Agent：`tools: ['*']` 通配符、精简 prompt、兜底默认 Agent
+- Claude Code Guide Agent：唯一使用运行时 `toolUseContext` 动态生成 prompt 的内置 Agent，注入用户 skills/agents/MCP/settings 配置
+- 三种工具约束策略（白名单/黑名单/通配符）与三种 Prompt 约束层级（硬约束/对抗性/软引导）
+- 自定义 Agent：markdown frontmatter 15+ 配置字段全解（`loadAgentsDir.ts:541-755`），6 级 Agent 覆盖优先级（built-in → plugin → user → project → flag → managed）
+- AgentTool prompt 动态生成（`prompt.ts`）：Agent 列表外置优化（占 fleet cache_creation ~10.2%）、fork subagent 条件性 prompt 段落
+- 关键文件：`tools/AgentTool/built-in/exploreAgent.ts`, `planAgent.ts`, `verificationAgent.ts`, `generalPurposeAgent.ts`, `claudeCodeGuideAgent.ts`, `builtInAgents.ts`, `loadAgentsDir.ts`, `prompt.ts`, `runAgent.ts:386-410`
 
-**第 14 篇：任务系统 — Agent 的并发执行引擎**
-- Task 类型体系：`LocalShellTask`（shell 命令）、`LocalAgentTask`（本地 agent）、`RemoteAgentTask`（远程）、`DreamTask`
-- 前台 vs 后台：`registerForeground()` / `backgroundExistingForegroundTask()`
-- `TaskOutput`：流式输出收集与磁盘持久化
-- Agent 协作模型：coordinator mode, in-process teammates, fork subagent
-- 关键文件：`tasks/`, `tools/AgentTool/forkSubagent.ts`, `coordinator/coordinatorMode.ts`
+**第 14 篇：任务系统 — Agent 的并发执行引擎** ✅
+- 三层分离架构：`Task.ts`（类型/ID）→ `tasks.ts`（kill 注册表，仅 4+2 种任务）→ 具体实现目录，基础设施层 `utils/task/framework.ts`
+- 7 种 TaskType：`local_bash`/`local_agent`/`remote_agent`/`in_process_teammate`/`local_workflow`/`monitor_mcp`/`dream`，统一 5 状态机（pending→running→completed/failed/killed）
+- 极简 Task 接口：只有 `kill()` 一个多态方法（spawn/render 从未被多态调用，已在 #22546 中移除）
+- `DiskTaskOutput`：高性能写队列（`#queue` + `#drain()`），`O_NOFOLLOW` 防 symlink 攻击，5GB 磁盘上限
+- `TaskOutput` 双模式：File 模式（bash，stdout 直写文件 fd，静态注册表 + 按需轮询）vs Pipe 模式（hooks，内存缓冲 + 8MB 溢出到磁盘）
+- `LocalShellTask`：`agentId` 字段实现生命周期绑定（`killShellTasksForAgent()` 防僵尸进程），`startStallWatchdog()` 45 秒检测交互阻塞（发通知提醒，不自动后台化）
+- `LocalAgentTask`：`pendingMessages` 队列（SendMessage → tool-round boundary drain），`retain`/`diskLoaded` 面板保持机制，`ProgressTracker` 区分累积/每轮 token
+- `InProcessTeammateTask`：类型/UI 层完整存在但未注册到 `tasks.ts` kill 注册表（kill 由 `spawnInProcess.ts` 直接管理），同进程 AsyncLocalStorage 隔离，双 AbortController（整体 vs 当前轮次），`TEAMMATE_MESSAGES_UI_CAP = 50`（36.8GB RSS 事故驱动）
+- `DreamTask`：自动记忆巩固，kill 时回滚 consolidation lock mtime 防止"梦被永久打断"
+- `LocalMainSessionTask`：Ctrl+B 双击将主查询转后台，复用 `LocalAgentTaskState` + `agentType='main-session'`
+- 通知机制：XML `<task-notification>` 协议，完成通知由各任务实现自行发送（非 framework 层统一），`<result>`/`<usage>` 是 LocalAgentTask 特有扩展；`enqueuePendingNotification()` 以 `'later'` 优先级入队，`notified` 标记原子防重复
+- `evictTerminalTask()` 驱逐条件：前两项（终态 + 已通知）对所有任务通用，`evictAfter` 面板保持期仅对带 `retain` 字段的 LocalAgentTask 生效
+- 三种 Agent 协作模型：Fork Subagent（byte-identical 前缀 cache 共享 + 递归防护）、Coordinator Mode（370 行编排 prompt）、In-Process Teammate（Swarm）
+- `createSubagentContext()` 隔离设计：默认全克隆 + `setAppStateForTasks` 穿透根 store（防 PPID=1 僵尸），`contentReplacementState` 克隆保证 cache 命中
+- 关键文件：`Task.ts`, `tasks.ts`, `tasks/LocalShellTask/`, `tasks/LocalAgentTask/LocalAgentTask.tsx`, `tasks/RemoteAgentTask/RemoteAgentTask.tsx`, `tasks/InProcessTeammateTask/`, `tasks/DreamTask/DreamTask.ts`, `tasks/LocalMainSessionTask.ts`, `utils/task/framework.ts`, `utils/task/diskOutput.ts`, `utils/task/TaskOutput.ts`, `tools/AgentTool/forkSubagent.ts`, `coordinator/coordinatorMode.ts`, `utils/forkedAgent.ts`, `utils/messageQueueManager.ts`
 
-**第 15 篇：MCP 协议实现 — 连接外部工具的标准化桥梁**
-- 传输层：stdio / SSE / HTTP / WebSocket / SDK 五种 transport
-- 配置层级：local / user / project / dynamic / enterprise / managed
-- 服务器生命周期：`connectToServer()` → `fetchToolsForClient()` → `cleanup()`
-- Agent 的 MCP 扩展：frontmatter 中的 `mcpServers` 字段
-- 认证：OAuth + XAA (Cross-App Access) 方案
-- 关键文件：`services/mcp/types.ts`, `services/mcp/client.ts`, `services/mcp/config.ts`
+**第 15 篇：MCP 协议实现 — 连接外部工具的标准化桥梁** ✅
+- 类型系统：`TransportSchema` 6 种公开传输字面量 + `McpServerConfigSchema` union 8 类 server config（额外含 ws-ide/claudeai-proxy）+ 5 种连接状态的 discriminated union（connected/failed/needs-auth/pending/disabled）
+- 配置加载：两阶段架构——Phase 1 `getClaudeCodeMcpConfigs()` 快速本地加载（排除 claude.ai），Phase 2 `fetchClaudeAIMcpConfigsIfEligible()` 延迟网络补充；`isStrictMcpConfig` 模式跳过常规加载仅保留 dynamic
+- 配置优先级（从低到高）：claude.ai（Phase 2 最低）< plugin < user < project < local < dynamic（调用方后覆盖）；enterprise 独占模式（sdk 类型豁免策略过滤），project 向上遍历合并
+- 签名去重：`getMcpServerSignature()` 基于命令行或 URL 的内容签名，手动 > 插件 > claude.ai 连接器优先级
+- 传输层适配：stdio（子进程 stdin/stdout）、SSE、HTTP（Streamable HTTP + wrapFetchWithTimeout 解决 Bun AbortSignal 内存泄漏）、WebSocket、SDK、InProcess（进程内直连避免 ~325MB 子进程开销）
+- 并发连接调度：本地服务器（默认并发 3）与远程服务器（默认并发 20）分治，pMap 滑动窗口替代固定批次
+- 连接生命周期：memoized `connectToServer()` → `fetchToolsForClient()` / `fetchResourcesForClient()` / `fetchCommandsForClient()` → `cleanup()`（三级信号升级 SIGINT→SIGTERM→SIGKILL）
+- Tool 代理：MCP 工具包装为内置 Tool 接口，命名规范 `mcp__<server>__<tool>`，描述截断 2048 字符，MCP annotations 映射到 readOnlyHint/destructiveHint
+- MCP Prompts 转斜杠命令：`prompts/list` → Command 接口
+- 认证：OAuth 2.0 + PKCE + 动态客户端注册、XAA（Cross-App Access，RFC 8693 Token Exchange + RFC 7523 JWT Bearer，企业免浏览器认证）、headersHelper（动态认证头脚本）
+- Agent MCP 扩展：frontmatter `mcpServers` 字段，按名称引用 vs 内联定义，企业 `strictPluginOnlyCustomization` 策略
+- MCPConnectionManager React Context：`useManageMCPConnections` Hook 管理两阶段加载连接、状态同步、list_changed 通知刷新、指数退避自动重连、Elicitation Handler 注册、Channel Push/Permission Relay（Kairos）、MCP Skills 发现（`skill://` 资源）
+- needs-auth 缓存：15 分钟 TTL + `hasMcpDiscoveryButNoToken()` 跳过无效连接尝试
+- 关键文件：`services/mcp/types.ts`, `services/mcp/client.ts`, `services/mcp/config.ts`, `services/mcp/auth.ts`, `services/mcp/xaa.ts`, `services/mcp/normalization.ts`, `services/mcp/mcpStringUtils.ts`, `services/mcp/headersHelper.ts`, `services/mcp/InProcessTransport.ts`, `services/mcp/MCPConnectionManager.tsx`, `services/mcp/useManageMCPConnections.ts`, `services/mcp/envExpansion.ts`, `tools/MCPTool/MCPTool.ts`, `tools/AgentTool/runAgent.ts`
 
 ---
 
 ### Part 4: 安全与工程（5 篇）
 
-**第 16 篇：权限系统 — AI 安全的最后一道防线**
-- 三种权限模式：`default` / `plan`（只读 + 确认）/ `bypass`（完全自动）
-- 规则系统：`alwaysAllowRules` / `alwaysDenyRules` / `alwaysAskRules`，按 source 分层
-- `getDenyRuleForTool()` 查找链
-- Bash 工具的细粒度权限：通配符匹配、路径校验、重定向检测
-- Classifier-assisted auto-mode：用模型本身判断操作安全性
-- 关键文件：`utils/permissions/permissions.ts`, `utils/permissions/PermissionMode.ts`
+**第 16 篇：权限系统 — AI 安全的最后一道防线** ✅
+- 七种权限模式：`default` / `plan` / `acceptEdits` / `bypassPermissions` / `dontAsk` / `auto`（内部）/ `bubble`（类型定义），通过 Shift+Tab 循环切换
+- 规则系统：`alwaysAllowRules` / `alwaysDenyRules` / `alwaysAskRules`，8 种 source（5 种 settings + cliArg + command + session），`PERMISSION_RULE_SOURCES` 是搜索遍历顺序（非严格优先级语义）
+- `hasPermissionsToUseToolInner()` 7 步决策管线：deny 规则 → ask 规则 → tool.checkPermissions() → safety check → bypass 模式 → allow 规则 → passthrough→ask
+- 外层 `hasPermissionsToUseTool()` 的模式级变换：dontAsk→deny、auto→Classifier、headless→Hook
+- Safety check 的 `classifierApprovable` 分流：非 classifierApprovable 的 safety check 在 auto 模式下仍需人工确认，classifierApprovable 的（如 .claude/ 敏感路径）交给 Classifier 评估
+- Session 级 `.claude/**` allow 规则可在 safety check 之前生效（`filesystem.ts:1252-1300`），严格限定 session source + 路径前缀 + 禁止 `..`
+- Auto Mode 三层快速通道：acceptEdits 模拟 → 安全工具白名单 → Classifier API
+- Denial Tracking 熔断器：连续 3 次或总 20 次拒绝后回退到用户确认（CLI）或 abort（headless）
+- 危险权限检测：`isDangerousClassifierPermission()` 覆盖 Bash + PowerShell + Agent/Task 三类工具，Auto Mode 入口自动剥离并暂存，退出时恢复
+- 文件路径验证：`isPathAllowed()` 5 步、TOCTOU 防护（shell 展开、tilde 变体、UNC 路径）
+- Shell 规则三种匹配模式：exact / prefix（`:*`） / wildcard（`*`）；`Bash()` 和 `Bash(*)` 归约为整工具级规则
+- 企业管控 `allowManagedPermissionRulesOnly` 作用于 `loadAllPermissionRulesFromDisk()`，CLI 参数规则在初始化时仍写入 context，后续由 sync 逻辑清理
+- 关键文件：`utils/permissions/permissions.ts`, `utils/permissions/PermissionMode.ts`, `types/permissions.ts`, `utils/permissions/permissionSetup.ts`, `utils/permissions/pathValidation.ts`, `utils/permissions/filesystem.ts`, `utils/permissions/shellRuleMatching.ts`, `utils/permissions/dangerousPatterns.ts`, `utils/permissions/denialTracking.ts`, `utils/permissions/permissionsLoader.ts`, `utils/permissions/classifierDecision.ts`, `utils/permissions/yoloClassifier.ts`, `utils/permissions/getNextPermissionMode.ts`, `utils/permissions/permissionRuleParser.ts`
 
-**第 17 篇：Settings 系统 — 多层配置的合并之道**
-- 6 层配置源：local → user → project → enterprise → managed → remote-managed
-- Drop-in 目录模式：`managed-settings.d/*.json` 按字母顺序合并
-- MDM（Mobile Device Management）集成：macOS plutil / Windows Registry
-- 配置变更检测：`settingsChangeDetector` 文件监视
-- 验证：Zod schema + `filterInvalidPermissionRules()`
-- 关键文件：`utils/settings/settings.ts`, `utils/settings/types.ts`, `utils/settings/constants.ts`
+**第 17 篇：Settings 系统 — 多层配置的合并之道** ✅
+- 5 + 1 层配置源：Plugin 基底层（非 `SettingSource`，通过 `getPluginSettingsBase()` 注入）+ `SETTING_SOURCES` 5 源（user → project → local → flag → policy），数组顺序即合并优先级（后覆盖前）
+- Policy Settings 内部 4 层 first-source-wins 子优先级：remote API → MDM (HKLM/plist) → managed-settings.json + managed-settings.d/ → HKCU
+- Remote eligibility 三路放行：外部注入 OAuth token（subscriptionType === null，宁可多发一次请求）/ Enterprise+Team OAuth / Console API Key
+- `loadSettingsFromDisk()` 核心合并：`mergeWith` + `settingsMergeCustomizer`（数组拼接去重，标量覆盖），防递归守卫 + 文件去重
+- Drop-in 目录模式：`managed-settings.d/*.json` 按字母序合并（systemd/sudoers 模式）
+- MDM 两阶段启动：阶段一 `startMdmRawRead()` 预启动子进程（main.tsx 求值期）→ 阶段二 `ensureMdmSettingsLoaded()` await + 解析缓存（preAction hook）
+- 三级缓存：parseFileCache → perSourceCache → sessionSettingsCache，`resetSettingsCache()` 统一失效
+- 变更检测：chokidar 文件监听 + 30 分钟 MDM 轮询 + `internalWrites.ts` 时间戳 Map 过滤自身写入回声
+- 删除-重建 grace period（1700ms）：取消 pending 删除 + 当作 change 处理
+- Remote Managed Settings：fail-open + 文件缓存 + ETag/SHA-256 checksum + 1 小时后台轮询 + `checkManagedSettingsSecurity()` 安全确认
+- 安全设计：`projectSettings` 被排除在敏感设置信任源之外（防 RCE），`localSettings` 自动 gitignore，远程策略落地前安全校验
+- 验证：Zod schema + `filterInvalidPermissionRules()` 容错（坏规则不毒化整个文件）+ `.catch(undefined)` 前向兼容
+- 关键文件：`utils/settings/settings.ts`, `utils/settings/types.ts`, `utils/settings/constants.ts`, `utils/settings/changeDetector.ts`, `utils/settings/settingsCache.ts`, `utils/settings/mdm/rawRead.ts`, `utils/settings/mdm/settings.ts`, `utils/settings/internalWrites.ts`, `utils/settings/applySettingsChange.ts`, `services/remoteManagedSettings/index.ts`, `services/remoteManagedSettings/syncCacheState.ts`
 
-**第 18 篇：Hooks 系统 — 用 Shell 命令扩展 AI 行为**
-- Hook 事件类型：pre/post tool call, session start, pre/post compact, notification
-- 执行模型：`spawn()` + `wrapSpawn()` + `TaskOutput` 收集输出
-- Hook 输出协议：JSON 输出 schema（sync/async 类型）
-- 安全边界：`shouldAllowManagedHooksOnly()`, `shouldDisableAllHooksIncludingManaged()`
-- Frontmatter hooks：Agent/Skill 定义中的 hooks 注册
-- 关键文件：`utils/hooks.ts`, `utils/hooks/hooksConfigSnapshot.ts`, `types/hooks.ts`
+**第 18 篇：Hooks 系统 — 用 Shell 命令扩展 AI 行为** ✅
+- 27 个 Hook 事件类型：工具生命周期（PreToolUse/PostToolUse/PostToolUseFailure）、会话生命周期（SessionStart/SessionEnd/Setup/Stop/StopFailure/UserPromptSubmit）、权限安全（PermissionRequest/PermissionDenied）、Agent 协作（SubagentStart/SubagentStop/TeammateIdle/TaskCreated/TaskCompleted）、上下文管理（PreCompact/PostCompact/Notification）、环境感知（ConfigChange/CwdChanged/FileChanged/InstructionsLoaded/Elicitation/ElicitationResult/WorktreeCreate/WorktreeRemove）
+- 四种可持久化 Hook 类型（`HookCommand` discriminated union）：`command`（Shell）、`prompt`（LLM 评估）、`agent`（多轮 Agent 验证）、`http`（HTTP POST）；两种内存级类型：`callback`（SDK/内部）、`function`（session 级回调）
+- 配置三层结构：Event → Matcher（精确/管道多值/正则 + `if` 条件过滤）→ Hook 数组
+- 三路配置合并：Settings 快照 + 注册 Hook（SDK/Plugin）+ Session Hook（Agent/Skill frontmatter 临时注册）
+- 执行引擎：`executeHooks()` AsyncGenerator，安全检查（disableAll → trust → managedOnly）→ 匹配 + 去重 → 并行执行 → 权限聚合（deny > ask > allow > passthrough）
+- Shell 执行（`execCommandHook` ~590 行）：双 Shell（bash/powershell）跨平台适配、CLAUDE_ENV_FILE 环境注入、exit code 语义（0=成功/2=阻塞/其他=非阻塞）、Prompt Elicitation 双向对话协议
+- 异步 Hook：配置级 `async`/`asyncRewake` + 协议级（首行 `{"async":true}`）、AsyncHookRegistry 全局注册表、asyncRewake 的 exit code 2 唤醒模型
+- 安全边界三级管控：正常模式 → `shouldAllowManagedHooksOnly()`（仅管理策略 Hook）→ `shouldDisableAllHooksIncludingManaged()`（完全禁用）、快照隔离防配置注入、HTTP Hook SSRF 防护（`ssrfGuard.ts`）
+- Frontmatter hooks：`registerFrontmatterHooks()` 将 Agent/Skill 的 Stop 自动转换为 SubagentStop
+- 性能优化：内部 callback Fast Path（跳过 span/telemetry，-70% 延迟）、惰性 JSON 序列化、`hasHookForEvent()` 快速存在性检查
+- 关键文件：`utils/hooks.ts`, `utils/hooks/hooksConfigSnapshot.ts`, `utils/hooks/sessionHooks.ts`, `utils/hooks/AsyncHookRegistry.ts`, `utils/hooks/execPromptHook.ts`, `utils/hooks/execAgentHook.ts`, `utils/hooks/execHttpHook.ts`, `utils/hooks/ssrfGuard.ts`, `utils/hooks/registerFrontmatterHooks.ts`, `types/hooks.ts`, `schemas/hooks.ts`
 
-**第 19 篇：Feature Flag 与编译期优化 — 同一份代码构建两个产品**
-- `bun:bundle` 的 `feature()` 机制：编译期常量折叠 + DCE
-- 内部 vs 外部构建差异：`PROACTIVE`, `KAIROS`, `VOICE_MODE`, `COORDINATOR_MODE` 等
-- `process.env.USER_TYPE === 'ant'` 运行时分支
-- `INTERNAL_ONLY_COMMANDS` / `MACRO.VERSION` / `MACRO.ISSUES_EXPLAINER`
-- GrowthBook A/B 测试集成：`getFeatureValue_CACHED_MAY_BE_STALE()`
-- 关键文件：`commands.ts:48-100`, `tools.ts:14-55`, `constants/prompts.ts`
+**第 19 篇：Feature Flag 与编译期优化 — 同一份代码构建两个产品** ✅
+- 两类编译期 Flag：`feature()` from `bun:bundle`（功能级 89 个 flag）+ `process.env.USER_TYPE`（`--define` 身份级常量，外部构建替换为 `"external"` 同样触发 DCE）
+- `feature()` 的两种搭配：模块顶层 `require()`（tools.ts/commands.ts）+ 函数体内 `await import()`（cli.tsx 快速路径）—— 关键约束是不能用顶层静态 `import`
+- `USER_TYPE` 的 DCE 约束：必须在每个 callsite 内联（不能 hoisted to const），保证 bundler 可常量折叠
+- 高频 flag 分析：`KAIROS`(154 次)、`TRANSCRIPT_CLASSIFIER`(107 次)、`TEAMMEM`(51 次) 等 Top 15 flag 的功能领域
+- `feature()` 的全栈影响：`cli.tsx` 快速路径、`tools.ts` 工具注册、`commands.ts` 命令注册、`query.ts` 对话循环、`constants/prompts.ts` System Prompt
+- `INTERNAL_ONLY_COMMANDS`：20+ 个内部命令的注册级门控（多数静态 import 代码仍存在于 bundle，仅注册被 USER_TYPE 条件跳过；部分通过 feature() + require() 实现代码级 DCE）
+- `MACRO.*` 7 个构建时常量注入：`VERSION`、`BUILD_TIME`、`PACKAGE_URL`、`ISSUES_EXPLAINER` 等
+- Ablation Baseline：`feature()` + `process.env` 双重门控的消融实验设计
+- GrowthBook 集成：`getFeatureValue_CACHED_MAY_BE_STALE()` 四级优先级链（env override → config override → 内存缓存 → 磁盘缓存）
+- GrowthBook 生命周期：Remote Eval 模式、5 秒超时、20 分钟/6 小时周期性刷新、Auth 变更重建、延迟曝光追踪
+- 三层协同案例：Coordinator Mode — `feature()` 控代码存在 → 环境变量控激活 → GrowthBook `tengu_scratch` gate 控子功能 scratchpad
+- 防 Flag 翻转措施：Latch 模式、`toolSchemaCache` Session 级 Schema 锁定、`QueryConfig` 排除 `feature()` 保留 DCE
+- 关键文件：`entrypoints/cli.tsx`, `tools.ts`, `commands.ts:48-100,225-345`, `constants/system.ts`, `constants/prompts.ts:617-619`, `utils/envUtils.ts:136-147`, `services/analytics/growthbook.ts`, `utils/toolSchemaCache.ts`, `coordinator/coordinatorMode.ts:25-27`
 
-**第 20 篇：API 调用与错误恢复 — 面向不可靠网络的鲁棒设计**
-- `withRetry` 策略：最多 10 次重试、指数退避、`BASE_DELAY_MS = 500`
-- 529 (过载) 特殊处理：仅前台查询重试、最多 3 次、后台请求立即放弃
-- Fast mode / fallback 降级：过载时自动降级到更小模型
-- OAuth 401 重认证：`handleOAuth401Error()`
-- 连接错误分类：`extractConnectionErrorDetails()`
-- 关键文件：`services/api/withRetry.ts`, `services/api/errors.ts`, `services/api/claude.ts`
+**第 20 篇：API 调用与错误恢复 — 面向不可靠网络的鲁棒设计** ✅
+- `withRetry` AsyncGenerator 重试引擎：最多 10 次重试（`DEFAULT_MAX_RETRIES`）、指数退避 + 25% 抖动、`BASE_DELAY_MS = 500`，通过 `yield SystemAPIErrorMessage` 向 UI 反馈重试进度
+- 529 (过载) 分级处理：`FOREGROUND_529_RETRY_SOURCES` 集合区分前台/后台请求，后台请求立即放弃（避免 3-10× 网关放大），连续 3 次（`MAX_529_RETRIES`）在满足条件时（`FALLBACK_FOR_ALL_PRIMARY_MODELS` 或 非订阅用户+非自定义Opus）触发 `FallbackTriggeredError` 由 query.ts 执行模型降级
+- Fast Mode 降级：20 秒阈值（`SHORT_RETRY_THRESHOLD_MS`）—— 短 retry-after 保持 fast mode（复用 prompt cache），长 retry-after 触发冷却期（`triggerFastModeCooldown`，最短 10 分钟）
+- 多 Provider 认证恢复：OAuth 401 自动 token refresh（`handleOAuth401Error`）、AWS `CredentialsProviderError` / 403 清除凭证缓存、GCP `google-auth-library` 错误消息匹配、Stale Connection（ECONNRESET/EPIPE）自动禁用 keep-alive + 重建 client
+- Persistent Retry 模式：双重门控 `feature('UNATTENDED_RETRY')` + `CLAUDE_CODE_UNATTENDED_RETRY`（ant-only 受限能力），429/529 无限重试、最大退避 5 分钟、6 小时 reset cap、30 秒心跳分块防宿主 idle-kill
+- 流式双模式降级：流中断 / 看门狗超时（`CLAUDE_ENABLE_STREAM_WATCHDOG` 启用后 `STREAM_IDLE_TIMEOUT_MS` 默认 90 秒，默认不启用）/ 空流检测 → 自动 fallback 到 `executeNonStreamingRequest`，529 计数跨模式传递（`initialConsecutive529Errors`）
+- 404 Streaming Endpoint Fallback：不支持 SSE 的网关返回 404 时，在 `CannotRetryError` 中检测并降级到非流式
+- 连接错误分类：`extractConnectionErrorDetails()` 遍历 cause 链（maxDepth=5）、16 种 SSL 错误码集合、`formatAPIError()` 针对性用户提示、HTML 错误页面清洗（提取 `<title>`）
+- Context Overflow 自动恢复：`parseMaxTokensContextOverflowError()` 正则提取 token 数字，自动计算 `maxTokensOverride`（保留 1000 safety buffer + `FLOOR_OUTPUT_TOKENS` 3000 下限）
+- 资源泄漏防护：`releaseStreamResources()` 在 finally/watchdog/正常完成三处调用，`streamResponse.body?.cancel()` 释放原生 TLS 缓冲区（GH #32920）
+- 关键文件：`services/api/withRetry.ts`, `services/api/errors.ts`, `services/api/errorUtils.ts`, `services/api/claude.ts`, `services/api/client.ts`, `utils/fastMode.ts`, `utils/proxy.ts`
 
 ---
 

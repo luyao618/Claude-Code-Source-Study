@@ -1,0 +1,319 @@
+{
+  "generated_at": "2026-05-21T15:50:05.485Z",
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "appendix": "F",
+  "items": [
+    {
+      "name": "C01",
+      "category": "chapter",
+      "source_files": [
+        "entrypoints",
+        "bridge",
+        "remote",
+        "coordinator",
+        "buddy",
+        "upstreamproxy",
+        "server",
+        "migrations",
+        "native-ts",
+        "screens",
+        "outputStyles",
+        "memdir",
+        "assistant",
+        "schemas"
+      ]
+    },
+    {
+      "name": "C02",
+      "category": "chapter",
+      "source_files": [
+        "bootstrap",
+        "main.tsx",
+        "replLauncher.tsx",
+        "dialogLaunchers.tsx",
+        "interactiveHelpers.tsx"
+      ]
+    },
+    {
+      "name": "C03",
+      "category": "chapter",
+      "source_files": [
+        "services"
+      ]
+    },
+    {
+      "name": "C04",
+      "category": "chapter",
+      "source_files": [
+        "migrations"
+      ]
+    },
+    {
+      "name": "C05",
+      "category": "chapter",
+      "source_files": [
+        "QueryEngine.ts",
+        "query.ts",
+        "query"
+      ]
+    },
+    {
+      "name": "C06",
+      "category": "chapter",
+      "source_files": [
+        "constants",
+        "outputStyles"
+      ]
+    },
+    {
+      "name": "C07",
+      "category": "chapter",
+      "source_files": [
+        "services"
+      ]
+    },
+    {
+      "name": "C08",
+      "category": "chapter",
+      "source_files": [
+        "services"
+      ]
+    },
+    {
+      "name": "C09",
+      "category": "chapter",
+      "source_files": [
+        "commands",
+        "services"
+      ]
+    },
+    {
+      "name": "C10",
+      "category": "chapter",
+      "source_files": [
+        "Tool.ts",
+        "tools.ts",
+        "tools"
+      ]
+    },
+    {
+      "name": "C11",
+      "category": "chapter",
+      "source_files": [
+        "tools"
+      ]
+    },
+    {
+      "name": "C12",
+      "category": "chapter",
+      "source_files": [
+        "tools",
+        "services"
+      ]
+    },
+    {
+      "name": "C13",
+      "category": "chapter",
+      "source_files": [
+        "tools"
+      ]
+    },
+    {
+      "name": "C14",
+      "category": "chapter",
+      "source_files": [
+        "tools",
+        "services",
+        "commands"
+      ]
+    },
+    {
+      "name": "C15",
+      "category": "chapter",
+      "source_files": [
+        "tools",
+        "services"
+      ]
+    },
+    {
+      "name": "C16",
+      "category": "chapter",
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks",
+        "tools"
+      ]
+    },
+    {
+      "name": "C17",
+      "category": "chapter",
+      "source_files": [
+        "coordinator",
+        "tools",
+        "hooks"
+      ]
+    },
+    {
+      "name": "C18",
+      "category": "chapter",
+      "source_files": [
+        "services",
+        "tools"
+      ]
+    },
+    {
+      "name": "C19",
+      "category": "chapter",
+      "source_files": [
+        "Tool.ts",
+        "hooks",
+        "bridge",
+        "remote"
+      ]
+    },
+    {
+      "name": "C20",
+      "category": "chapter",
+      "source_files": [
+        "schemas",
+        "hooks",
+        "query"
+      ]
+    },
+    {
+      "name": "C21",
+      "category": "chapter",
+      "source_files": [
+        "skills",
+        "services",
+        "plugins",
+        "outputStyles"
+      ]
+    },
+    {
+      "name": "C22",
+      "category": "chapter",
+      "source_files": [
+        "utils",
+        "constants"
+      ]
+    },
+    {
+      "name": "C23",
+      "category": "chapter",
+      "source_files": [
+        "services",
+        "cli"
+      ]
+    },
+    {
+      "name": "C24",
+      "category": "chapter",
+      "source_files": [
+        "bridge",
+        "remote",
+        "commands"
+      ]
+    },
+    {
+      "name": "C25",
+      "category": "chapter",
+      "source_files": [
+        "server",
+        "upstreamproxy",
+        "hooks"
+      ]
+    },
+    {
+      "name": "C26",
+      "category": "chapter",
+      "source_files": [
+        "ink",
+        "native-ts"
+      ]
+    },
+    {
+      "name": "C27",
+      "category": "chapter",
+      "source_files": [
+        "components"
+      ]
+    },
+    {
+      "name": "C28",
+      "category": "chapter",
+      "source_files": [
+        "keybindings",
+        "vim",
+        "voice",
+        "services",
+        "hooks",
+        "commands"
+      ]
+    },
+    {
+      "name": "C29",
+      "category": "chapter",
+      "source_files": [
+        "buddy"
+      ]
+    },
+    {
+      "name": "C30",
+      "category": "chapter",
+      "source_files": [
+        "screens",
+        "outputStyles",
+        "commands"
+      ]
+    },
+    {
+      "name": "C31",
+      "category": "chapter",
+      "source_files": [
+        "memdir",
+        "services",
+        "assistant"
+      ]
+    },
+    {
+      "name": "C32",
+      "category": "chapter",
+      "source_files": [
+        "commands.ts",
+        "commands"
+      ]
+    },
+    {
+      "name": "C33",
+      "category": "chapter",
+      "source_files": [
+        "state",
+        "bridge"
+      ]
+    },
+    {
+      "name": "C34",
+      "category": "chapter",
+      "source_files": []
+    },
+    {
+      "name": "CROSSCUT",
+      "category": "chapter",
+      "source_files": [
+        "context",
+        "context.ts",
+        "cost-tracker.ts",
+        "costHook.ts",
+        "history.ts",
+        "ink.ts",
+        "projectOnboardingState.ts",
+        "setup.ts",
+        "types",
+        "utils",
+        "moreright"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,482 @@
+{
+  "generated_at": "2026-05-21T15:49:27.157Z",
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "appendix": "A",
+  "items": [
+    {
+      "name": "AgentTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/AgentTool/agentColorManager.ts",
+        "tools/AgentTool/agentDisplay.ts",
+        "tools/AgentTool/agentMemory.ts",
+        "tools/AgentTool/agentMemorySnapshot.ts",
+        "tools/AgentTool/AgentTool.tsx",
+        "tools/AgentTool/agentToolUtils.ts",
+        "tools/AgentTool/built-in/claudeCodeGuideAgent.ts",
+        "tools/AgentTool/built-in/exploreAgent.ts",
+        "tools/AgentTool/built-in/generalPurposeAgent.ts",
+        "tools/AgentTool/built-in/planAgent.ts",
+        "tools/AgentTool/built-in/statuslineSetup.ts",
+        "tools/AgentTool/built-in/verificationAgent.ts",
+        "tools/AgentTool/builtInAgents.ts",
+        "tools/AgentTool/constants.ts",
+        "tools/AgentTool/forkSubagent.ts",
+        "tools/AgentTool/loadAgentsDir.ts",
+        "tools/AgentTool/prompt.ts",
+        "tools/AgentTool/resumeAgent.ts",
+        "tools/AgentTool/runAgent.ts",
+        "tools/AgentTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "AskUserQuestionTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/AskUserQuestionTool/AskUserQuestionTool.tsx",
+        "tools/AskUserQuestionTool/prompt.ts"
+      ]
+    },
+    {
+      "name": "BashTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/BashTool/bashCommandHelpers.ts",
+        "tools/BashTool/bashPermissions.ts",
+        "tools/BashTool/bashSecurity.ts",
+        "tools/BashTool/BashTool.tsx",
+        "tools/BashTool/BashToolResultMessage.tsx",
+        "tools/BashTool/commandSemantics.ts",
+        "tools/BashTool/commentLabel.ts",
+        "tools/BashTool/destructiveCommandWarning.ts",
+        "tools/BashTool/modeValidation.ts",
+        "tools/BashTool/pathValidation.ts",
+        "tools/BashTool/prompt.ts",
+        "tools/BashTool/readOnlyValidation.ts",
+        "tools/BashTool/sedEditParser.ts",
+        "tools/BashTool/sedValidation.ts",
+        "tools/BashTool/shouldUseSandbox.ts",
+        "tools/BashTool/toolName.ts",
+        "tools/BashTool/UI.tsx",
+        "tools/BashTool/utils.ts"
+      ]
+    },
+    {
+      "name": "BriefTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/BriefTool/attachments.ts",
+        "tools/BriefTool/BriefTool.ts",
+        "tools/BriefTool/prompt.ts",
+        "tools/BriefTool/UI.tsx",
+        "tools/BriefTool/upload.ts"
+      ]
+    },
+    {
+      "name": "ConfigTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/ConfigTool/ConfigTool.ts",
+        "tools/ConfigTool/constants.ts",
+        "tools/ConfigTool/prompt.ts",
+        "tools/ConfigTool/supportedSettings.ts",
+        "tools/ConfigTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "EnterPlanModeTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/EnterPlanModeTool/constants.ts",
+        "tools/EnterPlanModeTool/EnterPlanModeTool.ts",
+        "tools/EnterPlanModeTool/prompt.ts",
+        "tools/EnterPlanModeTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "EnterWorktreeTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/EnterWorktreeTool/constants.ts",
+        "tools/EnterWorktreeTool/EnterWorktreeTool.ts",
+        "tools/EnterWorktreeTool/prompt.ts",
+        "tools/EnterWorktreeTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "ExitPlanModeTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/ExitPlanModeTool/constants.ts",
+        "tools/ExitPlanModeTool/ExitPlanModeV2Tool.ts",
+        "tools/ExitPlanModeTool/prompt.ts",
+        "tools/ExitPlanModeTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "ExitWorktreeTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/ExitWorktreeTool/constants.ts",
+        "tools/ExitWorktreeTool/ExitWorktreeTool.ts",
+        "tools/ExitWorktreeTool/prompt.ts",
+        "tools/ExitWorktreeTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "FileEditTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/FileEditTool/constants.ts",
+        "tools/FileEditTool/FileEditTool.ts",
+        "tools/FileEditTool/prompt.ts",
+        "tools/FileEditTool/types.ts",
+        "tools/FileEditTool/UI.tsx",
+        "tools/FileEditTool/utils.ts"
+      ]
+    },
+    {
+      "name": "FileReadTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/FileReadTool/FileReadTool.ts",
+        "tools/FileReadTool/imageProcessor.ts",
+        "tools/FileReadTool/limits.ts",
+        "tools/FileReadTool/prompt.ts",
+        "tools/FileReadTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "FileWriteTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/FileWriteTool/FileWriteTool.ts",
+        "tools/FileWriteTool/prompt.ts",
+        "tools/FileWriteTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "GlobTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/GlobTool/GlobTool.ts",
+        "tools/GlobTool/prompt.ts",
+        "tools/GlobTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "GrepTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/GrepTool/GrepTool.ts",
+        "tools/GrepTool/prompt.ts",
+        "tools/GrepTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "LSPTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/LSPTool/formatters.ts",
+        "tools/LSPTool/LSPTool.ts",
+        "tools/LSPTool/prompt.ts",
+        "tools/LSPTool/schemas.ts",
+        "tools/LSPTool/symbolContext.ts",
+        "tools/LSPTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "ListMcpResourcesTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/ListMcpResourcesTool/ListMcpResourcesTool.ts",
+        "tools/ListMcpResourcesTool/prompt.ts",
+        "tools/ListMcpResourcesTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "MCPTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/MCPTool/classifyForCollapse.ts",
+        "tools/MCPTool/MCPTool.ts",
+        "tools/MCPTool/prompt.ts",
+        "tools/MCPTool/UI.tsx"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "McpAuthTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/McpAuthTool/McpAuthTool.ts"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "NotebookEditTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/NotebookEditTool/constants.ts",
+        "tools/NotebookEditTool/NotebookEditTool.ts",
+        "tools/NotebookEditTool/prompt.ts",
+        "tools/NotebookEditTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "PowerShellTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/PowerShellTool/clmTypes.ts",
+        "tools/PowerShellTool/commandSemantics.ts",
+        "tools/PowerShellTool/commonParameters.ts",
+        "tools/PowerShellTool/destructiveCommandWarning.ts",
+        "tools/PowerShellTool/gitSafety.ts",
+        "tools/PowerShellTool/modeValidation.ts",
+        "tools/PowerShellTool/pathValidation.ts",
+        "tools/PowerShellTool/powershellPermissions.ts",
+        "tools/PowerShellTool/powershellSecurity.ts",
+        "tools/PowerShellTool/PowerShellTool.tsx",
+        "tools/PowerShellTool/prompt.ts",
+        "tools/PowerShellTool/readOnlyValidation.ts",
+        "tools/PowerShellTool/toolName.ts",
+        "tools/PowerShellTool/UI.tsx"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "REPLTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/REPLTool/constants.ts",
+        "tools/REPLTool/primitiveTools.ts"
+      ],
+      "feature_flags": [
+        "env:USER_TYPE"
+      ]
+    },
+    {
+      "name": "ReadMcpResourceTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/ReadMcpResourceTool/prompt.ts",
+        "tools/ReadMcpResourceTool/ReadMcpResourceTool.ts",
+        "tools/ReadMcpResourceTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "RemoteTriggerTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/RemoteTriggerTool/prompt.ts",
+        "tools/RemoteTriggerTool/RemoteTriggerTool.ts",
+        "tools/RemoteTriggerTool/UI.tsx"
+      ],
+      "feature_flags": [
+        "AGENT_TRIGGERS_REMOTE"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "ScheduleCronTool",
+      "category": "family",
+      "source_files": [
+        "tools/ScheduleCronTool/CronCreateTool.ts",
+        "tools/ScheduleCronTool/CronDeleteTool.ts",
+        "tools/ScheduleCronTool/CronListTool.ts",
+        "tools/ScheduleCronTool/prompt.ts",
+        "tools/ScheduleCronTool/UI.tsx"
+      ],
+      "feature_flags": [
+        "PROACTIVE"
+      ],
+      "notes": "family of 3 leaf tools"
+    },
+    {
+      "name": "CronCreateTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/ScheduleCronTool/CronCreateTool.ts"
+      ],
+      "feature_flags": [
+        "PROACTIVE"
+      ],
+      "notes": "leaf of ScheduleCronTool"
+    },
+    {
+      "name": "CronDeleteTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/ScheduleCronTool/CronDeleteTool.ts"
+      ],
+      "feature_flags": [
+        "PROACTIVE"
+      ],
+      "notes": "leaf of ScheduleCronTool"
+    },
+    {
+      "name": "CronListTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/ScheduleCronTool/CronListTool.ts"
+      ],
+      "feature_flags": [
+        "PROACTIVE"
+      ],
+      "notes": "leaf of ScheduleCronTool"
+    },
+    {
+      "name": "SendMessageTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/SendMessageTool/constants.ts",
+        "tools/SendMessageTool/prompt.ts",
+        "tools/SendMessageTool/SendMessageTool.ts",
+        "tools/SendMessageTool/UI.tsx"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "SkillTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/SkillTool/constants.ts",
+        "tools/SkillTool/prompt.ts",
+        "tools/SkillTool/SkillTool.ts",
+        "tools/SkillTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "SleepTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/SleepTool/prompt.ts"
+      ],
+      "feature_flags": [
+        "PROACTIVE",
+        "env:USER_TYPE"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "SyntheticOutputTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/SyntheticOutputTool/SyntheticOutputTool.ts"
+      ]
+    },
+    {
+      "name": "TaskCreateTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/TaskCreateTool/constants.ts",
+        "tools/TaskCreateTool/prompt.ts",
+        "tools/TaskCreateTool/TaskCreateTool.ts"
+      ]
+    },
+    {
+      "name": "TaskGetTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/TaskGetTool/constants.ts",
+        "tools/TaskGetTool/prompt.ts",
+        "tools/TaskGetTool/TaskGetTool.ts"
+      ]
+    },
+    {
+      "name": "TaskListTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/TaskListTool/constants.ts",
+        "tools/TaskListTool/prompt.ts",
+        "tools/TaskListTool/TaskListTool.ts"
+      ]
+    },
+    {
+      "name": "TaskOutputTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/TaskOutputTool/constants.ts",
+        "tools/TaskOutputTool/TaskOutputTool.tsx"
+      ]
+    },
+    {
+      "name": "TaskStopTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/TaskStopTool/prompt.ts",
+        "tools/TaskStopTool/TaskStopTool.ts",
+        "tools/TaskStopTool/UI.tsx"
+      ]
+    },
+    {
+      "name": "TaskUpdateTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/TaskUpdateTool/constants.ts",
+        "tools/TaskUpdateTool/prompt.ts",
+        "tools/TaskUpdateTool/TaskUpdateTool.ts"
+      ]
+    },
+    {
+      "name": "TeamCreateTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/TeamCreateTool/constants.ts",
+        "tools/TeamCreateTool/prompt.ts",
+        "tools/TeamCreateTool/TeamCreateTool.ts",
+        "tools/TeamCreateTool/UI.tsx"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "TeamDeleteTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools/TeamDeleteTool/constants.ts",
+        "tools/TeamDeleteTool/prompt.ts",
+        "tools/TeamDeleteTool/TeamDeleteTool.ts",
+        "tools/TeamDeleteTool/UI.tsx"
+      ],
+      "notes": "not directly imported by tools.ts (likely indirect)"
+    },
+    {
+      "name": "TodoWriteTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/TodoWriteTool/constants.ts",
+        "tools/TodoWriteTool/prompt.ts",
+        "tools/TodoWriteTool/TodoWriteTool.ts"
+      ]
+    },
+    {
+      "name": "ToolSearchTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/ToolSearchTool/constants.ts",
+        "tools/ToolSearchTool/prompt.ts",
+        "tools/ToolSearchTool/ToolSearchTool.ts"
+      ]
+    },
+    {
+      "name": "WebFetchTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/WebFetchTool/preapproved.ts",
+        "tools/WebFetchTool/prompt.ts",
+        "tools/WebFetchTool/UI.tsx",
+        "tools/WebFetchTool/utils.ts",
+        "tools/WebFetchTool/WebFetchTool.ts"
+      ]
+    },
+    {
+      "name": "WebSearchTool",
+      "category": "runtime-leaf",
+      "source_files": [
+        "tools/WebSearchTool/prompt.ts",
+        "tools/WebSearchTool/UI.tsx",
+        "tools/WebSearchTool/WebSearchTool.ts"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# Orphan allowlist for `gen-module-matrix.ts --check-orphans` (V2-REVISION-SPEC §7.6).
+#
+# One top-level CLI source entry per line. Lines starting with `#` are
+# comments. Each allowlisted entry MUST carry a comment explaining why no
+# v2 chapter claims it.
+#
+# Path is the entry name relative to the CLI source root, e.g. `cli` (dir)
+# or `setup.ts` (file).
+
+# `cli/` — runtime CLI plumbing (transports, REPL launchers). C23 covers
+# `cli/transports/` explicitly; the rest of `cli/` is mechanical entry
+# wiring already accounted for under C02 (启动链路).
+cli
+
+# `plugins/` — plugin registry & bundled plugin payloads. C21 covers the
+# plugin extension surface; the bundled payload tree is a fixture, not a
+# concept chapter.
+plugins
+
+# `types/` — shared TypeScript type aliases (no runtime concept).
+types

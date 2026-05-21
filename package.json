@@ -1,0 +1,25 @@
+{
+  "name": "claude-code-source-study",
+  "private": true,
+  "version": "0.0.0",
+  "description": "V2 修订基础设施：附录 A–F 生成器 + 2 项 CI lint。spec: docs/V2-REVISION-SPEC.md",
+  "type": "module",
+  "scripts": {
+    "gen:appendix": "pnpm gen:A && pnpm gen:B && pnpm gen:C && pnpm gen:D && pnpm gen:E && pnpm gen:F",
+    "gen:A": "tsx scripts/gen-tool-table.ts",
+    "gen:B": "tsx scripts/gen-commands-table.ts",
+    "gen:C": "tsx scripts/gen-hooks-table.ts",
+    "gen:D": "tsx scripts/gen-agents-table.ts",
+    "gen:E": "tsx scripts/gen-tasktypes-table.ts",
+    "gen:F": "tsx scripts/gen-module-matrix.ts",
+    "check:source-commits": "tsx scripts/check-source-commits.ts",
+    "check:fuzzy-quantifiers": "tsx scripts/lint-no-fuzzy-quantifiers.ts",
+    "check:orphans": "tsx scripts/gen-module-matrix.ts --check-orphans",
+    "check:docs": "pnpm check:source-commits && pnpm check:fuzzy-quantifiers && pnpm check:orphans"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "@types/node": "^20.11.0"
+  }
+}

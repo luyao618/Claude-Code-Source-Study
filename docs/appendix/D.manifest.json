@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-05-21T15:49:39.145Z",
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "appendix": "D",
+  "items": [
+    {
+      "name": "CLAUDE_CODE_GUIDE_AGENT_TYPE",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/claudeCodeGuideAgent.ts:100"
+      ],
+      "notes": "model=haiku"
+    },
+    {
+      "name": "Explore",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/exploreAgent.ts:66"
+      ],
+      "notes": "model=process.env.USER_TYPE === 'ant' ? 'inherit' : 'haiku'"
+    },
+    {
+      "name": "general-purpose",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/generalPurposeAgent.ts:27"
+      ],
+      "notes": "tools=['*']"
+    },
+    {
+      "name": "Plan",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/planAgent.ts:75"
+      ],
+      "notes": "model=inherit"
+    },
+    {
+      "name": "statusline-setup",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/statuslineSetup.ts:136"
+      ],
+      "notes": "model=sonnet; tools=['Read', 'Edit']"
+    },
+    {
+      "name": "verification",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/verificationAgent.ts:136"
+      ],
+      "notes": "model=inherit"
+    }
+  ]
+}

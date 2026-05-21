@@ -1,0 +1,866 @@
+{
+  "generated_at": "2026-05-21T15:49:31.196Z",
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "appendix": "B",
+  "items": [
+    {
+      "name": "bridge",
+      "category": "top-level-dir",
+      "source_files": [
+        "commands/bridge/bridge.tsx",
+        "commands/bridge/index.ts"
+      ]
+    },
+    {
+      "name": "remote-setup",
+      "category": "top-level-dir",
+      "source_files": [
+        "commands/remote-setup/api.ts",
+        "commands/remote-setup/index.ts",
+        "commands/remote-setup/remote-setup.tsx"
+      ]
+    },
+    {
+      "name": "review",
+      "category": "top-level-dir",
+      "source_files": [
+        "commands/review/UltrareviewOverageDialog.tsx",
+        "commands/review/reviewRemote.ts",
+        "commands/review/ultrareviewCommand.tsx",
+        "commands/review/ultrareviewEnabled.ts"
+      ]
+    },
+    {
+      "name": "voice",
+      "category": "top-level-dir",
+      "source_files": [
+        "commands/voice/index.ts",
+        "commands/voice/voice.ts"
+      ]
+    },
+    {
+      "name": "add-dir",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/add-dir/add-dir.tsx",
+        "commands/add-dir/index.ts",
+        "commands/add-dir/validation.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "agents",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/agents/agents.tsx",
+        "commands/agents/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "ant-trace",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "autofix-pr",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "backfill-sessions",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "branch",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/branch/branch.ts",
+        "commands/branch/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "break-cache",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "btw",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/btw/btw.tsx",
+        "commands/btw/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "bughunter",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "chrome",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/chrome/chrome.tsx",
+        "commands/chrome/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "clear",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/clear/caches.ts",
+        "commands/clear/clear.ts",
+        "commands/clear/conversation.ts",
+        "commands/clear/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "color",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/color/color.ts",
+        "commands/color/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "compact",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/compact/compact.ts",
+        "commands/compact/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "config",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/config/config.tsx",
+        "commands/config/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "context",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/context/context-noninteractive.ts",
+        "commands/context/context.tsx",
+        "commands/context/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "copy",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/copy/copy.tsx",
+        "commands/copy/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "cost",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/cost/cost.ts",
+        "commands/cost/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "ctx_viz",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "debug-tool-call",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "desktop",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/desktop/desktop.tsx",
+        "commands/desktop/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "diff",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/diff/diff.tsx",
+        "commands/diff/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "doctor",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/doctor/doctor.tsx",
+        "commands/doctor/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "effort",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/effort/effort.tsx",
+        "commands/effort/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "env",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "exit",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/exit/exit.tsx",
+        "commands/exit/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "export",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/export/export.tsx",
+        "commands/export/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "extra-usage",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/extra-usage/extra-usage-core.ts",
+        "commands/extra-usage/extra-usage-noninteractive.ts",
+        "commands/extra-usage/extra-usage.tsx",
+        "commands/extra-usage/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "fast",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/fast/fast.tsx",
+        "commands/fast/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "feedback",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/feedback/feedback.tsx",
+        "commands/feedback/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "files",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/files/files.ts",
+        "commands/files/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "good-claude",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "heapdump",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/heapdump/heapdump.ts",
+        "commands/heapdump/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "help",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/help/help.tsx",
+        "commands/help/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "hooks",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/hooks/hooks.tsx",
+        "commands/hooks/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "ide",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/ide/ide.tsx",
+        "commands/ide/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "install-github-app",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/install-github-app/ApiKeyStep.tsx",
+        "commands/install-github-app/CheckExistingSecretStep.tsx",
+        "commands/install-github-app/CheckGitHubStep.tsx",
+        "commands/install-github-app/ChooseRepoStep.tsx",
+        "commands/install-github-app/CreatingStep.tsx",
+        "commands/install-github-app/ErrorStep.tsx",
+        "commands/install-github-app/ExistingWorkflowStep.tsx",
+        "commands/install-github-app/InstallAppStep.tsx",
+        "commands/install-github-app/OAuthFlowStep.tsx",
+        "commands/install-github-app/SuccessStep.tsx",
+        "commands/install-github-app/WarningsStep.tsx",
+        "commands/install-github-app/index.ts",
+        "commands/install-github-app/install-github-app.tsx",
+        "commands/install-github-app/setupGitHubActions.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "install-slack-app",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/install-slack-app/index.ts",
+        "commands/install-slack-app/install-slack-app.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "issue",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "keybindings",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/keybindings/index.ts",
+        "commands/keybindings/keybindings.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "login",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/login/index.ts",
+        "commands/login/login.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "logout",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/logout/index.ts",
+        "commands/logout/logout.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "mcp",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/mcp/addCommand.ts",
+        "commands/mcp/index.ts",
+        "commands/mcp/mcp.tsx",
+        "commands/mcp/xaaIdpCommand.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "memory",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/memory/index.ts",
+        "commands/memory/memory.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "mobile",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/mobile/index.ts",
+        "commands/mobile/mobile.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "mock-limits",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "model",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/model/index.ts",
+        "commands/model/model.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "oauth-refresh",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "onboarding",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "output-style",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/output-style/index.ts",
+        "commands/output-style/output-style.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "passes",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/passes/index.ts",
+        "commands/passes/passes.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "perf-issue",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "permissions",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/permissions/index.ts",
+        "commands/permissions/permissions.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "plan",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/plan/index.ts",
+        "commands/plan/plan.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "plugin",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/plugin/AddMarketplace.tsx",
+        "commands/plugin/BrowseMarketplace.tsx",
+        "commands/plugin/DiscoverPlugins.tsx",
+        "commands/plugin/ManageMarketplaces.tsx",
+        "commands/plugin/ManagePlugins.tsx",
+        "commands/plugin/PluginErrors.tsx",
+        "commands/plugin/PluginOptionsDialog.tsx",
+        "commands/plugin/PluginOptionsFlow.tsx",
+        "commands/plugin/PluginSettings.tsx",
+        "commands/plugin/PluginTrustWarning.tsx",
+        "commands/plugin/UnifiedInstalledCell.tsx",
+        "commands/plugin/ValidatePlugin.tsx",
+        "commands/plugin/index.tsx",
+        "commands/plugin/parseArgs.ts",
+        "commands/plugin/plugin.tsx",
+        "commands/plugin/pluginDetailsHelpers.tsx",
+        "commands/plugin/usePagination.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "pr_comments",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/pr_comments/index.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "privacy-settings",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/privacy-settings/index.ts",
+        "commands/privacy-settings/privacy-settings.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "rate-limit-options",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/rate-limit-options/index.ts",
+        "commands/rate-limit-options/rate-limit-options.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "release-notes",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/release-notes/index.ts",
+        "commands/release-notes/release-notes.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "reload-plugins",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/reload-plugins/index.ts",
+        "commands/reload-plugins/reload-plugins.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "remote-env",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/remote-env/index.ts",
+        "commands/remote-env/remote-env.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "rename",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/rename/generateSessionName.ts",
+        "commands/rename/index.ts",
+        "commands/rename/rename.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "reset-limits",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "resume",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/resume/index.ts",
+        "commands/resume/resume.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "rewind",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/rewind/index.ts",
+        "commands/rewind/rewind.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "sandbox-toggle",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/sandbox-toggle/index.ts",
+        "commands/sandbox-toggle/sandbox-toggle.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "session",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/session/index.ts",
+        "commands/session/session.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "share",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "skills",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/skills/index.ts",
+        "commands/skills/skills.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "stats",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/stats/index.ts",
+        "commands/stats/stats.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "status",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/status/index.ts",
+        "commands/status/status.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "stickers",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/stickers/index.ts",
+        "commands/stickers/stickers.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "summary",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "tag",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/tag/index.ts",
+        "commands/tag/tag.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "tasks",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/tasks/index.ts",
+        "commands/tasks/tasks.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "teleport",
+      "category": "runtime-cmd",
+      "source_files": [],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "terminalSetup",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/terminalSetup/index.ts",
+        "commands/terminalSetup/terminalSetup.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "theme",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/theme/index.ts",
+        "commands/theme/theme.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "thinkback",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/thinkback/index.ts",
+        "commands/thinkback/thinkback.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "thinkback-play",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/thinkback-play/index.ts",
+        "commands/thinkback-play/thinkback-play.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "upgrade",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/upgrade/index.ts",
+        "commands/upgrade/upgrade.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "usage",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/usage/index.ts",
+        "commands/usage/usage.tsx"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "vim",
+      "category": "runtime-cmd",
+      "source_files": [
+        "commands/vim/index.ts",
+        "commands/vim/vim.ts"
+      ],
+      "notes": "imported by commands.ts"
+    },
+    {
+      "name": "advisor",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/advisor.ts"
+      ]
+    },
+    {
+      "name": "bridge-kick",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/bridge-kick.ts"
+      ]
+    },
+    {
+      "name": "brief",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/brief.ts"
+      ]
+    },
+    {
+      "name": "commit",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/commit.ts"
+      ]
+    },
+    {
+      "name": "commit-push-pr",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/commit-push-pr.ts"
+      ]
+    },
+    {
+      "name": "createMovedToPluginCommand",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/createMovedToPluginCommand.ts"
+      ]
+    },
+    {
+      "name": "init",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/init.ts"
+      ]
+    },
+    {
+      "name": "init-verifiers",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/init-verifiers.ts"
+      ]
+    },
+    {
+      "name": "insights",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/insights.ts"
+      ]
+    },
+    {
+      "name": "install",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/install.tsx"
+      ]
+    },
+    {
+      "name": "review",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/review.ts"
+      ]
+    },
+    {
+      "name": "security-review",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/security-review.ts"
+      ]
+    },
+    {
+      "name": "statusline",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/statusline.tsx"
+      ]
+    },
+    {
+      "name": "ultraplan",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/ultraplan.tsx"
+      ]
+    },
+    {
+      "name": "version",
+      "category": "top-level-file",
+      "source_files": [
+        "commands/version.ts"
+      ]
+    }
+  ]
+}

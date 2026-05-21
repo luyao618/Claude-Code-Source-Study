@@ -1,0 +1,57 @@
+name: docs-ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  docs-ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install
+        run: pnpm install --frozen-lockfile=false
+
+      # `check:source-commits` and `check:fuzzy-quantifiers` only read files
+      # already in this repo, so they always run on PR.
+      - name: check source-commit alignment (§0.3)
+        run: pnpm check:source-commits
+
+      - name: lint fuzzy quantifiers (§0.4)
+        run: pnpm check:fuzzy-quantifiers
+
+      # `gen:appendix` + `check:orphans` need the CLI source tree. We expose
+      # a `CLI_SOURCE` env var via repo secret; if absent (e.g. fork PRs),
+      # those steps are skipped with a warning so external contributors are
+      # not blocked. Internal PRs that touch chapter content will run the
+      # full sweep on the maintainer push to `main`.
+      - name: regenerate appendix manifests (§7.1) and check drift
+        if: ${{ env.CLI_SOURCE != '' }}
+        env:
+          CLI_SOURCE: ${{ secrets.CLI_SOURCE_PATH }}
+        run: |
+          pnpm gen:appendix --diff-summary
+          # Working tree must be clean — drift means the doc PR forgot to
+          # rerun `pnpm gen:appendix`.
+          git diff --exit-code docs/appendix
+
+      - name: orphan check (§7.6)
+        if: ${{ env.CLI_SOURCE != '' }}
+        env:
+          CLI_SOURCE: ${{ secrets.CLI_SOURCE_PATH }}
+        run: pnpm check:orphans
+
+      - name: skip-source warning
+        if: ${{ env.CLI_SOURCE == '' }}
+        run: |
+          echo "::warning ::CLI_SOURCE not configured; skipped gen:appendix + check:orphans. A maintainer push will exercise the full sweep."

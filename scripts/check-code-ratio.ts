@@ -10,17 +10,25 @@
  *
  * **frontmatter presence enforcement（OC-R 反馈修复）**：仅靠 frontmatter
  * 判定会留一个绕过口子——writer 新建一篇文件、忘写（或故意不写）
- * `新增章节: yes`，本闸就 skip 放行。为闭环，本脚本维护 v1 已发布章节的
- * 已知文件清单 `V1_DOC_FILES`；任何 **不在 v1 清单内** 的章节候选文件都被
- * 视为"规划中的新章节路径"（含 §9.3 列出的 8 篇 C04 / C13 / C17 / C24 /
- * C25 / C28 / C29 / C30，以及未来可能新增的章节），若 frontmatter 缺
- * `新增章节: yes` → **fail**（不再 skip）。在 v1 清单内的文件保留原行为
- * （无 frontmatter 时 skip，因为 v1 章节本就不适用 C-3）。
+ * `新增章节: yes`，本闸就 skip 放行。为闭环，本脚本基于 V2-REVISION-SPEC
+ * §5 章节树 / §9.3 frontmatter 强制条款维护一个 **显式新增章节集合**
+ * `NEW_CHAPTER_NN`（即 v2 中 v1 完全没有的 8 篇：C04 / C13 / C17 / C24 /
+ * C25 / C28 / C29 / C30，对应 docs/NN-*.md 中 NN ∈ {04,13,17,24,25,28,29,30}）。
+ * 文件命名按 §9.3 规定为 `NN-标题.md`，CI 仅以 NN 前缀 + frontmatter 为判据：
+ *   - 若文件 NN 属于 NEW_CHAPTER_NN：必须声明 `新增章节: yes`，否则 fail；
+ *     声明后再走 25% 代码占比检查。
+ *   - 否则（v1 保留 / v1 迭代重写 / v2 拆分合并 / v2 改名后的非新增章节）：
+ *     C-3 不适用，skip。
  *
  * **判定范围（OC-R PR #17 反馈收窄）**：候选文件限制为顶层章节文件
  * `docs/NN-标题.md`（两位数字前缀），由 `CHAPTER_FILE_RE` 控制。
  * `docs/appendix/{A..F}.md`（自动生成的附录）、`docs/V2-REVISION-SPEC.md`
  * （spec 本体）以及任何子目录散页都不进入新章判定，避免误判为"缺标记"。
+ *
+ * **OC-R PR #17 二次反馈修复**：早先实现把"不在 V1_DOC_FILES 内"等价为
+ * "新增章节"，会误伤 v2 改名后的非新增章节（例如 v1-04 改名为
+ * `docs/06-System-Prompt-与-Output-Style-注入.md` 对应 C06，仍是非新增）。
+ * 现改为基于 §5/§9.3 维护的 explicit `NEW_CHAPTER_NN` 集合分类。
  *
  * 仅统计源码 fenced block：`ts / tsx / js / jsx / bash / sh / typescript /
  * javascript`。`mermaid / json / yaml / md / text` 等图示与配置不计入"代码"。
@@ -54,11 +62,41 @@ function frontmatterIsNewChapter(text: string): boolean {
 }
 
 /**
- * v1 已发布章节的文件清单。任何 **不在此清单内** 的 `docs/*.md` 候选文件都
- * 被视为"规划中的新章节路径"，必须在 frontmatter 中声明 `新增章节: yes`，
- * 否则 C-3 闸 fail（见文件头注释）。
+ * v2 新增章节的 NN 前缀集合（与 V2-REVISION-SPEC.md §5 章节树 / §9.3
+ * frontmatter 强制条款一致）。仅这 8 篇 v1 完全没有的章节强制要求
+ * frontmatter 中显式声明 `新增章节: yes`；CI 据此识别"新章"并应用 25%
+ * 代码占比闸。
  *
- * 与 V2-REVISION-SPEC.md §6.1 正向矩阵的 v1 25 篇 + 目录页对齐。
+ * 映射来源（V2-REVISION-SPEC.md §5）：
+ *   C04 → docs/04-*.md   配置迁移即代码
+ *   C13 → docs/13-*.md   通信、调度、问询与合成工具
+ *   C17 → docs/17-*.md   Coordinator、Cron 与定时调度
+ *   C24 → docs/24-*.md   Bridge IPC 与远程会话
+ *   C25 → docs/25-*.md   DirectConnect 与上游代理
+ *   C28 → docs/28-*.md   Keybindings、Vim 模式与 Voice 输入
+ *   C29 → docs/29-*.md   Buddy 人格
+ *   C30 → docs/30-*.md   Doctor 屏与 Output Style 体验
+ *
+ * 注意：v1 的 04/13/17/24 等同 NN 前缀文件在 v2 中已让位给新章
+ *（v1-04 System Prompt → v2 C06；v1-13 内置 Agent → v2 C15 等）。当前 v1
+ * 落地文件名（`V1_FILE_NAMES`，下方）与新 NN 前缀不存在冲突，未来若有
+ * 真正的同前缀冲突需在 spec 中显式裁决。
+ */
+const NEW_CHAPTER_NN = new Set<string>([
+  "04",
+  "13",
+  "17",
+  "24",
+  "25",
+  "28",
+  "29",
+  "30",
+]);
+
+/**
+ * v1 已发布 25 篇 + 目录页文件清单（与 §6.1 正向矩阵对齐），仅用于诊断信息
+ * （让 skip 日志能区分"v1 保留章节"与"v2 改名后的非新增章节"）。分类不再
+ * 依赖此集合。
  */
 const V1_DOC_FILES = new Set<string>([
   "docs/00-目录与阅读指引.md",
@@ -125,7 +163,15 @@ function codeRatio(
  * 的 `docs/appendix/A..F.md` 误判为缺 `新增章节: yes` 标记。现收窄到
  * 「顶层 `docs/NN-XX.md` 章节文件」，与 V2-REVISION-SPEC.md §9.3 一致。
  */
-const CHAPTER_FILE_RE = /^docs\/\d{2}-[^/]+\.md$/;
+const CHAPTER_FILE_RE = /^docs\/(\d{2})-[^/]+\.md$/;
+
+/**
+ * 提取 `docs/NN-标题.md` 的 NN 前缀，用于查 NEW_CHAPTER_NN。
+ */
+function chapterNN(file: string): string | null {
+  const m = file.match(CHAPTER_FILE_RE);
+  return m ? m[1] : null;
+}
 
 const candidates = (explicitFiles ?? getChangedFiles(base)).filter(
   (f) => CHAPTER_FILE_RE.test(f),
@@ -144,15 +190,24 @@ for (const file of candidates) {
   } catch {
     continue;
   }
-  if (!frontmatterIsNewChapter(txt)) {
-    if (!V1_DOC_FILES.has(file)) {
-      console.error(
-        `[C-3] FAIL ${file}: 未在 v1 已发布清单内（视为规划中的新章节路径），但 frontmatter 缺少 \`新增章节: yes\`。新章须显式声明（见 V2-REVISION-SPEC.md §9.3）。`,
-      );
-      failed = true;
-      continue;
-    }
+  const nn = chapterNN(file);
+  // V1_DOC_FILES 优先：v1 已发布章节即便 NN 前缀落在 NEW_CHAPTER_NN 上
+  // （例如 v1 docs/04-System-Prompt-工程.md，v2 中 04 槽位将让位给新增的
+  // C04 配置迁移即代码），在 v1 文件被重命名/移除之前仍按 v1 处理。
+  if (V1_DOC_FILES.has(file)) {
     console.log(`[C-3] skip ${file}: v1 已发布章节，C-3 不适用`);
+    continue;
+  }
+  const isNewChapter = nn !== null && NEW_CHAPTER_NN.has(nn);
+  if (!isNewChapter) {
+    console.log(`[C-3] skip ${file}: 非新增 v2 章节，C-3 不适用`);
+    continue;
+  }
+  if (!frontmatterIsNewChapter(txt)) {
+    console.error(
+      `[C-3] FAIL ${file}: 属于 v2 新增章节（NN=${nn}，见 V2-REVISION-SPEC.md §5/§9.3），但 frontmatter 缺少 \`新增章节: yes\`。`,
+    );
+    failed = true;
     continue;
   }
   const { ratio, codeChars, total } = codeRatio(txt);

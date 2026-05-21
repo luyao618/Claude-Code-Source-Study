@@ -1,0 +1,37 @@
+name: V2 Style Guard
+
+on:
+  pull_request:
+    paths:
+      - "docs/**"
+      - "scripts/**"
+      - ".github/workflows/v2-style-guard.yml"
+
+jobs:
+  style-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Resolve base ref
+        run: |
+          echo "BASE_REF=origin/${{ github.event.pull_request.base.ref }}" >> "$GITHUB_ENV"
+          git fetch origin "${{ github.event.pull_request.base.ref }}" --depth=1
+
+      - name: C-1 diff 体积闸
+        run: bun scripts/check-prose-diff-ratio.ts --base "$BASE_REF"
+
+      - name: C-2 标题保留闸
+        run: bun scripts/check-heading-preservation.ts --base "$BASE_REF"
+
+      - name: C-3 代码块占比闸
+        run: bun scripts/check-code-ratio.ts --base "$BASE_REF"
+
+      - name: C-4 工程化小标题禁词
+        run: bun scripts/lint-section-titles.ts --base "$BASE_REF"

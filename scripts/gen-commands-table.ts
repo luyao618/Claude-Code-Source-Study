@@ -3,8 +3,14 @@
  *
  * Walks `commands/` under the CLI source root and partitions entries into:
  *   - `top-level-dir`  : a subdirectory holding a command implementation
- *   - `top-level-file` : a single `.ts` / `.tsx` file in `commands/`
+ *   - `top-level-file` : a single `.ts` / `.tsx` / `.js` / `.jsx` / `.mjs` /
+ *                        `.cjs` file in `commands/`
  *   - `runtime-cmd`    : commands explicitly enumerated by `commands.ts`
+ *
+ * Several runtime commands ship as `.js` (e.g. `commands/ant-trace/index.js`,
+ * `commands/autofix-pr/`, `backfill-sessions/`, `break-cache/`, `bughunter/`),
+ * so the file filter accepts the full JavaScript/TypeScript extension family
+ * to keep `source_files` populated per spec §7.3 `path:line-line` contract.
  *
  * Spec §C32 forbids hard-coding "X runtime commands" in the doc; the appendix
  * stays the single source of truth.
@@ -35,7 +41,11 @@ const commandsTs = path.join(args.source, 'commands.ts')
 const commandsTsText = readText(commandsTs)
 
 const dirs = listSubdirs(commandsRoot)
-const topLevelFiles = listFiles(commandsRoot, n => /\.(ts|tsx)$/.test(n) && !/\.test\./.test(n))
+// Source files: accept the full JS/TS extension family — runtime commands like
+// `commands/autofix-pr/index.js` ship as `.js`, so a `.ts|.tsx`-only filter
+// produces empty `source_files` (cf. OC-R blocker on B.manifest.json:61-106).
+const SOURCE_EXT_RE = /\.(ts|tsx|js|jsx|mjs|cjs)$/
+const topLevelFiles = listFiles(commandsRoot, n => SOURCE_EXT_RE.test(n) && !/\.test\./.test(n))
 
 // Collect symbol-style command identifiers referenced by commands.ts. The
 // CLI registers commands by importing files like `./commands/foo/foo.js` or
@@ -56,7 +66,7 @@ function fileWithLines(rel: string, abs: string): string {
 
 for (const dir of dirs) {
   const isReferenced = referenced.has(dir)
-  const subFiles = listFiles(path.join(commandsRoot, dir), n => /\.(ts|tsx)$/.test(n))
+  const subFiles = listFiles(path.join(commandsRoot, dir), n => SOURCE_EXT_RE.test(n) && !/\.test\./.test(n))
   items.push({
     name: dir,
     category: isReferenced ? 'runtime-cmd' : 'top-level-dir',
@@ -68,7 +78,7 @@ for (const dir of dirs) {
 }
 
 for (const file of topLevelFiles) {
-  const base = file.replace(/\.(ts|tsx)$/, '')
+  const base = file.replace(SOURCE_EXT_RE, '')
   // commands.ts itself is the registry, not a command; skip if it wandered in.
   if (file === 'commands.ts' || file === 'commands.tsx') continue
   items.push({

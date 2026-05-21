@@ -1,7 +1,7 @@
 # 附录 F · 模块 × 章节 双向矩阵
 
 > source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
-> generated_at: `2026-05-21T16:18:52.457Z`
+> generated_at: `2026-05-21T17:10:29.258Z`
 > 章节 35 项；CLI 一级条目 53 个；孤儿 0 个（allowlist=3）
 
 由 `scripts/gen-module-matrix.ts` 生成。Spec §7.6：`--check-orphans` 在 orphans 数 > 0 时 fail。allowlist 见 `scripts/orphan-allowlist.txt`。

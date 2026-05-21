@@ -1,7 +1,7 @@
 # 附录 A · 工具速查表
 
 > source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
-> generated_at: `2026-05-21T16:18:19.401Z`
+> generated_at: `2026-05-21T17:10:03.796Z`
 > 共 43 项（family=1 / runtime-leaf=19 / feature-gated=23）
 
 本表由 `scripts/gen-tool-table.ts` 扫描 CLI 源码 `tools/` 目录 + `tools.ts` 注册图（含 `getAllBaseTools()` 内联 gate）生成；正文 §C10 引用此表的 leaf 数即可，不要在正文中裸写工具数量。
@@ -27,7 +27,7 @@
 | `MCPTool` | feature-gated | — | tools/MCPTool/classifyForCollapse.ts:1-604, tools/MCPTool/MCPTool.ts:1-77, tools/MCPTool/prompt.ts:1-3 …(+1) |
 | `McpAuthTool` | feature-gated | — | tools/McpAuthTool/McpAuthTool.ts:1-215 |
 | `NotebookEditTool` | runtime-leaf | — | tools/NotebookEditTool/constants.ts:1-2, tools/NotebookEditTool/NotebookEditTool.ts:1-490, tools/NotebookEditTool/prompt.ts:1-3 …(+1) |
-| `PowerShellTool` | feature-gated | — | tools/PowerShellTool/clmTypes.ts:1-211, tools/PowerShellTool/commandSemantics.ts:1-142, tools/PowerShellTool/commonParameters.ts:1-30 …(+11) |
+| `PowerShellTool` | feature-gated | fn:isPowerShellToolEnabled, fn:getPowerShellTool | tools/PowerShellTool/clmTypes.ts:1-211, tools/PowerShellTool/commandSemantics.ts:1-142, tools/PowerShellTool/commonParameters.ts:1-30 …(+11) |
 | `REPLTool` | feature-gated | env:USER_TYPE | tools/REPLTool/constants.ts:1-46, tools/REPLTool/primitiveTools.ts:1-39 |
 | `ReadMcpResourceTool` | runtime-leaf | — | tools/ReadMcpResourceTool/prompt.ts:1-16, tools/ReadMcpResourceTool/ReadMcpResourceTool.ts:1-158, tools/ReadMcpResourceTool/UI.tsx:1-37 |
 | `RemoteTriggerTool` | feature-gated | AGENT_TRIGGERS_REMOTE | tools/RemoteTriggerTool/prompt.ts:1-15, tools/RemoteTriggerTool/RemoteTriggerTool.ts:1-161, tools/RemoteTriggerTool/UI.tsx:1-17 |
@@ -45,8 +45,8 @@
 | `TaskOutputTool` | runtime-leaf | — | tools/TaskOutputTool/constants.ts:1-1, tools/TaskOutputTool/TaskOutputTool.tsx:1-584 |
 | `TaskStopTool` | runtime-leaf | — | tools/TaskStopTool/prompt.ts:1-8, tools/TaskStopTool/TaskStopTool.ts:1-131, tools/TaskStopTool/UI.tsx:1-41 |
 | `TaskUpdateTool` | feature-gated | fn:isTodoV2Enabled | tools/TaskUpdateTool/constants.ts:1-1, tools/TaskUpdateTool/prompt.ts:1-77, tools/TaskUpdateTool/TaskUpdateTool.ts:1-406 |
-| `TeamCreateTool` | feature-gated | — | tools/TeamCreateTool/constants.ts:1-1, tools/TeamCreateTool/prompt.ts:1-113, tools/TeamCreateTool/TeamCreateTool.ts:1-240 …(+1) |
-| `TeamDeleteTool` | feature-gated | — | tools/TeamDeleteTool/constants.ts:1-1, tools/TeamDeleteTool/prompt.ts:1-16, tools/TeamDeleteTool/TeamDeleteTool.ts:1-139 …(+1) |
+| `TeamCreateTool` | feature-gated | fn:isAgentSwarmsEnabled | tools/TeamCreateTool/constants.ts:1-1, tools/TeamCreateTool/prompt.ts:1-113, tools/TeamCreateTool/TeamCreateTool.ts:1-240 …(+1) |
+| `TeamDeleteTool` | feature-gated | fn:isAgentSwarmsEnabled | tools/TeamDeleteTool/constants.ts:1-1, tools/TeamDeleteTool/prompt.ts:1-16, tools/TeamDeleteTool/TeamDeleteTool.ts:1-139 …(+1) |
 | `TodoWriteTool` | runtime-leaf | — | tools/TodoWriteTool/constants.ts:1-1, tools/TodoWriteTool/prompt.ts:1-184, tools/TodoWriteTool/TodoWriteTool.ts:1-115 |
 | `ToolSearchTool` | feature-gated | — | tools/ToolSearchTool/constants.ts:1-1, tools/ToolSearchTool/prompt.ts:1-121, tools/ToolSearchTool/ToolSearchTool.ts:1-471 |
 | `WebFetchTool` | runtime-leaf | — | tools/WebFetchTool/preapproved.ts:1-166, tools/WebFetchTool/prompt.ts:1-46, tools/WebFetchTool/UI.tsx:1-72 …(+2) |

@@ -122,14 +122,23 @@ const declRe = /^const\s+([A-Za-z0-9_]+)\s*(?::\s*[^=]+)?=\s*([\s\S]*?)(?=\n(?:c
   }
 }
 
-// `const getXxxTool = () => require('./tools/<dir>/...')` is a lazy unconditional
-// import (used only to break circular deps). The runtime gate, if any, lives
-// in the inline spread inside `getAllBaseTools()`.
-const lazyRe = /^const\s+(get[A-Za-z0-9_]+Tool)\s*=\s*\(\)\s*=>[\s\S]*?require\('\.\/tools\/([A-Za-z0-9_-]+)\//gm
+// `const getXxxTool = () => require('./tools/<dir>/...')` (single-expression
+// arrow) *and* `const getXxxTool = () => { … require('./tools/<dir>/...') … }`
+// (multi-statement getter, e.g. `getPowerShellTool` at tools.ts:150-155 which
+// guards `isPowerShellToolEnabled()` then requires `PowerShellTool.js`) are
+// both lazy unconditional imports — the runtime gate, if any, lives either in
+// the inline spread inside `getAllBaseTools()` or inside the getter body
+// itself. We capture both shapes so the dir mapping survives. The body's
+// `isXxxEnabled()` / `process.env.X` checks are picked up later in Phase 2.
+const lazyRe = /^const\s+(get[A-Za-z0-9_]+Tool)\s*=\s*\(\)\s*=>\s*(?:\{[\s\S]*?\n\}|[\s\S]*?require\('\.\/tools\/([A-Za-z0-9_-]+)\/[^']*'\))/gm
 {
   let m: RegExpExecArray | null
   while ((m = lazyRe.exec(toolsTsText)) !== null) {
-    recordSymbol(m[1], m[2], [])
+    // Re-scan the matched body for the first `tools/<dir>` require so both
+    // `() => require(...)` and `() => { ... require(...) }` shapes resolve.
+    const dirMatch = m[0].match(/require\('\.\/tools\/([A-Za-z0-9_-]+)\//)
+    const dir = dirMatch ? dirMatch[1] : (m[2] ?? null)
+    recordSymbol(m[1], dir, [])
   }
 }
 
@@ -220,9 +229,22 @@ for (const raw of splitEntries(fnBody)) {
     // its declaration-level gate; we surface it by name so phase 3 can join.
     const bareSym = gateExpr.trim().match(/^([A-Za-z_][A-Za-z0-9_]*)$/)
     if (bareSym && gates.length === 0) gates.push(`sym:${bareSym[1]}`)
+    // Accept both bare identifiers (`PowerShellTool`) and getter-call symbols
+    // (`getPowerShellTool()`). For getters we strip the trailing `()` so the
+    // resolved name matches what `recordSymbol` registered for the lazy decl
+    // (Phase 1 `lazyRe`). This is required to register the tool dir + gates
+    // for entries like `...(getPowerShellTool() ? [getPowerShellTool()] : [])`
+    // at tools.ts:242 — without it `PowerShellTool` would fall through to the
+    // "not directly imported" branch and lose `fn:isPowerShellToolEnabled`
+    // / `fn:getPowerShellTool` evidence (cf. OC-R blocker on
+    // A.manifest.json:241-260).
     const symbols = list
       .split(',')
       .map(s => s.trim())
+      .map(s => {
+        const callMatch = s.match(/^([A-Za-z_][A-Za-z0-9_]*)\(\)$/)
+        return callMatch ? callMatch[1] : s
+      })
       .filter(s => /^[A-Za-z_][A-Za-z0-9_]*$/.test(s))
     inlineEntries.push({ symbols, gates })
     continue

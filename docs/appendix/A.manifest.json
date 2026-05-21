@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-21T16:18:19.401Z",
+  "generated_at": "2026-05-21T17:10:03.796Z",
   "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
   "appendix": "A",
   "items": [
@@ -256,7 +256,10 @@
         "tools/PowerShellTool/toolName.ts:1-2",
         "tools/PowerShellTool/UI.tsx:1-131"
       ],
-      "notes": "not directly imported by tools.ts (likely indirect)"
+      "feature_flags": [
+        "fn:isPowerShellToolEnabled",
+        "fn:getPowerShellTool"
+      ]
     },
     {
       "name": "REPLTool",
@@ -451,7 +454,9 @@
         "tools/TeamCreateTool/TeamCreateTool.ts:1-240",
         "tools/TeamCreateTool/UI.tsx:1-6"
       ],
-      "notes": "not directly imported by tools.ts (likely indirect)"
+      "feature_flags": [
+        "fn:isAgentSwarmsEnabled"
+      ]
     },
     {
       "name": "TeamDeleteTool",
@@ -462,7 +467,9 @@
         "tools/TeamDeleteTool/TeamDeleteTool.ts:1-139",
         "tools/TeamDeleteTool/UI.tsx:1-20"
       ],
-      "notes": "not directly imported by tools.ts (likely indirect)"
+      "feature_flags": [
+        "fn:isAgentSwarmsEnabled"
+      ]
     },
     {
       "name": "TodoWriteTool",

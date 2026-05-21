@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-21T16:18:19.723Z",
+  "generated_at": "2026-05-21T17:10:03.113Z",
   "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
   "appendix": "B",
   "items": [
@@ -60,19 +60,25 @@
     {
       "name": "ant-trace",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/ant-trace/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
       "name": "autofix-pr",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/autofix-pr/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
       "name": "backfill-sessions",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/backfill-sessions/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -87,7 +93,9 @@
     {
       "name": "break-cache",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/break-cache/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -102,7 +110,9 @@
     {
       "name": "bughunter",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/bughunter/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -183,13 +193,17 @@
     {
       "name": "ctx_viz",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/ctx_viz/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
       "name": "debug-tool-call",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/debug-tool-call/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -231,7 +245,9 @@
     {
       "name": "env",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/env/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -293,7 +309,9 @@
     {
       "name": "good-claude",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/good-claude/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -365,7 +383,9 @@
     {
       "name": "issue",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/issue/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -427,7 +447,9 @@
     {
       "name": "mock-limits",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/mock-limits/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -442,13 +464,17 @@
     {
       "name": "oauth-refresh",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/oauth-refresh/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
       "name": "onboarding",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/onboarding/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -472,7 +498,9 @@
     {
       "name": "perf-issue",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/perf-issue/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -583,7 +611,9 @@
     {
       "name": "reset-limits",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/reset-limits/index.js:1-4"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -625,7 +655,9 @@
     {
       "name": "share",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/share/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -667,7 +699,9 @@
     {
       "name": "summary",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/summary/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {
@@ -691,7 +725,9 @@
     {
       "name": "teleport",
       "category": "runtime-cmd",
-      "source_files": [],
+      "source_files": [
+        "commands/teleport/index.js:1-1"
+      ],
       "notes": "imported by commands.ts"
     },
     {

@@ -36,7 +36,7 @@ const NEW_CHAPTER_PATTERNS: RegExp[] = [
 
 function getChangedFiles(base: string): string[] {
   try {
-    const out = execSync(`git diff --name-only ${base}...HEAD -- 'docs/*.md'`, {
+    const out = execSync(`git -c core.quotepath=false diff --name-only ${base}...HEAD -- 'docs/*.md'`, {
       encoding: "utf8",
     }).trim();
     return out ? out.split("\n") : [];

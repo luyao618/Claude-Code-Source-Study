@@ -20,7 +20,7 @@ const explicitFiles = filesIdx >= 0 ? args.slice(filesIdx + 1) : null;
 
 function getChangedFiles(base: string): string[] {
   try {
-    const out = execSync(`git diff --name-only ${base}...HEAD -- 'docs/*.md'`, {
+    const out = execSync(`git -c core.quotepath=false diff --name-only ${base}...HEAD -- 'docs/*.md'`, {
       encoding: "utf8",
     }).trim();
     return out ? out.split("\n") : [];
@@ -31,7 +31,7 @@ function getChangedFiles(base: string): string[] {
 
 function getBaseContent(base: string, file: string): string | null {
   try {
-    return execSync(`git show ${base}:${file}`, { encoding: "utf8" });
+    return execSync(`git -c core.quotepath=false show ${base}:"${file}"`, { encoding: "utf8" });
   } catch {
     return null;
   }

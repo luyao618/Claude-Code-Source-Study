@@ -8,6 +8,15 @@
  * §0.5.4 与 §9.3 模板（V2-REVISION-SPEC.md §9.3）现强制要求 8 篇新章在
  * frontmatter 中显式声明 `新增章节: yes`，CI 据此识别。
  *
+ * **frontmatter presence enforcement（OC-R 反馈修复）**：仅靠 frontmatter
+ * 判定会留一个绕过口子——writer 新建一篇文件、忘写（或故意不写）
+ * `新增章节: yes`，本闸就 skip 放行。为闭环，本脚本维护 v1 已发布章节的
+ * 已知文件清单 `V1_DOC_FILES`；任何 **不在 v1 清单内** 的 `docs/*.md` 候选
+ * 文件都被视为"规划中的新章节路径"（含 §9.3 列出的 8 篇 C04 / C13 / C17 /
+ * C24 / C25 / C28 / C29 / C30，以及未来可能新增的章节），若 frontmatter 缺
+ * `新增章节: yes` → **fail**（不再 skip）。在 v1 清单内的文件保留原行为
+ * （无 frontmatter 时 skip，因为 v1 章节本就不适用 C-3）。
+ *
  * 仅统计源码 fenced block：`ts / tsx / js / jsx / bash / sh / typescript /
  * javascript`。`mermaid / json / yaml / md / text` 等图示与配置不计入"代码"。
  *
@@ -38,6 +47,42 @@ function frontmatterIsNewChapter(text: string): boolean {
   if (!m) return false;
   return /新增章节:\s*yes/.test(m[1]);
 }
+
+/**
+ * v1 已发布章节的文件清单。任何 **不在此清单内** 的 `docs/*.md` 候选文件都
+ * 被视为"规划中的新章节路径"，必须在 frontmatter 中声明 `新增章节: yes`，
+ * 否则 C-3 闸 fail（见文件头注释）。
+ *
+ * 与 V2-REVISION-SPEC.md §6.1 正向矩阵的 v1 25 篇 + 目录页对齐。
+ */
+const V1_DOC_FILES = new Set<string>([
+  "docs/00-目录与阅读指引.md",
+  "docs/01-项目全景.md",
+  "docs/02-启动优化.md",
+  "docs/03-状态管理.md",
+  "docs/04-System-Prompt-工程.md",
+  "docs/05-对话循环.md",
+  "docs/06-上下文管理.md",
+  "docs/07-Prompt-Cache.md",
+  "docs/08-Thinking-与推理控制.md",
+  "docs/09-工具系统设计.md",
+  "docs/10-BashTool-深度剖析.md",
+  "docs/11-命令系统.md",
+  "docs/12-Agent-系统.md",
+  "docs/13-内置Agent设计模式.md",
+  "docs/14-任务系统.md",
+  "docs/15-MCP-协议实现.md",
+  "docs/16-权限系统.md",
+  "docs/17-Settings-系统.md",
+  "docs/18-Hooks系统.md",
+  "docs/19-Feature-Flag与编译期优化.md",
+  "docs/20-API调用与错误恢复.md",
+  "docs/21-Ink框架深度定制.md",
+  "docs/22-设计系统.md",
+  "docs/23-Memory系统.md",
+  "docs/24-Skill-Plugin开发实战.md",
+  "docs/25-架构模式总结.md",
+]);
 
 const SOURCE_LANGS = new Set([
   "ts",
@@ -83,7 +128,14 @@ for (const file of candidates) {
     continue;
   }
   if (!frontmatterIsNewChapter(txt)) {
-    console.log(`[C-3] skip ${file}: 未声明 frontmatter \`新增章节: yes\`，C-3 不适用（v2 新章须显式声明，见 V2-REVISION-SPEC.md §9.3）`);
+    if (!V1_DOC_FILES.has(file)) {
+      console.error(
+        `[C-3] FAIL ${file}: 未在 v1 已发布清单内（视为规划中的新章节路径），但 frontmatter 缺少 \`新增章节: yes\`。新章须显式声明（见 V2-REVISION-SPEC.md §9.3）。`,
+      );
+      failed = true;
+      continue;
+    }
+    console.log(`[C-3] skip ${file}: v1 已发布章节，C-3 不适用`);
     continue;
   }
   const { ratio, codeChars, total } = codeRatio(txt);

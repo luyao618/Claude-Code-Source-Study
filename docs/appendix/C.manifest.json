@@ -1,0 +1,254 @@
+{
+  "generated_at": "2026-05-21T20:04:54.962Z",
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "items": [
+    {
+      "name": "PreToolUse",
+      "category": "event",
+      "wire_type": "PreToolUse",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "PostToolUse",
+      "category": "event",
+      "wire_type": "PostToolUse",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "PostToolUseFailure",
+      "category": "event",
+      "wire_type": "PostToolUseFailure",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "Notification",
+      "category": "event",
+      "wire_type": "Notification",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "UserPromptSubmit",
+      "category": "event",
+      "wire_type": "UserPromptSubmit",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "SessionStart",
+      "category": "event",
+      "wire_type": "SessionStart",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "SessionEnd",
+      "category": "event",
+      "wire_type": "SessionEnd",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "Stop",
+      "category": "event",
+      "wire_type": "Stop",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "StopFailure",
+      "category": "event",
+      "wire_type": "StopFailure",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "SubagentStart",
+      "category": "event",
+      "wire_type": "SubagentStart",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "SubagentStop",
+      "category": "event",
+      "wire_type": "SubagentStop",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "PreCompact",
+      "category": "event",
+      "wire_type": "PreCompact",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "PostCompact",
+      "category": "event",
+      "wire_type": "PostCompact",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "PermissionRequest",
+      "category": "event",
+      "wire_type": "PermissionRequest",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "PermissionDenied",
+      "category": "event",
+      "wire_type": "PermissionDenied",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "Setup",
+      "category": "event",
+      "wire_type": "Setup",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "TeammateIdle",
+      "category": "event",
+      "wire_type": "TeammateIdle",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "TaskCreated",
+      "category": "event",
+      "wire_type": "TaskCreated",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "TaskCompleted",
+      "category": "event",
+      "wire_type": "TaskCompleted",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "Elicitation",
+      "category": "event",
+      "wire_type": "Elicitation",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "ElicitationResult",
+      "category": "event",
+      "wire_type": "ElicitationResult",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "ConfigChange",
+      "category": "event",
+      "wire_type": "ConfigChange",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "WorktreeCreate",
+      "category": "event",
+      "wire_type": "WorktreeCreate",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "WorktreeRemove",
+      "category": "event",
+      "wire_type": "WorktreeRemove",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "InstructionsLoaded",
+      "category": "event",
+      "wire_type": "InstructionsLoaded",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "CwdChanged",
+      "category": "event",
+      "wire_type": "CwdChanged",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "FileChanged",
+      "category": "event",
+      "wire_type": "FileChanged",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts"
+      ]
+    },
+    {
+      "name": "agent",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts"
+      ]
+    },
+    {
+      "name": "command",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts"
+      ]
+    },
+    {
+      "name": "http",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts"
+      ]
+    },
+    {
+      "name": "prompt",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts"
+      ]
+    }
+  ],
+  "counts": {
+    "events": 27,
+    "command_types": 4
+  }
+}

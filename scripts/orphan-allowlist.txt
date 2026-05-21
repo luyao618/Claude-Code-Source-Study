@@ -1,0 +1,16 @@
+# scripts/orphan-allowlist.txt
+# 一级源码目录在 V2-REVISION-SPEC.md §6.2 中未被任何 v2 章节覆盖，但属预期免覆盖。
+# 每行一项；# 之后为注释。每条新增必须配 PR 描述里的理由。
+
+# 进程内通用工具堆，跨章共用，不单独成章
+utils
+# 类型/接口聚合，被章节按需引用
+types
+# 启动期 process state，C02 一笔带过即可
+bootstrap
+# 顶层 IPC 主入口已在 C24/C33 串讲；moreright 是右侧栏装饰
+moreright
+# UI / 业务上下文 hook，分散在 C19/C20/C28 等章
+context
+# 扁平 UI 上下文文件
+# context.ts —— 由对应章节叙事覆盖；目录级别仍可视作章节内附属

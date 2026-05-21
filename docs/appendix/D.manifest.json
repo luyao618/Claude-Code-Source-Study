@@ -1,0 +1,50 @@
+{
+  "generated_at": "2026-05-21T20:04:54.990Z",
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "items": [
+    {
+      "name": "Explore",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/exploreAgent.ts"
+      ],
+      "notes": "coordinator_required=false"
+    },
+    {
+      "name": "general-purpose",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/generalPurposeAgent.ts"
+      ],
+      "notes": "tools=*; coordinator_required=false"
+    },
+    {
+      "name": "Plan",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/planAgent.ts"
+      ],
+      "notes": "model=inherit; coordinator_required=false"
+    },
+    {
+      "name": "statusline-setup",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/statuslineSetup.ts"
+      ],
+      "notes": "tools=Read|Edit; model=sonnet; color=orange; coordinator_required=false"
+    },
+    {
+      "name": "verification",
+      "category": "built-in",
+      "source_files": [
+        "tools/AgentTool/built-in/verificationAgent.ts"
+      ],
+      "feature_flags": [
+        "VERIFICATION_AGENT",
+        "tengu_hive_evidence"
+      ],
+      "notes": "model=inherit; color=red; coordinator_required=false"
+    }
+  ]
+}

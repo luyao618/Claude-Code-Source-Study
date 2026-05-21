@@ -35,3 +35,22 @@ jobs:
 
       - name: C-4 工程化小标题禁词
         run: bun scripts/lint-section-titles.ts --base "$BASE_REF"
+
+      - name: 附录生成（gen:appendix）
+        run: bun run gen:appendix
+
+      - name: 附录无漂移（git diff 干净）
+        run: |
+          if ! git diff --exit-code -- docs/appendix/; then
+            echo "::error::docs/appendix 与脚本输出不一致，请在本地运行 'bun run gen:appendix' 后提交。"
+            exit 1
+          fi
+
+      - name: check-source-commits（源码引用闸）
+        run: bun run check:source-commits
+
+      - name: lint-no-fuzzy-quantifiers（禁用模糊量词）
+        run: bun run check:no-fuzzy
+
+      - name: gen-module-matrix --check-orphans（孤儿模块闸）
+        run: bun run check:orphans

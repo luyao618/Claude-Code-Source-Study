@@ -1,0 +1,23 @@
+{
+  "name": "claude-code-source-study",
+  "private": true,
+  "version": "0.0.0",
+  "description": "深入 Claude Code 源码 · v2 修订 · CI 闸与附录生成",
+  "scripts": {
+    "gen:appendix:A": "bun scripts/gen-tool-table.ts",
+    "gen:appendix:B": "bun scripts/gen-commands-table.ts",
+    "gen:appendix:C": "bun scripts/gen-hooks-table.ts",
+    "gen:appendix:D": "bun scripts/gen-agents-table.ts",
+    "gen:appendix:E": "bun scripts/gen-tasktypes-table.ts",
+    "gen:appendix:F": "bun scripts/gen-module-matrix.ts",
+    "gen:appendix": "bun scripts/gen-tool-table.ts && bun scripts/gen-commands-table.ts && bun scripts/gen-hooks-table.ts && bun scripts/gen-agents-table.ts && bun scripts/gen-tasktypes-table.ts && bun scripts/gen-module-matrix.ts",
+    "check:source-commits": "bun scripts/check-source-commits.ts",
+    "check:no-fuzzy": "bun scripts/lint-no-fuzzy-quantifiers.ts",
+    "check:prose-diff": "bun scripts/check-prose-diff-ratio.ts",
+    "check:headings": "bun scripts/check-heading-preservation.ts",
+    "check:code-ratio": "bun scripts/check-code-ratio.ts",
+    "check:section-titles": "bun scripts/lint-section-titles.ts",
+    "check:orphans": "bun scripts/gen-module-matrix.ts --check-orphans",
+    "check:docs": "bun run check:source-commits && bun run check:no-fuzzy && bun run check:prose-diff && bun run check:headings && bun run check:code-ratio && bun run check:section-titles && bun run check:orphans"
+  }
+}

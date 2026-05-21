@@ -9,6 +9,10 @@ on:
 jobs:
   docs-ci:
     runs-on: ubuntu-latest
+    # Job-level env so step-level `if:` expressions can read CLI_SOURCE.
+    # Step-level env is *not* visible when the step's `if:` is evaluated.
+    env:
+      CLI_SOURCE: ${{ secrets.CLI_SOURCE_PATH }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -31,14 +35,13 @@ jobs:
         run: pnpm check:fuzzy-quantifiers
 
       # `gen:appendix` + `check:orphans` need the CLI source tree. We expose
-      # a `CLI_SOURCE` env var via repo secret; if absent (e.g. fork PRs),
-      # those steps are skipped with a warning so external contributors are
-      # not blocked. Internal PRs that touch chapter content will run the
-      # full sweep on the maintainer push to `main`.
+      # a `CLI_SOURCE` env var via repo secret (job-level env above); if
+      # absent (e.g. fork PRs), those steps are skipped with a warning so
+      # external contributors are not blocked. Internal PRs that touch
+      # chapter content will run the full sweep on the maintainer push
+      # to `main`.
       - name: regenerate appendix manifests (§7.1) and check drift
         if: ${{ env.CLI_SOURCE != '' }}
-        env:
-          CLI_SOURCE: ${{ secrets.CLI_SOURCE_PATH }}
         run: |
           pnpm gen:appendix --diff-summary
           # Working tree must be clean — drift means the doc PR forgot to
@@ -47,8 +50,6 @@ jobs:
 
       - name: orphan check (§7.6)
         if: ${{ env.CLI_SOURCE != '' }}
-        env:
-          CLI_SOURCE: ${{ secrets.CLI_SOURCE_PATH }}
         run: pnpm check:orphans
 
       - name: skip-source warning

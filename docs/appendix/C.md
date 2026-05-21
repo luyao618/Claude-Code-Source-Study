@@ -1,7 +1,7 @@
 # 附录 C · Hooks 事件表
 
 > source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
-> generated_at: `2026-05-21T15:49:35.363Z`
+> generated_at: `2026-05-21T16:18:51.605Z`
 > 共 27 个 HOOK_EVENTS + 4 种 hook command
 
 由 `scripts/gen-hooks-table.ts` 扫描 `entrypoints/sdk/coreTypes.ts` (HOOK_EVENTS 字面量) 与 `schemas/hooks.ts`（命令 kind 判别）。正文 §C20 不裸写"27"，引用本表。

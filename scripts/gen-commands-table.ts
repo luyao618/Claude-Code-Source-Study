@@ -12,6 +12,7 @@
 
 import * as path from 'node:path'
 import {
+  countLines,
   diffSummary,
   ensureSourceDir,
   listFiles,
@@ -48,13 +49,20 @@ while ((m = importPathRe.exec(commandsTsText)) !== null) {
 
 const items: ManifestItem[] = []
 
+function fileWithLines(rel: string, abs: string): string {
+  const lines = countLines(abs)
+  return `${rel}:1-${Math.max(lines, 1)}`
+}
+
 for (const dir of dirs) {
   const isReferenced = referenced.has(dir)
   const subFiles = listFiles(path.join(commandsRoot, dir), n => /\.(ts|tsx)$/.test(n))
   items.push({
     name: dir,
     category: isReferenced ? 'runtime-cmd' : 'top-level-dir',
-    source_files: subFiles.map(f => `commands/${dir}/${f}`),
+    source_files: subFiles.map(f =>
+      fileWithLines(`commands/${dir}/${f}`, path.join(commandsRoot, dir, f)),
+    ),
     notes: isReferenced ? 'imported by commands.ts' : undefined,
   })
 }
@@ -66,7 +74,7 @@ for (const file of topLevelFiles) {
   items.push({
     name: base,
     category: 'top-level-file',
-    source_files: [`commands/${file}`],
+    source_files: [fileWithLines(`commands/${file}`, path.join(commandsRoot, file))],
   })
 }
 

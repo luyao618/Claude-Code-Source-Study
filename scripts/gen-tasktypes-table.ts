@@ -10,8 +10,10 @@
  * source rather than asserting it.
  */
 
+import { existsSync } from 'node:fs'
 import * as path from 'node:path'
 import {
+  countLines,
   diffSummary,
   ensureSourceDir,
   loadManifest,
@@ -40,6 +42,11 @@ if (unionStart === -1) throw new Error('TaskType declaration not found in Task.t
 const unionEnd = taskTs.indexOf('\n\n', unionStart)
 if (unionEnd === -1) throw new Error('TaskType union has no terminating blank line')
 const unionBody = taskTs.slice(unionStart, unionEnd)
+// 1-indexed start/end line of the union literal in Task.ts (used as
+// `Task.ts:start-end` anchor for every wire type entry below).
+const unionStartLine = taskTs.slice(0, unionStart).split('\n').length
+const unionEndLine = taskTs.slice(0, unionEnd).split('\n').length
+const taskTsAnchor = `Task.ts:${unionStartLine}-${unionEndLine}`
 const wireTypes: string[] = []
 const lit = unionBody
 const litRe = /'([a-z_]+)'/g
@@ -80,14 +87,30 @@ function findInProcessSpecial(typeName: string): boolean {
   return typeName === 'in_process_teammate'
 }
 
+function resolveTaskFile(typeName: string): string {
+  // Map wire type → on-disk implementation file when the convention holds:
+  // `tasks/<Class>/<Class>.ts`. If the file is missing (e.g. wire-only
+  // entries with no separate Task class), anchor to the Task.ts union
+  // literal so the manifest still meets §7.3's `path:line-line` contract.
+  const cls = typeNameToClass(typeName)
+  if (cls) {
+    const rel = `tasks/${cls}/${cls}.ts`
+    const abs = path.join(args.source, rel)
+    if (existsSync(abs)) {
+      const lines = countLines(abs)
+      return `${rel}:1-${Math.max(lines, 1)}`
+    }
+  }
+  return taskTsAnchor
+}
+
 const items: ManifestItem[] = wireTypes.map(t => {
-  const cls = typeNameToClass(t) ?? '?'
-  const fileGuess = `tasks/${cls}/${cls}.ts`
+  const sourceAnchor = resolveTaskFile(t)
   if (findInProcessSpecial(t)) {
     return {
       name: t,
       category: 'in-process-special',
-      source_files: [fileGuess],
+      source_files: [sourceAnchor],
       wire_type: t,
       default_registered: false,
       notes: 'wire type only; runs in-process via teammate path, not via getAllTasks()',
@@ -98,7 +121,7 @@ const items: ManifestItem[] = wireTypes.map(t => {
     return {
       name: t,
       category: 'feature-gated',
-      source_files: [fileGuess],
+      source_files: [sourceAnchor],
       wire_type: t,
       default_registered: false,
       feature_flags: gate.flag ? [gate.flag] : undefined,
@@ -107,7 +130,7 @@ const items: ManifestItem[] = wireTypes.map(t => {
   return {
     name: t,
     category: 'default',
-    source_files: [fileGuess],
+    source_files: [sourceAnchor],
     wire_type: t,
     default_registered: true,
   }

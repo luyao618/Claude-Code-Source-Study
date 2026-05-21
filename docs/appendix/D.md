@@ -1,7 +1,7 @@
 # 附录 D · 内置 Agent 速查表
 
 > source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
-> generated_at: `2026-05-21T15:49:39.145Z`
+> generated_at: `2026-05-21T16:18:51.893Z`
 > 共 6 个源码定义的 built-in agent
 
 本表只列「源码定义」的 Agent；运行时是否启用受 feature flag / entrypoint / coordinator 影响——见 `gates` 列。正文 §C15 必须声明这一两段式（spec §7.5）。

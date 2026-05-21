@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-21T15:49:31.196Z",
+  "generated_at": "2026-05-21T16:18:19.723Z",
   "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
   "appendix": "B",
   "items": [
@@ -7,44 +7,44 @@
       "name": "bridge",
       "category": "top-level-dir",
       "source_files": [
-        "commands/bridge/bridge.tsx",
-        "commands/bridge/index.ts"
+        "commands/bridge/bridge.tsx:1-509",
+        "commands/bridge/index.ts:1-26"
       ]
     },
     {
       "name": "remote-setup",
       "category": "top-level-dir",
       "source_files": [
-        "commands/remote-setup/api.ts",
-        "commands/remote-setup/index.ts",
-        "commands/remote-setup/remote-setup.tsx"
+        "commands/remote-setup/api.ts:1-182",
+        "commands/remote-setup/index.ts:1-20",
+        "commands/remote-setup/remote-setup.tsx:1-187"
       ]
     },
     {
       "name": "review",
       "category": "top-level-dir",
       "source_files": [
-        "commands/review/UltrareviewOverageDialog.tsx",
-        "commands/review/reviewRemote.ts",
-        "commands/review/ultrareviewCommand.tsx",
-        "commands/review/ultrareviewEnabled.ts"
+        "commands/review/UltrareviewOverageDialog.tsx:1-96",
+        "commands/review/reviewRemote.ts:1-316",
+        "commands/review/ultrareviewCommand.tsx:1-58",
+        "commands/review/ultrareviewEnabled.ts:1-14"
       ]
     },
     {
       "name": "voice",
       "category": "top-level-dir",
       "source_files": [
-        "commands/voice/index.ts",
-        "commands/voice/voice.ts"
+        "commands/voice/index.ts:1-20",
+        "commands/voice/voice.ts:1-150"
       ]
     },
     {
       "name": "add-dir",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/add-dir/add-dir.tsx",
-        "commands/add-dir/index.ts",
-        "commands/add-dir/validation.ts"
+        "commands/add-dir/add-dir.tsx:1-126",
+        "commands/add-dir/index.ts:1-11",
+        "commands/add-dir/validation.ts:1-110"
       ],
       "notes": "imported by commands.ts"
     },
@@ -52,8 +52,8 @@
       "name": "agents",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/agents/agents.tsx",
-        "commands/agents/index.ts"
+        "commands/agents/agents.tsx:1-12",
+        "commands/agents/index.ts:1-10"
       ],
       "notes": "imported by commands.ts"
     },
@@ -79,8 +79,8 @@
       "name": "branch",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/branch/branch.ts",
-        "commands/branch/index.ts"
+        "commands/branch/branch.ts:1-296",
+        "commands/branch/index.ts:1-14"
       ],
       "notes": "imported by commands.ts"
     },
@@ -94,8 +94,8 @@
       "name": "btw",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/btw/btw.tsx",
-        "commands/btw/index.ts"
+        "commands/btw/btw.tsx:1-243",
+        "commands/btw/index.ts:1-13"
       ],
       "notes": "imported by commands.ts"
     },
@@ -109,8 +109,8 @@
       "name": "chrome",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/chrome/chrome.tsx",
-        "commands/chrome/index.ts"
+        "commands/chrome/chrome.tsx:1-285",
+        "commands/chrome/index.ts:1-13"
       ],
       "notes": "imported by commands.ts"
     },
@@ -118,10 +118,10 @@
       "name": "clear",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/clear/caches.ts",
-        "commands/clear/clear.ts",
-        "commands/clear/conversation.ts",
-        "commands/clear/index.ts"
+        "commands/clear/caches.ts:1-144",
+        "commands/clear/clear.ts:1-7",
+        "commands/clear/conversation.ts:1-251",
+        "commands/clear/index.ts:1-19"
       ],
       "notes": "imported by commands.ts"
     },
@@ -129,8 +129,8 @@
       "name": "color",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/color/color.ts",
-        "commands/color/index.ts"
+        "commands/color/color.ts:1-93",
+        "commands/color/index.ts:1-16"
       ],
       "notes": "imported by commands.ts"
     },
@@ -138,8 +138,8 @@
       "name": "compact",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/compact/compact.ts",
-        "commands/compact/index.ts"
+        "commands/compact/compact.ts:1-287",
+        "commands/compact/index.ts:1-15"
       ],
       "notes": "imported by commands.ts"
     },
@@ -147,8 +147,8 @@
       "name": "config",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/config/config.tsx",
-        "commands/config/index.ts"
+        "commands/config/config.tsx:1-7",
+        "commands/config/index.ts:1-11"
       ],
       "notes": "imported by commands.ts"
     },
@@ -156,9 +156,9 @@
       "name": "context",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/context/context-noninteractive.ts",
-        "commands/context/context.tsx",
-        "commands/context/index.ts"
+        "commands/context/context-noninteractive.ts:1-325",
+        "commands/context/context.tsx:1-64",
+        "commands/context/index.ts:1-24"
       ],
       "notes": "imported by commands.ts"
     },
@@ -166,8 +166,8 @@
       "name": "copy",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/copy/copy.tsx",
-        "commands/copy/index.ts"
+        "commands/copy/copy.tsx:1-371",
+        "commands/copy/index.ts:1-15"
       ],
       "notes": "imported by commands.ts"
     },
@@ -175,8 +175,8 @@
       "name": "cost",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/cost/cost.ts",
-        "commands/cost/index.ts"
+        "commands/cost/cost.ts:1-24",
+        "commands/cost/index.ts:1-23"
       ],
       "notes": "imported by commands.ts"
     },
@@ -196,8 +196,8 @@
       "name": "desktop",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/desktop/desktop.tsx",
-        "commands/desktop/index.ts"
+        "commands/desktop/desktop.tsx:1-9",
+        "commands/desktop/index.ts:1-26"
       ],
       "notes": "imported by commands.ts"
     },
@@ -205,8 +205,8 @@
       "name": "diff",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/diff/diff.tsx",
-        "commands/diff/index.ts"
+        "commands/diff/diff.tsx:1-9",
+        "commands/diff/index.ts:1-8"
       ],
       "notes": "imported by commands.ts"
     },
@@ -214,8 +214,8 @@
       "name": "doctor",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/doctor/doctor.tsx",
-        "commands/doctor/index.ts"
+        "commands/doctor/doctor.tsx:1-7",
+        "commands/doctor/index.ts:1-12"
       ],
       "notes": "imported by commands.ts"
     },
@@ -223,8 +223,8 @@
       "name": "effort",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/effort/effort.tsx",
-        "commands/effort/index.ts"
+        "commands/effort/effort.tsx:1-183",
+        "commands/effort/index.ts:1-13"
       ],
       "notes": "imported by commands.ts"
     },
@@ -238,8 +238,8 @@
       "name": "exit",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/exit/exit.tsx",
-        "commands/exit/index.ts"
+        "commands/exit/exit.tsx:1-33",
+        "commands/exit/index.ts:1-12"
       ],
       "notes": "imported by commands.ts"
     },
@@ -247,8 +247,8 @@
       "name": "export",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/export/export.tsx",
-        "commands/export/index.ts"
+        "commands/export/export.tsx:1-91",
+        "commands/export/index.ts:1-11"
       ],
       "notes": "imported by commands.ts"
     },
@@ -256,10 +256,10 @@
       "name": "extra-usage",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/extra-usage/extra-usage-core.ts",
-        "commands/extra-usage/extra-usage-noninteractive.ts",
-        "commands/extra-usage/extra-usage.tsx",
-        "commands/extra-usage/index.ts"
+        "commands/extra-usage/extra-usage-core.ts:1-118",
+        "commands/extra-usage/extra-usage-noninteractive.ts:1-16",
+        "commands/extra-usage/extra-usage.tsx:1-17",
+        "commands/extra-usage/index.ts:1-31"
       ],
       "notes": "imported by commands.ts"
     },
@@ -267,8 +267,8 @@
       "name": "fast",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/fast/fast.tsx",
-        "commands/fast/index.ts"
+        "commands/fast/fast.tsx:1-269",
+        "commands/fast/index.ts:1-26"
       ],
       "notes": "imported by commands.ts"
     },
@@ -276,8 +276,8 @@
       "name": "feedback",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/feedback/feedback.tsx",
-        "commands/feedback/index.ts"
+        "commands/feedback/feedback.tsx:1-25",
+        "commands/feedback/index.ts:1-26"
       ],
       "notes": "imported by commands.ts"
     },
@@ -285,8 +285,8 @@
       "name": "files",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/files/files.ts",
-        "commands/files/index.ts"
+        "commands/files/files.ts:1-19",
+        "commands/files/index.ts:1-12"
       ],
       "notes": "imported by commands.ts"
     },
@@ -300,8 +300,8 @@
       "name": "heapdump",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/heapdump/heapdump.ts",
-        "commands/heapdump/index.ts"
+        "commands/heapdump/heapdump.ts:1-17",
+        "commands/heapdump/index.ts:1-12"
       ],
       "notes": "imported by commands.ts"
     },
@@ -309,8 +309,8 @@
       "name": "help",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/help/help.tsx",
-        "commands/help/index.ts"
+        "commands/help/help.tsx:1-11",
+        "commands/help/index.ts:1-10"
       ],
       "notes": "imported by commands.ts"
     },
@@ -318,8 +318,8 @@
       "name": "hooks",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/hooks/hooks.tsx",
-        "commands/hooks/index.ts"
+        "commands/hooks/hooks.tsx:1-13",
+        "commands/hooks/index.ts:1-11"
       ],
       "notes": "imported by commands.ts"
     },
@@ -327,8 +327,8 @@
       "name": "ide",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/ide/ide.tsx",
-        "commands/ide/index.ts"
+        "commands/ide/ide.tsx:1-646",
+        "commands/ide/index.ts:1-11"
       ],
       "notes": "imported by commands.ts"
     },
@@ -336,20 +336,20 @@
       "name": "install-github-app",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/install-github-app/ApiKeyStep.tsx",
-        "commands/install-github-app/CheckExistingSecretStep.tsx",
-        "commands/install-github-app/CheckGitHubStep.tsx",
-        "commands/install-github-app/ChooseRepoStep.tsx",
-        "commands/install-github-app/CreatingStep.tsx",
-        "commands/install-github-app/ErrorStep.tsx",
-        "commands/install-github-app/ExistingWorkflowStep.tsx",
-        "commands/install-github-app/InstallAppStep.tsx",
-        "commands/install-github-app/OAuthFlowStep.tsx",
-        "commands/install-github-app/SuccessStep.tsx",
-        "commands/install-github-app/WarningsStep.tsx",
-        "commands/install-github-app/index.ts",
-        "commands/install-github-app/install-github-app.tsx",
-        "commands/install-github-app/setupGitHubActions.ts"
+        "commands/install-github-app/ApiKeyStep.tsx:1-231",
+        "commands/install-github-app/CheckExistingSecretStep.tsx:1-190",
+        "commands/install-github-app/CheckGitHubStep.tsx:1-15",
+        "commands/install-github-app/ChooseRepoStep.tsx:1-211",
+        "commands/install-github-app/CreatingStep.tsx:1-65",
+        "commands/install-github-app/ErrorStep.tsx:1-85",
+        "commands/install-github-app/ExistingWorkflowStep.tsx:1-103",
+        "commands/install-github-app/InstallAppStep.tsx:1-94",
+        "commands/install-github-app/OAuthFlowStep.tsx:1-276",
+        "commands/install-github-app/SuccessStep.tsx:1-96",
+        "commands/install-github-app/WarningsStep.tsx:1-73",
+        "commands/install-github-app/index.ts:1-13",
+        "commands/install-github-app/install-github-app.tsx:1-587",
+        "commands/install-github-app/setupGitHubActions.ts:1-325"
       ],
       "notes": "imported by commands.ts"
     },
@@ -357,8 +357,8 @@
       "name": "install-slack-app",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/install-slack-app/index.ts",
-        "commands/install-slack-app/install-slack-app.ts"
+        "commands/install-slack-app/index.ts:1-12",
+        "commands/install-slack-app/install-slack-app.ts:1-30"
       ],
       "notes": "imported by commands.ts"
     },
@@ -372,8 +372,8 @@
       "name": "keybindings",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/keybindings/index.ts",
-        "commands/keybindings/keybindings.ts"
+        "commands/keybindings/index.ts:1-13",
+        "commands/keybindings/keybindings.ts:1-53"
       ],
       "notes": "imported by commands.ts"
     },
@@ -381,8 +381,8 @@
       "name": "login",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/login/index.ts",
-        "commands/login/login.tsx"
+        "commands/login/index.ts:1-14",
+        "commands/login/login.tsx:1-104"
       ],
       "notes": "imported by commands.ts"
     },
@@ -390,8 +390,8 @@
       "name": "logout",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/logout/index.ts",
-        "commands/logout/logout.tsx"
+        "commands/logout/index.ts:1-10",
+        "commands/logout/logout.tsx:1-82"
       ],
       "notes": "imported by commands.ts"
     },
@@ -399,10 +399,10 @@
       "name": "mcp",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/mcp/addCommand.ts",
-        "commands/mcp/index.ts",
-        "commands/mcp/mcp.tsx",
-        "commands/mcp/xaaIdpCommand.ts"
+        "commands/mcp/addCommand.ts:1-280",
+        "commands/mcp/index.ts:1-12",
+        "commands/mcp/mcp.tsx:1-85",
+        "commands/mcp/xaaIdpCommand.ts:1-266"
       ],
       "notes": "imported by commands.ts"
     },
@@ -410,8 +410,8 @@
       "name": "memory",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/memory/index.ts",
-        "commands/memory/memory.tsx"
+        "commands/memory/index.ts:1-10",
+        "commands/memory/memory.tsx:1-90"
       ],
       "notes": "imported by commands.ts"
     },
@@ -419,8 +419,8 @@
       "name": "mobile",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/mobile/index.ts",
-        "commands/mobile/mobile.tsx"
+        "commands/mobile/index.ts:1-11",
+        "commands/mobile/mobile.tsx:1-274"
       ],
       "notes": "imported by commands.ts"
     },
@@ -434,8 +434,8 @@
       "name": "model",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/model/index.ts",
-        "commands/model/model.tsx"
+        "commands/model/index.ts:1-16",
+        "commands/model/model.tsx:1-297"
       ],
       "notes": "imported by commands.ts"
     },
@@ -455,8 +455,8 @@
       "name": "output-style",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/output-style/index.ts",
-        "commands/output-style/output-style.tsx"
+        "commands/output-style/index.ts:1-11",
+        "commands/output-style/output-style.tsx:1-7"
       ],
       "notes": "imported by commands.ts"
     },
@@ -464,8 +464,8 @@
       "name": "passes",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/passes/index.ts",
-        "commands/passes/passes.tsx"
+        "commands/passes/index.ts:1-22",
+        "commands/passes/passes.tsx:1-24"
       ],
       "notes": "imported by commands.ts"
     },
@@ -479,8 +479,8 @@
       "name": "permissions",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/permissions/index.ts",
-        "commands/permissions/permissions.tsx"
+        "commands/permissions/index.ts:1-11",
+        "commands/permissions/permissions.tsx:1-10"
       ],
       "notes": "imported by commands.ts"
     },
@@ -488,8 +488,8 @@
       "name": "plan",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/plan/index.ts",
-        "commands/plan/plan.tsx"
+        "commands/plan/index.ts:1-11",
+        "commands/plan/plan.tsx:1-122"
       ],
       "notes": "imported by commands.ts"
     },
@@ -497,23 +497,23 @@
       "name": "plugin",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/plugin/AddMarketplace.tsx",
-        "commands/plugin/BrowseMarketplace.tsx",
-        "commands/plugin/DiscoverPlugins.tsx",
-        "commands/plugin/ManageMarketplaces.tsx",
-        "commands/plugin/ManagePlugins.tsx",
-        "commands/plugin/PluginErrors.tsx",
-        "commands/plugin/PluginOptionsDialog.tsx",
-        "commands/plugin/PluginOptionsFlow.tsx",
-        "commands/plugin/PluginSettings.tsx",
-        "commands/plugin/PluginTrustWarning.tsx",
-        "commands/plugin/UnifiedInstalledCell.tsx",
-        "commands/plugin/ValidatePlugin.tsx",
-        "commands/plugin/index.tsx",
-        "commands/plugin/parseArgs.ts",
-        "commands/plugin/plugin.tsx",
-        "commands/plugin/pluginDetailsHelpers.tsx",
-        "commands/plugin/usePagination.ts"
+        "commands/plugin/AddMarketplace.tsx:1-162",
+        "commands/plugin/BrowseMarketplace.tsx:1-802",
+        "commands/plugin/DiscoverPlugins.tsx:1-781",
+        "commands/plugin/ManageMarketplaces.tsx:1-838",
+        "commands/plugin/ManagePlugins.tsx:1-2215",
+        "commands/plugin/PluginErrors.tsx:1-124",
+        "commands/plugin/PluginOptionsDialog.tsx:1-357",
+        "commands/plugin/PluginOptionsFlow.tsx:1-135",
+        "commands/plugin/PluginSettings.tsx:1-1072",
+        "commands/plugin/PluginTrustWarning.tsx:1-32",
+        "commands/plugin/UnifiedInstalledCell.tsx:1-565",
+        "commands/plugin/ValidatePlugin.tsx:1-98",
+        "commands/plugin/index.tsx:1-11",
+        "commands/plugin/parseArgs.ts:1-103",
+        "commands/plugin/plugin.tsx:1-7",
+        "commands/plugin/pluginDetailsHelpers.tsx:1-117",
+        "commands/plugin/usePagination.ts:1-171"
       ],
       "notes": "imported by commands.ts"
     },
@@ -521,7 +521,7 @@
       "name": "pr_comments",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/pr_comments/index.ts"
+        "commands/pr_comments/index.ts:1-50"
       ],
       "notes": "imported by commands.ts"
     },
@@ -529,8 +529,8 @@
       "name": "privacy-settings",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/privacy-settings/index.ts",
-        "commands/privacy-settings/privacy-settings.tsx"
+        "commands/privacy-settings/index.ts:1-14",
+        "commands/privacy-settings/privacy-settings.tsx:1-58"
       ],
       "notes": "imported by commands.ts"
     },
@@ -538,8 +538,8 @@
       "name": "rate-limit-options",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/rate-limit-options/index.ts",
-        "commands/rate-limit-options/rate-limit-options.tsx"
+        "commands/rate-limit-options/index.ts:1-19",
+        "commands/rate-limit-options/rate-limit-options.tsx:1-210"
       ],
       "notes": "imported by commands.ts"
     },
@@ -547,8 +547,8 @@
       "name": "release-notes",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/release-notes/index.ts",
-        "commands/release-notes/release-notes.ts"
+        "commands/release-notes/index.ts:1-11",
+        "commands/release-notes/release-notes.ts:1-50"
       ],
       "notes": "imported by commands.ts"
     },
@@ -556,8 +556,8 @@
       "name": "reload-plugins",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/reload-plugins/index.ts",
-        "commands/reload-plugins/reload-plugins.ts"
+        "commands/reload-plugins/index.ts:1-18",
+        "commands/reload-plugins/reload-plugins.ts:1-61"
       ],
       "notes": "imported by commands.ts"
     },
@@ -565,8 +565,8 @@
       "name": "remote-env",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/remote-env/index.ts",
-        "commands/remote-env/remote-env.tsx"
+        "commands/remote-env/index.ts:1-15",
+        "commands/remote-env/remote-env.tsx:1-7"
       ],
       "notes": "imported by commands.ts"
     },
@@ -574,9 +574,9 @@
       "name": "rename",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/rename/generateSessionName.ts",
-        "commands/rename/index.ts",
-        "commands/rename/rename.ts"
+        "commands/rename/generateSessionName.ts:1-67",
+        "commands/rename/index.ts:1-12",
+        "commands/rename/rename.ts:1-87"
       ],
       "notes": "imported by commands.ts"
     },
@@ -590,8 +590,8 @@
       "name": "resume",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/resume/index.ts",
-        "commands/resume/resume.tsx"
+        "commands/resume/index.ts:1-12",
+        "commands/resume/resume.tsx:1-275"
       ],
       "notes": "imported by commands.ts"
     },
@@ -599,8 +599,8 @@
       "name": "rewind",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/rewind/index.ts",
-        "commands/rewind/rewind.ts"
+        "commands/rewind/index.ts:1-13",
+        "commands/rewind/rewind.ts:1-13"
       ],
       "notes": "imported by commands.ts"
     },
@@ -608,8 +608,8 @@
       "name": "sandbox-toggle",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/sandbox-toggle/index.ts",
-        "commands/sandbox-toggle/sandbox-toggle.tsx"
+        "commands/sandbox-toggle/index.ts:1-50",
+        "commands/sandbox-toggle/sandbox-toggle.tsx:1-83"
       ],
       "notes": "imported by commands.ts"
     },
@@ -617,8 +617,8 @@
       "name": "session",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/session/index.ts",
-        "commands/session/session.tsx"
+        "commands/session/index.ts:1-16",
+        "commands/session/session.tsx:1-140"
       ],
       "notes": "imported by commands.ts"
     },
@@ -632,8 +632,8 @@
       "name": "skills",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/skills/index.ts",
-        "commands/skills/skills.tsx"
+        "commands/skills/index.ts:1-10",
+        "commands/skills/skills.tsx:1-8"
       ],
       "notes": "imported by commands.ts"
     },
@@ -641,8 +641,8 @@
       "name": "stats",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/stats/index.ts",
-        "commands/stats/stats.tsx"
+        "commands/stats/index.ts:1-10",
+        "commands/stats/stats.tsx:1-7"
       ],
       "notes": "imported by commands.ts"
     },
@@ -650,8 +650,8 @@
       "name": "status",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/status/index.ts",
-        "commands/status/status.tsx"
+        "commands/status/index.ts:1-12",
+        "commands/status/status.tsx:1-8"
       ],
       "notes": "imported by commands.ts"
     },
@@ -659,8 +659,8 @@
       "name": "stickers",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/stickers/index.ts",
-        "commands/stickers/stickers.ts"
+        "commands/stickers/index.ts:1-11",
+        "commands/stickers/stickers.ts:1-16"
       ],
       "notes": "imported by commands.ts"
     },
@@ -674,8 +674,8 @@
       "name": "tag",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/tag/index.ts",
-        "commands/tag/tag.tsx"
+        "commands/tag/index.ts:1-12",
+        "commands/tag/tag.tsx:1-215"
       ],
       "notes": "imported by commands.ts"
     },
@@ -683,8 +683,8 @@
       "name": "tasks",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/tasks/index.ts",
-        "commands/tasks/tasks.tsx"
+        "commands/tasks/index.ts:1-11",
+        "commands/tasks/tasks.tsx:1-8"
       ],
       "notes": "imported by commands.ts"
     },
@@ -698,8 +698,8 @@
       "name": "terminalSetup",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/terminalSetup/index.ts",
-        "commands/terminalSetup/terminalSetup.tsx"
+        "commands/terminalSetup/index.ts:1-23",
+        "commands/terminalSetup/terminalSetup.tsx:1-531"
       ],
       "notes": "imported by commands.ts"
     },
@@ -707,8 +707,8 @@
       "name": "theme",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/theme/index.ts",
-        "commands/theme/theme.tsx"
+        "commands/theme/index.ts:1-10",
+        "commands/theme/theme.tsx:1-57"
       ],
       "notes": "imported by commands.ts"
     },
@@ -716,8 +716,8 @@
       "name": "thinkback",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/thinkback/index.ts",
-        "commands/thinkback/thinkback.tsx"
+        "commands/thinkback/index.ts:1-13",
+        "commands/thinkback/thinkback.tsx:1-554"
       ],
       "notes": "imported by commands.ts"
     },
@@ -725,8 +725,8 @@
       "name": "thinkback-play",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/thinkback-play/index.ts",
-        "commands/thinkback-play/thinkback-play.ts"
+        "commands/thinkback-play/index.ts:1-17",
+        "commands/thinkback-play/thinkback-play.ts:1-43"
       ],
       "notes": "imported by commands.ts"
     },
@@ -734,8 +734,8 @@
       "name": "upgrade",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/upgrade/index.ts",
-        "commands/upgrade/upgrade.tsx"
+        "commands/upgrade/index.ts:1-16",
+        "commands/upgrade/upgrade.tsx:1-38"
       ],
       "notes": "imported by commands.ts"
     },
@@ -743,8 +743,8 @@
       "name": "usage",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/usage/index.ts",
-        "commands/usage/usage.tsx"
+        "commands/usage/index.ts:1-9",
+        "commands/usage/usage.tsx:1-7"
       ],
       "notes": "imported by commands.ts"
     },
@@ -752,8 +752,8 @@
       "name": "vim",
       "category": "runtime-cmd",
       "source_files": [
-        "commands/vim/index.ts",
-        "commands/vim/vim.ts"
+        "commands/vim/index.ts:1-11",
+        "commands/vim/vim.ts:1-38"
       ],
       "notes": "imported by commands.ts"
     },
@@ -761,105 +761,105 @@
       "name": "advisor",
       "category": "top-level-file",
       "source_files": [
-        "commands/advisor.ts"
+        "commands/advisor.ts:1-109"
       ]
     },
     {
       "name": "bridge-kick",
       "category": "top-level-file",
       "source_files": [
-        "commands/bridge-kick.ts"
+        "commands/bridge-kick.ts:1-200"
       ]
     },
     {
       "name": "brief",
       "category": "top-level-file",
       "source_files": [
-        "commands/brief.ts"
+        "commands/brief.ts:1-130"
       ]
     },
     {
       "name": "commit",
       "category": "top-level-file",
       "source_files": [
-        "commands/commit.ts"
+        "commands/commit.ts:1-92"
       ]
     },
     {
       "name": "commit-push-pr",
       "category": "top-level-file",
       "source_files": [
-        "commands/commit-push-pr.ts"
+        "commands/commit-push-pr.ts:1-158"
       ]
     },
     {
       "name": "createMovedToPluginCommand",
       "category": "top-level-file",
       "source_files": [
-        "commands/createMovedToPluginCommand.ts"
+        "commands/createMovedToPluginCommand.ts:1-65"
       ]
     },
     {
       "name": "init",
       "category": "top-level-file",
       "source_files": [
-        "commands/init.ts"
+        "commands/init.ts:1-256"
       ]
     },
     {
       "name": "init-verifiers",
       "category": "top-level-file",
       "source_files": [
-        "commands/init-verifiers.ts"
+        "commands/init-verifiers.ts:1-262"
       ]
     },
     {
       "name": "insights",
       "category": "top-level-file",
       "source_files": [
-        "commands/insights.ts"
+        "commands/insights.ts:1-3200"
       ]
     },
     {
       "name": "install",
       "category": "top-level-file",
       "source_files": [
-        "commands/install.tsx"
+        "commands/install.tsx:1-300"
       ]
     },
     {
       "name": "review",
       "category": "top-level-file",
       "source_files": [
-        "commands/review.ts"
+        "commands/review.ts:1-57"
       ]
     },
     {
       "name": "security-review",
       "category": "top-level-file",
       "source_files": [
-        "commands/security-review.ts"
+        "commands/security-review.ts:1-243"
       ]
     },
     {
       "name": "statusline",
       "category": "top-level-file",
       "source_files": [
-        "commands/statusline.tsx"
+        "commands/statusline.tsx:1-24"
       ]
     },
     {
       "name": "ultraplan",
       "category": "top-level-file",
       "source_files": [
-        "commands/ultraplan.tsx"
+        "commands/ultraplan.tsx:1-471"
       ]
     },
     {
       "name": "version",
       "category": "top-level-file",
       "source_files": [
-        "commands/version.ts"
+        "commands/version.ts:1-22"
       ]
     }
   ]

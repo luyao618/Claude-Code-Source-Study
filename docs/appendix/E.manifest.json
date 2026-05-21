@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-21T15:49:40.778Z",
+  "generated_at": "2026-05-21T16:18:20.023Z",
   "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
   "appendix": "E",
   "items": [
@@ -7,7 +7,7 @@
       "name": "local_bash",
       "category": "default",
       "source_files": [
-        "tasks/LocalShellTask/LocalShellTask.ts"
+        "Task.ts:6-13"
       ],
       "wire_type": "local_bash",
       "default_registered": true
@@ -16,7 +16,7 @@
       "name": "local_agent",
       "category": "default",
       "source_files": [
-        "tasks/LocalAgentTask/LocalAgentTask.ts"
+        "Task.ts:6-13"
       ],
       "wire_type": "local_agent",
       "default_registered": true
@@ -25,7 +25,7 @@
       "name": "remote_agent",
       "category": "default",
       "source_files": [
-        "tasks/RemoteAgentTask/RemoteAgentTask.ts"
+        "Task.ts:6-13"
       ],
       "wire_type": "remote_agent",
       "default_registered": true
@@ -34,7 +34,7 @@
       "name": "in_process_teammate",
       "category": "in-process-special",
       "source_files": [
-        "tasks/InProcessTeammateTask/InProcessTeammateTask.ts"
+        "Task.ts:6-13"
       ],
       "wire_type": "in_process_teammate",
       "default_registered": false,
@@ -44,7 +44,7 @@
       "name": "local_workflow",
       "category": "feature-gated",
       "source_files": [
-        "tasks/LocalWorkflowTask/LocalWorkflowTask.ts"
+        "Task.ts:6-13"
       ],
       "wire_type": "local_workflow",
       "default_registered": false,
@@ -56,7 +56,7 @@
       "name": "monitor_mcp",
       "category": "feature-gated",
       "source_files": [
-        "tasks/MonitorMcpTask/MonitorMcpTask.ts"
+        "Task.ts:6-13"
       ],
       "wire_type": "monitor_mcp",
       "default_registered": false,
@@ -68,7 +68,7 @@
       "name": "dream",
       "category": "default",
       "source_files": [
-        "tasks/DreamTask/DreamTask.ts"
+        "tasks/DreamTask/DreamTask.ts:1-157"
       ],
       "wire_type": "dream",
       "default_registered": true

@@ -223,4 +223,3 @@ for (const file of candidates) {
 }
 
 process.exit(failed ? 1 : 0);
-

@@ -9,7 +9,7 @@ authoring: CC-Dev (Claude Opus 4.7), reviewed by OC-PM, cross-evaluated by CX-De
 
 ## 1. 引言：为什么写 v2
 
-v1 由 **Claude Opus 4.6** 深扫 Claude Code 源码、**ChatGPT 5.4** 担任 reviewer 共同产出，最终交付 **25 篇**源码解析学习交流文章，构成本仓库 `docs/00-…25-` 的初版书稿。在 v1 发布后，Claude Code 源码本身仍在快速演进：新增了 Bridge IPC、Remote Session、Coordinator、Settings Migration、DirectConnect、Buddy、Output Style、Vim/Voice 等多个一级模块；同时 v1 中存在若干与当前源码不再吻合的数字与结构性表述。
+v1 由 **Claude Opus 4.6** 深扫 Claude Code 源码、**ChatGPT 5.4** 担任 reviewer 共同产出，最终交付 **25 篇**源码解析学习交流文章，构成本仓库 `docs/00-…25-` 的初版书稿。v1 与 v2 解析的是**同一套** Claude Code 源码（commit 同步冻结于 `source_commit`），并非源码本身发生了变化；推动 v2 修订的是**模型一侧的迭代**——解析模型从 Claude Opus 4.6 升级到 Claude Opus 4.7，reviewer 模型从 ChatGPT 5.4 升级到 ChatGPT 5.5。借助更强的新一代模型重新通读同一份源码，得以在更高粒度上识别出 v1 中未被充分展开的一级模块（Bridge IPC、Remote Session、Coordinator、Settings Migration、DirectConnect、Buddy、Output Style、Vim/Voice 等），并校正 v1 中若干与源码不一致的数字与结构性表述。
 
 v2 由 **Claude Opus 4.7** 重新深扫源码、**ChatGPT 5.5** 担任 reviewer，**对原 25 篇逐篇做事实勘误与必要的迭代重写**，并**新增 8 篇全新文章**：
 

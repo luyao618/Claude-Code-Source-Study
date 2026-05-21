@@ -11,11 +11,16 @@
  * **frontmatter presence enforcement（OC-R 反馈修复）**：仅靠 frontmatter
  * 判定会留一个绕过口子——writer 新建一篇文件、忘写（或故意不写）
  * `新增章节: yes`，本闸就 skip 放行。为闭环，本脚本维护 v1 已发布章节的
- * 已知文件清单 `V1_DOC_FILES`；任何 **不在 v1 清单内** 的 `docs/*.md` 候选
- * 文件都被视为"规划中的新章节路径"（含 §9.3 列出的 8 篇 C04 / C13 / C17 /
- * C24 / C25 / C28 / C29 / C30，以及未来可能新增的章节），若 frontmatter 缺
+ * 已知文件清单 `V1_DOC_FILES`；任何 **不在 v1 清单内** 的章节候选文件都被
+ * 视为"规划中的新章节路径"（含 §9.3 列出的 8 篇 C04 / C13 / C17 / C24 /
+ * C25 / C28 / C29 / C30，以及未来可能新增的章节），若 frontmatter 缺
  * `新增章节: yes` → **fail**（不再 skip）。在 v1 清单内的文件保留原行为
  * （无 frontmatter 时 skip，因为 v1 章节本就不适用 C-3）。
+ *
+ * **判定范围（OC-R PR #17 反馈收窄）**：候选文件限制为顶层章节文件
+ * `docs/NN-标题.md`（两位数字前缀），由 `CHAPTER_FILE_RE` 控制。
+ * `docs/appendix/{A..F}.md`（自动生成的附录）、`docs/V2-REVISION-SPEC.md`
+ * （spec 本体）以及任何子目录散页都不进入新章判定，避免误判为"缺标记"。
  *
  * 仅统计源码 fenced block：`ts / tsx / js / jsx / bash / sh / typescript /
  * javascript`。`mermaid / json / yaml / md / text` 等图示与配置不计入"代码"。
@@ -110,8 +115,20 @@ function codeRatio(
   return { ratio: total === 0 ? 0 : codeChars / total, codeChars, total };
 }
 
+/**
+ * 章节文件命名约定：`docs/NN-标题.md`（NN 为两位数字，与 v1 25 篇及未来 v2
+ * 新章命名一致）。其他路径（如 `docs/appendix/{A..F}.md` 自动生成附录、
+ * `docs/V2-REVISION-SPEC.md` spec 自身、未来可能新增的非章节散页）一律
+ * **不参与** C-3 新章判定。
+ *
+ * OC-R 反馈（PR #17）：旧实现把 docs 下所有 .md 全部视为新章候选，会把规划中
+ * 的 `docs/appendix/A..F.md` 误判为缺 `新增章节: yes` 标记。现收窄到
+ * 「顶层 `docs/NN-XX.md` 章节文件」，与 V2-REVISION-SPEC.md §9.3 一致。
+ */
+const CHAPTER_FILE_RE = /^docs\/\d{2}-[^/]+\.md$/;
+
 const candidates = (explicitFiles ?? getChangedFiles(base)).filter(
-  (f) => f.startsWith("docs/") && f.endsWith(".md") && f !== "docs/V2-REVISION-SPEC.md",
+  (f) => CHAPTER_FILE_RE.test(f),
 );
 
 if (candidates.length === 0) {

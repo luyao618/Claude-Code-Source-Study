@@ -2,10 +2,11 @@
 /**
  * §0.5.6 C-3 · 代码块占比闸
  *
- * 范围：仅对 v2 新增章节（§0.5.4 列出的 8 篇 + 任何标记 `新增章节: yes`
- * frontmatter 的文件）生效。理由：v1 老章节天然带有大量 mermaid / ts 代码
- * 块，对其强制 25% 反而会阻塞 minimal-diff 修订；§0.5.4 #3 明确把 C-3
- * 写在"新章"规则下。
+ * 范围：仅对 v2 新增章节生效。**判定唯一来源**：文件 frontmatter 含
+ * `新增章节: yes`。理由：v2 实际落地命名采用 `NN-标题.md`（与 v1 保持一致），
+ * 不再嵌入 `C04 / C13` 这类书脊编号；旧版基于文件名正则的白名单已失效。
+ * §0.5.4 与 §9.3 模板（V2-REVISION-SPEC.md §9.3）现强制要求 8 篇新章在
+ * frontmatter 中显式声明 `新增章节: yes`，CI 据此识别。
  *
  * 仅统计源码 fenced block：`ts / tsx / js / jsx / bash / sh / typescript /
  * javascript`。`mermaid / json / yaml / md / text` 等图示与配置不计入"代码"。
@@ -20,19 +21,6 @@ const baseIdx = args.indexOf("--base");
 const base = baseIdx >= 0 ? args[baseIdx + 1] : "origin/main";
 const filesIdx = args.indexOf("--files");
 const explicitFiles = filesIdx >= 0 ? args.slice(filesIdx + 1) : null;
-
-// §0.5.4 + §5 列出的 8 篇新增章节文件名（writer 落地时按 v2 命名约定建立）。
-// 当文件还未落地时，集合为空也无影响——脚本只会跳过。
-const NEW_CHAPTER_PATTERNS: RegExp[] = [
-  /\b(C04|c04)\b/,
-  /\b(C13|c13)\b/,
-  /\b(C17|c17)\b/,
-  /\b(C24|c24)\b/,
-  /\b(C25|c25)\b/,
-  /\b(C28|c28)\b/,
-  /\b(C29|c29)\b/,
-  /\b(C30|c30)\b/,
-];
 
 function getChangedFiles(base: string): string[] {
   try {
@@ -49,10 +37,6 @@ function frontmatterIsNewChapter(text: string): boolean {
   const m = text.match(/^---\n([\s\S]*?)\n---/);
   if (!m) return false;
   return /新增章节:\s*yes/.test(m[1]);
-}
-
-function isNewChapterPath(file: string): boolean {
-  return NEW_CHAPTER_PATTERNS.some((re) => re.test(file));
 }
 
 const SOURCE_LANGS = new Set([
@@ -98,8 +82,8 @@ for (const file of candidates) {
   } catch {
     continue;
   }
-  if (!isNewChapterPath(file) && !frontmatterIsNewChapter(txt)) {
-    console.log(`[C-3] skip ${file}: 非 v2 新增章节，C-3 不适用`);
+  if (!frontmatterIsNewChapter(txt)) {
+    console.log(`[C-3] skip ${file}: 未声明 frontmatter \`新增章节: yes\`，C-3 不适用（v2 新章须显式声明，见 V2-REVISION-SPEC.md §9.3）`);
     continue;
   }
   const { ratio, codeChars, total } = codeRatio(txt);

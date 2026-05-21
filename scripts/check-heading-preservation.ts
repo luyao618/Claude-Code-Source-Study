@@ -76,7 +76,14 @@ for (const file of files) {
     console.log(`[C-2] ${file}: new file, skip.`);
     continue;
   }
-  if (!existsSync(file)) continue;
+  if (!existsSync(file)) {
+    console.error(
+      `[C-2] FAIL ${file}: v1 中存在的文档在 v2 worktree 中缺失（删除或改名），违反标题保留闸（v1 标题集合不可能成为空集合的子集）。` +
+        ` 若属合法迁移，请保留同名占位或显式拆分新文件。`,
+    );
+    failed = true;
+    continue;
+  }
   const head0 = readFileSync(file, "utf8");
   if (frontmatterAllowsRewrite(head0)) {
     console.log(`[C-2] ${file}: 骨架重排=yes, bypass.`);

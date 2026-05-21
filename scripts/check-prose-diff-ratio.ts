@@ -110,7 +110,11 @@ for (const file of files) {
     continue;
   }
   if (!existsSync(file)) {
-    console.log(`[C-1] ${file}: deleted; manual review required.`);
+    console.error(
+      `[C-1] FAIL ${file}: protected v1 文档在 v2 worktree 中缺失（删除或改名），不允许绕过守卫。` +
+        ` 如确属合法迁移，请在 PR 中显式新增同名/继任文件并申请人工 review。`,
+    );
+    failed = true;
     continue;
   }
   const head0 = readFileSync(file, "utf8");

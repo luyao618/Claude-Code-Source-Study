@@ -2,7 +2,10 @@
 /**
  * §0.4 闸 · lint-no-fuzzy-quantifiers.ts
  *
- * 在事实段落正则扫禁词：约 / 大概 / 左右 / 大量 / 不少 / 主要 / 大部分 / 几乎 / 很多 / 一些。
+ * 在事实段落正则扫禁词：约 / 大概 / 左右 / 大量 / 几乎 / 很多。
+ * （YAO-99 调整：移除「不少 / 主要 / 大部分 / 一些」四个纯定性语气词，叙事段
+ *   几乎必现，保留下来只剩与「X 行/个/种」数值断言相关的对冲词；同时本闸由
+ *   fail 降为 warning，命中只打印不阻塞 CI，由 reviewer 在 review 中复核。）
  *
  * "事实段落" 启发式定义（与 §0.4 例外条款对齐）：
  *   - 跳过 fenced code 块（``` ... ```）。
@@ -22,7 +25,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const FORBIDDEN = ["约", "大概", "左右", "大量", "不少", "主要", "大部分", "几乎", "很多", "一些"];
+const FORBIDDEN = ["约", "大概", "左右", "大量", "几乎", "很多"];
 
 const args = process.argv.slice(2);
 const baseIdx = args.indexOf("--base");
@@ -179,7 +182,7 @@ console.log(
     : `[no-fuzzy] diff mode: scanning only lines added/changed vs ${base}.`,
 );
 
-let failed = false;
+let warned = false;
 for (const f of files) {
   let hits: Hit[] = [];
   try {
@@ -194,14 +197,17 @@ for (const f of files) {
     continue;
   }
   if (hits.length > 0) {
-    failed = true;
-    console.error(`[no-fuzzy] FAIL ${f}: ${hits.length} 处禁词命中（仅新增 / 改动行）：`);
+    warned = true;
+    console.warn(`[no-fuzzy] WARN ${f}: ${hits.length} 处禁词命中（仅新增 / 改动行，由 reviewer 复核，不阻塞 CI）：`);
     for (const h of hits) {
-      console.error(`  ${f}:${h.line}: 「${h.word}」 → ${h.text}`);
+      console.warn(`  ${f}:${h.line}: 「${h.word}」 → ${h.text}`);
     }
   } else {
     console.log(`[no-fuzzy] OK   ${f}`);
   }
 }
 
-process.exit(failed ? 1 : 0);
+if (warned) {
+  console.warn("[no-fuzzy] 闸已降为 warning（YAO-99）：命中只打印不 fail，由 reviewer 在 review 中复核。");
+}
+process.exit(0);

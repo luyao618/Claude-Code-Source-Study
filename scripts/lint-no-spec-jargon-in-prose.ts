@@ -40,6 +40,23 @@ const FORBIDDEN: Array<{ pattern: RegExp; label: string }> = [
   { pattern: /章节映射/, label: "章节映射" },
   { pattern: /required_anchors/, label: "required_anchors" },
   { pattern: /manifest\s*(diff|摘要|json)/i, label: "manifest diff/摘要/json" },
+  // standalone `manifest`（YAO-99 OC-R 复审补漏）：§0.5.5 item 9 / C-6 文案明确把
+  // 「manifest」列为 squad 内部术语。但 `manifest` 是一个通用词——npm plugin / MCP
+  // 等领域的 `Plugin Manifest`、`manifest schema`、`PluginManifestSchema` 都是合法
+  // 术语（见 docs/24-Skill-Plugin开发实战.md）。所以这里**只**命中 squad 内部用法：
+  // 即 manifest 前面挂着「外部 / 附录 / 章节 / 源码 / spec」这类把 manifest 当
+  // 「向 CI 交账的脚手架」用的修饰词，或后面跟「文件 / 清单 / 约定」明显指 spec
+  // 附录脚手架的搭配。读者域的 `Plugin manifest` / `manifest schema` 不命中。
+  {
+    pattern: /(外部|附录|章节|源码|spec)\s*manifest/i,
+    label: "外部/附录/章节 manifest (squad 脚手架用法)",
+  },
+  {
+    pattern: /manifest\s*(文件|清单|约定)/,
+    label: "manifest 文件/清单/约定 (squad 脚手架用法)",
+  },
+  // §0.5.5 item 9 反例明确点名「来自源码目录列」——§6.2 反向矩阵的列名外漏到正文。
+  { pattern: /来自源码目录列/, label: "来自源码目录列" },
   { pattern: /CI\s*闸/, label: "CI 闸" },
   { pattern: /CI\s*lint/, label: "CI lint" },
   { pattern: /骨架重排/, label: "骨架重排" },

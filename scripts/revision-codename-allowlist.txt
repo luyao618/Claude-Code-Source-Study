@@ -1,0 +1,18 @@
+# Allowlist for lint-no-revision-codenames.ts
+#
+# Each non-comment line is either:
+#   path:line          — exempt that exact (1-based) line in that file
+#   path:regex:<re>    — exempt any line in that file matching the regex
+#
+# Add an inline comment with `#` for the reason. Keep this file tight; every
+# exemption is technical debt unless it cites an external reason (git history
+# footnote, semver of upstream binary, chapter title that legitimately
+# contains "v2", etc.).
+
+# Generated from appendix F manifest notes; the chapter title 「架构模式总结 v2」
+# is itself the canonical chapter name in V2-REVISION-SPEC.md §5 第七篇 / §6.2.
+docs/appendix/F.md:42
+
+# 与上游 CLI 的 semver（v2.1.8）相关的源码注释复述，不是修订代号。
+# 行号是 docs/20-API调用与错误恢复.md 的硬引用，源码注释升级时同步调整。
+docs/20-API调用与错误恢复.md:619

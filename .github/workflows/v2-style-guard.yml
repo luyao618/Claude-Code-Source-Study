@@ -64,6 +64,9 @@ jobs:
       - name: lint-no-fuzzy-quantifiers（禁用模糊量词）
         run: bun run check:no-fuzzy
 
+      - name: lint-no-revision-codenames（禁用 v1/v2 修订代号）
+        run: bun run check:no-revision-codenames
+
       - name: gen-module-matrix --check-orphans（孤儿模块闸）
         if: steps.src.outputs.available == 'true'
         run: bun run check:orphans

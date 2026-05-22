@@ -22,7 +22,6 @@ import {
   writeFile,
   readManifest,
   printDiffSummary,
-  nowIso,
 } from "./_lib.ts";
 
 const { get, has } = parseArgs(process.argv);
@@ -151,7 +150,6 @@ for (const ch of CHAPTER_COVERAGE) {
 }
 
 const manifest = {
-  generated_at: nowIso(),
   source_commit: sourceCommit,
   items: CHAPTER_COVERAGE.map((ch) => ({
     name: ch.id,
@@ -187,7 +185,7 @@ if (has("--check-orphans")) {
 const md = [
   `# 附录 F · 模块 × 章节双向矩阵`,
   ``,
-  `> 生成脚本：\`scripts/gen-module-matrix.ts\`；source_commit: \`${sourceCommit}\`；生成于 ${manifest.generated_at}`,
+  `> 生成脚本：\`scripts/gen-module-matrix.ts\`；source_commit: \`${sourceCommit}\``,
   ``,
   `## 正表：章节 → 覆盖目录`,
   ``,

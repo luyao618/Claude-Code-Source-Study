@@ -1,50 +1,104 @@
 {
-  "generated_at": "2026-05-21T20:04:54.990Z",
   "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
   "items": [
     {
-      "name": "Explore",
-      "category": "built-in",
+      "name": "claude-code-guide",
+      "category": "built-in-agent",
       "source_files": [
-        "tools/AgentTool/built-in/exploreAgent.ts"
+        "tools/AgentTool/built-in/claudeCodeGuideAgent.ts:98-205",
+        "tools/AgentTool/builtInAgents.ts:5-5"
       ],
-      "notes": "coordinator_required=false"
+      "id": "claude-code-guide",
+      "displayName": "Use this agent when the user asks questions (",
+      "modelHint": "'haiku'",
+      "defaultEnabled": false,
+      "entrypoint_gated": [
+        "non-sdk"
+      ],
+      "coordinator_required": false,
+      "notes": "defaultEnabled=false; entrypoint_gated=non-sdk; coordinator_required=false"
+    },
+    {
+      "name": "Explore",
+      "category": "built-in-agent",
+      "source_files": [
+        "tools/AgentTool/built-in/exploreAgent.ts:64-83",
+        "tools/AgentTool/builtInAgents.ts:6-6"
+      ],
+      "id": "Explore",
+      "displayName": "Explore",
+      "modelHint": "process.env.USER_TYPE === 'ant' ? 'inherit' : 'haiku'",
+      "defaultEnabled": false,
+      "feature_flags": [
+        "BUILTIN_EXPLORE_PLAN_AGENTS",
+        "tengu_amber_stoat"
+      ],
+      "coordinator_required": false,
+      "notes": "defaultEnabled=false; feature_flags=BUILTIN_EXPLORE_PLAN_AGENTS|tengu_amber_stoat; coordinator_required=false"
     },
     {
       "name": "general-purpose",
-      "category": "built-in",
+      "category": "built-in-agent",
       "source_files": [
-        "tools/AgentTool/built-in/generalPurposeAgent.ts"
+        "tools/AgentTool/built-in/generalPurposeAgent.ts:25-34",
+        "tools/AgentTool/builtInAgents.ts:7-7"
       ],
-      "notes": "tools=*; coordinator_required=false"
+      "id": "general-purpose",
+      "displayName": "General-purpose agent for researching complex questions, searching for code, and",
+      "modelHint": "inherit-default",
+      "defaultEnabled": true,
+      "coordinator_required": false,
+      "notes": "defaultEnabled=true; coordinator_required=false"
     },
     {
       "name": "Plan",
-      "category": "built-in",
+      "category": "built-in-agent",
       "source_files": [
-        "tools/AgentTool/built-in/planAgent.ts"
+        "tools/AgentTool/built-in/planAgent.ts:73-92",
+        "tools/AgentTool/builtInAgents.ts:8-8"
       ],
-      "notes": "model=inherit; coordinator_required=false"
+      "id": "Plan",
+      "displayName": "Software architect agent for designing implementation plans",
+      "modelHint": "'inherit'",
+      "defaultEnabled": false,
+      "feature_flags": [
+        "BUILTIN_EXPLORE_PLAN_AGENTS",
+        "tengu_amber_stoat"
+      ],
+      "coordinator_required": false,
+      "notes": "defaultEnabled=false; feature_flags=BUILTIN_EXPLORE_PLAN_AGENTS|tengu_amber_stoat; coordinator_required=false"
     },
     {
       "name": "statusline-setup",
-      "category": "built-in",
+      "category": "built-in-agent",
       "source_files": [
-        "tools/AgentTool/built-in/statuslineSetup.ts"
+        "tools/AgentTool/built-in/statuslineSetup.ts:134-144",
+        "tools/AgentTool/builtInAgents.ts:9-9"
       ],
-      "notes": "tools=Read|Edit; model=sonnet; color=orange; coordinator_required=false"
+      "id": "statusline-setup",
+      "displayName": "Use this agent to configure the user",
+      "modelHint": "'sonnet'",
+      "defaultEnabled": true,
+      "coordinator_required": false,
+      "notes": "defaultEnabled=true; coordinator_required=false"
     },
     {
       "name": "verification",
-      "category": "built-in",
+      "category": "built-in-agent",
       "source_files": [
-        "tools/AgentTool/built-in/verificationAgent.ts"
+        "tools/AgentTool/built-in/verificationAgent.ts:134-152",
+        "tools/AgentTool/builtInAgents.ts:10-10"
       ],
+      "id": "verification",
+      "displayName": "verification",
+      "modelHint": "'inherit'",
+      "defaultEnabled": false,
       "feature_flags": [
         "VERIFICATION_AGENT",
         "tengu_hive_evidence"
       ],
-      "notes": "model=inherit; color=red; coordinator_required=false"
+      "coordinator_required": false,
+      "notes": "defaultEnabled=false; feature_flags=VERIFICATION_AGENT|tengu_hive_evidence; coordinator_required=false"
     }
   ]
 }

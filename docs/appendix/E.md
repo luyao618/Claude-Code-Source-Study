@@ -1,6 +1,6 @@
 # 附录 E · TaskType 谱系
 
-> 生成脚本：`scripts/gen-tasktypes-table.ts`；source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`；生成于 2026-05-21T20:04:55.020Z
+> 生成脚本：`scripts/gen-tasktypes-table.ts`；source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
 
 wire 字面量合计 7 个 = 4 默认注册 + 2 feature-gated + 1 in-process 特例。
 

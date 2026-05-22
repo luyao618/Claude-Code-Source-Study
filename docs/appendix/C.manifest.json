@@ -1,5 +1,4 @@
 {
-  "generated_at": "2026-05-21T20:04:54.962Z",
   "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
   "items": [
     {
@@ -7,7 +6,7 @@
       "category": "event",
       "wire_type": "PreToolUse",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -15,7 +14,7 @@
       "category": "event",
       "wire_type": "PostToolUse",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -23,7 +22,7 @@
       "category": "event",
       "wire_type": "PostToolUseFailure",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -31,7 +30,7 @@
       "category": "event",
       "wire_type": "Notification",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -39,7 +38,7 @@
       "category": "event",
       "wire_type": "UserPromptSubmit",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -47,7 +46,7 @@
       "category": "event",
       "wire_type": "SessionStart",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -55,7 +54,7 @@
       "category": "event",
       "wire_type": "SessionEnd",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -63,7 +62,7 @@
       "category": "event",
       "wire_type": "Stop",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -71,7 +70,7 @@
       "category": "event",
       "wire_type": "StopFailure",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -79,7 +78,7 @@
       "category": "event",
       "wire_type": "SubagentStart",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -87,7 +86,7 @@
       "category": "event",
       "wire_type": "SubagentStop",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -95,7 +94,7 @@
       "category": "event",
       "wire_type": "PreCompact",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -103,7 +102,7 @@
       "category": "event",
       "wire_type": "PostCompact",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -111,7 +110,7 @@
       "category": "event",
       "wire_type": "PermissionRequest",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -119,7 +118,7 @@
       "category": "event",
       "wire_type": "PermissionDenied",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -127,7 +126,7 @@
       "category": "event",
       "wire_type": "Setup",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -135,7 +134,7 @@
       "category": "event",
       "wire_type": "TeammateIdle",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -143,7 +142,7 @@
       "category": "event",
       "wire_type": "TaskCreated",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -151,7 +150,7 @@
       "category": "event",
       "wire_type": "TaskCompleted",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -159,7 +158,7 @@
       "category": "event",
       "wire_type": "Elicitation",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -167,7 +166,7 @@
       "category": "event",
       "wire_type": "ElicitationResult",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -175,7 +174,7 @@
       "category": "event",
       "wire_type": "ConfigChange",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -183,7 +182,7 @@
       "category": "event",
       "wire_type": "WorktreeCreate",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -191,7 +190,7 @@
       "category": "event",
       "wire_type": "WorktreeRemove",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -199,7 +198,7 @@
       "category": "event",
       "wire_type": "InstructionsLoaded",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -207,7 +206,7 @@
       "category": "event",
       "wire_type": "CwdChanged",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
@@ -215,35 +214,35 @@
       "category": "event",
       "wire_type": "FileChanged",
       "source_files": [
-        "entrypoints/sdk/coreSchemas.ts"
+        "entrypoints/sdk/coreSchemas.ts:355-383"
       ]
     },
     {
       "name": "agent",
       "category": "command_type",
       "source_files": [
-        "schemas/hooks.ts"
+        "schemas/hooks.ts:129-129"
       ]
     },
     {
       "name": "command",
       "category": "command_type",
       "source_files": [
-        "schemas/hooks.ts"
+        "schemas/hooks.ts:33-33"
       ]
     },
     {
       "name": "http",
       "category": "command_type",
       "source_files": [
-        "schemas/hooks.ts"
+        "schemas/hooks.ts:98-98"
       ]
     },
     {
       "name": "prompt",
       "category": "command_type",
       "source_files": [
-        "schemas/hooks.ts"
+        "schemas/hooks.ts:68-68"
       ]
     }
   ],

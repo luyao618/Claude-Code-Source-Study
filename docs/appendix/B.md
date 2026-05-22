@@ -1,6 +1,6 @@
 # 附录 B · Commands 速查表
 
-> 生成脚本：`scripts/gen-commands-table.ts`；source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`；生成于 2026-05-21T20:04:54.935Z
+> 生成脚本：`scripts/gen-commands-table.ts`；source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
 
 - 一级目录：86
 - 一级文件：15

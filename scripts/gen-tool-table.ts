@@ -17,7 +17,7 @@
  * 用法：
  *   bun scripts/gen-tool-table.ts [--source-path <claude-code-cli>] [--diff-summary]
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   parseArgs,
@@ -28,7 +28,7 @@ import {
   writeFile,
   readManifest,
   printDiffSummary,
-  nowIso,
+  countLines,
   type ManifestItem,
 } from "./_lib.ts";
 
@@ -42,7 +42,9 @@ const familyDirs = listTopLevelDirs(toolsDir).filter(
 );
 
 // 解析 tools.ts，提取叶子工具（默认 register 的 + feature-gated 的）。
-const toolsTs = readFileSync(join(sourcePath, "tools.ts"), "utf8");
+const toolsTsPath = join(sourcePath, "tools.ts");
+const toolsTs = readFileSync(toolsTsPath, "utf8");
+const toolsTsLineArr = toolsTs.split("\n");
 
 // 抓所有 ToolName 形态：单词以 Tool 结尾且首字母大写。
 const toolNameRe = /\b([A-Z][A-Za-z0-9]+Tool)\b/g;
@@ -51,55 +53,151 @@ let m: RegExpExecArray | null;
 while ((m = toolNameRe.exec(toolsTs)) !== null) allToolMentions.add(m[1]);
 
 // 识别 feature-gated 工具：扫描 tools.ts 中的"条件 require"块。
-// 形态包括：
-//   const Foo = feature('X') ? require('./tools/Foo/Foo.js').FooTool : null
-//   const Foo = process.env.X === 'y' ? require('./tools/Foo/Foo.js').FooTool : null
-//   const Foo = (cond1 || cond2) ? require('./tools/Foo/Foo.js').FooTool : null
-//   const cronTools = feature('X') ? [require(...).A, require(...).B] : []
 // 用按 `const NAME =` 起的语句切片，再判断该语句中是否同时含 (gate, require, ToolName)。
-const featureGatedNames = new Set<string>();
-const stmts = toolsTs.split(/^(?=const\s+[A-Za-z])/m);
-const gateRe = /feature\(|process\.env\.|getFeatureValue_/;
-for (const stmt of stmts) {
-  if (!gateRe.test(stmt)) continue;
-  const reqRe = /require\(['"][^'"]+['"]\)\.([A-Z][A-Za-z0-9]+Tool)/g;
+// 同时记录该语句在 tools.ts 中的起止行号，用于生成 path:line-line。
+type GateInfo = { start: number; end: number };
+const featureGatedNames = new Map<string, GateInfo>();
+{
+  // 按 `^const NAME =` 切片，但保留每片在原文中的起始字符偏移以便算行号。
+  const splitRe = /^(?=const\s+[A-Za-z])/m;
+  // RegExp.split 丢偏移，所以手工扫一次。
+  const heads: number[] = [];
+  const lineHeadRe = /^const\s+[A-Za-z]/gm;
   let mm: RegExpExecArray | null;
-  while ((mm = reqRe.exec(stmt)) !== null) featureGatedNames.add(mm[1]);
+  while ((mm = lineHeadRe.exec(toolsTs)) !== null) heads.push(mm.index);
+  heads.push(toolsTs.length);
+  const gateRe = /feature\(|process\.env\.|getFeatureValue_/;
+  const reqToolRe = /([A-Z][A-Za-z0-9]+Tool)/g;
+  for (let i = 0; i < heads.length - 1; i++) {
+    const seg = toolsTs.slice(heads[i], heads[i + 1]);
+    if (!gateRe.test(seg)) continue;
+    const startLine = toolsTs.slice(0, heads[i]).split("\n").length;
+    // 段末（去掉尾随空行）
+    const segTrim = seg.replace(/\s*$/, "");
+    const endLine =
+      toolsTs.slice(0, heads[i] + segTrim.length).split("\n").length;
+    let tm: RegExpExecArray | null;
+    while ((tm = reqToolRe.exec(seg)) !== null) {
+      // 仅记录 require(...).XxxTool 形态；避免把变量名（const FooTool = ...）当工具。
+      const around = seg.slice(Math.max(0, tm.index - 30), tm.index);
+      if (/require\(['"][^'"]+['"]\)\.$/.test(around)) {
+        featureGatedNames.set(tm[1], { start: startLine, end: endLine });
+      }
+    }
+  }
 }
 
 // 默认叶子：在 tools.ts 顶部 `import { XxxTool } from './tools/XxxTool/...'` 形态。
-const importRe =
-  /import\s+\{\s*([A-Z][A-Za-z0-9]+Tool)\s*\}\s+from\s+['"]\.\/tools\//g;
-const defaultLeafNames = new Set<string>();
-while ((m = importRe.exec(toolsTs)) !== null) defaultLeafNames.add(m[1]);
+// 同时记录每个 import 行号。
+const defaultLeafLines = new Map<string, number>();
+{
+  const importRe =
+    /import\s+\{\s*([A-Z][A-Za-z0-9]+Tool)\s*\}\s+from\s+['"]\.\/tools\//g;
+  let mm: RegExpExecArray | null;
+  while ((mm = importRe.exec(toolsTs)) !== null) {
+    const line = toolsTs.slice(0, mm.index).split("\n").length;
+    defaultLeafLines.set(mm[1], line);
+  }
+}
+
+// 给定 tools/<dir>/，挑一个主源码文件做 path:line-line 锚点。
+// 优先级：tools/<dir>/<dir>.tsx > tools/<dir>/<dir>.ts > tools/<dir>/index.ts
+// > tools/<dir>/prompt.ts > 第一个 .ts/.tsx 文件。
+function primarySourceFor(dir: string): string | null {
+  const candidates = [
+    `tools/${dir}/${dir}.tsx`,
+    `tools/${dir}/${dir}.ts`,
+    `tools/${dir}/index.tsx`,
+    `tools/${dir}/index.ts`,
+    `tools/${dir}/prompt.ts`,
+    `tools/${dir}/constants.ts`,
+  ];
+  for (const rel of candidates) {
+    if (existsSync(join(sourcePath, rel))) return rel;
+  }
+  // 退化：取目录下首个 .ts/.tsx 文件。
+  const dirAbs = join(sourcePath, "tools", dir);
+  if (!existsSync(dirAbs)) return null;
+  for (const name of readdirSync(dirAbs).sort()) {
+    if (/\.tsx?$/.test(name)) {
+      try {
+        if (statSync(join(dirAbs, name)).isFile()) return `tools/${dir}/${name}`;
+      } catch {
+        // ignore
+      }
+    }
+  }
+  return null;
+}
+
+function sourceFilesForFamilyDir(dir: string, name: string): string[] {
+  const out: string[] = [];
+  const primary = primarySourceFor(dir);
+  if (primary) {
+    const total = countLines(join(sourcePath, primary));
+    if (total > 0) out.push(`${primary}:1-${total}`);
+    else out.push(primary);
+  }
+  // 追加 tools.ts 中与该工具相关的行号锚点
+  const importLine = defaultLeafLines.get(name);
+  if (importLine !== undefined) {
+    out.push(`tools.ts:${importLine}-${importLine}`);
+  }
+  const gate = featureGatedNames.get(name);
+  if (gate) {
+    out.push(`tools.ts:${gate.start}-${gate.end}`);
+  }
+  return out;
+}
+
+function sourceFilesForToolsTsOnly(name: string): string[] {
+  const out: string[] = [];
+  const importLine = defaultLeafLines.get(name);
+  if (importLine !== undefined) {
+    out.push(`tools.ts:${importLine}-${importLine}`);
+  }
+  const gate = featureGatedNames.get(name);
+  if (gate) {
+    out.push(`tools.ts:${gate.start}-${gate.end}`);
+  }
+  if (out.length === 0) {
+    // 找第一处出现的行号，作为最后兜底。
+    const idx = toolsTs.indexOf(name);
+    if (idx >= 0) {
+      const line = toolsTs.slice(0, idx).split("\n").length;
+      out.push(`tools.ts:${line}-${line}`);
+    } else {
+      out.push(`tools.ts:1-${toolsTsLineArr.length}`);
+    }
+  }
+  return out;
+}
 
 // 整合
 const items: ManifestItem[] = [];
 
 // family：所有 tools/ 顶层目录（即便未在 tools.ts 默认装载，也算 family 收录）。
 for (const dir of familyDirs) {
-  const candidateLeaf = `${dir}`; // 目录名通常即工具名（无 .ts）
-  // 优先以叶子身份归类（feature-gated 优先），否则归 family。
-  const asTool = `${dir}`; // tools/AgentTool 目录中的 AgentTool 名
+  const asTool = dir; // 目录名通常即工具名
   if (featureGatedNames.has(asTool)) {
     items.push({
       name: asTool,
       category: "feature-gated",
-      source_files: [`tools/${dir}/`],
+      source_files: sourceFilesForFamilyDir(dir, asTool),
       notes: "tools.ts 中按 feature flag / 环境变量条件装载",
     });
-  } else if (defaultLeafNames.has(asTool)) {
+  } else if (defaultLeafLines.has(asTool)) {
     items.push({
       name: asTool,
       category: "leaf",
-      source_files: [`tools/${dir}/`],
+      source_files: sourceFilesForFamilyDir(dir, asTool),
       notes: "tools.ts 默认 register 的运行期叶子工具",
     });
   } else {
     items.push({
       name: asTool,
       category: "family",
-      source_files: [`tools/${dir}/`],
+      source_files: sourceFilesForFamilyDir(dir, asTool),
       notes:
         "tools/ 目录存在；运行期是否装载受 tools.ts 中 feature/coordinator/SDK 条件影响",
     });
@@ -112,13 +210,13 @@ for (const name of allToolMentions) {
   if (familyDirs.includes(name)) continue;
   const cat = featureGatedNames.has(name)
     ? "feature-gated"
-    : defaultLeafNames.has(name)
+    : defaultLeafLines.has(name)
     ? "leaf"
     : "leaf";
   items.push({
     name,
     category: cat,
-    source_files: ["tools.ts"],
+    source_files: sourceFilesForToolsTsOnly(name),
     notes: "由 tools.ts 引用、未独占 tools/ 顶层目录",
   });
 }
@@ -126,7 +224,6 @@ for (const name of allToolMentions) {
 items.sort((a, b) => a.name.localeCompare(b.name));
 
 const manifest = {
-  generated_at: nowIso(),
   source_commit: sourceCommit,
   items,
 };
@@ -142,7 +239,7 @@ const fgCount = items.filter((i) => i.category === "feature-gated").length;
 const md = [
   `# 附录 A · 工具速查表`,
   ``,
-  `> 生成脚本：\`scripts/gen-tool-table.ts\`；source_commit: \`${sourceCommit}\`；生成于 ${manifest.generated_at}`,
+  `> 生成脚本：\`scripts/gen-tool-table.ts\`；source_commit: \`${sourceCommit}\``,
   ``,
   `三列模型：`,
   `- **family**：\`tools/\` 下作为顶层目录出现（${familyCount} 项）`,
@@ -151,11 +248,11 @@ const md = [
   ``,
   `合计 ${items.length} 项。`,
   ``,
-  `| 名称 | 分类 | 源码位置 | 说明 |`,
+  `| 名称 | 分类 | 源码位置 (path:line-line) | 说明 |`,
   `|---|---|---|---|`,
   ...items.map(
     (i) =>
-      `| \`${i.name}\` | ${i.category} | ${(i.source_files ?? []).join(", ")} | ${i.notes ?? ""} |`,
+      `| \`${i.name}\` | ${i.category} | ${(i.source_files ?? []).map((s) => `\`${s}\``).join(", ")} | ${i.notes ?? ""} |`,
   ),
   ``,
 ].join("\n");

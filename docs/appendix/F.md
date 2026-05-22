@@ -1,6 +1,6 @@
 # 附录 F · 模块 × 章节双向矩阵
 
-> 生成脚本：`scripts/gen-module-matrix.ts`；source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`；生成于 2026-05-21T20:04:55.048Z
+> 生成脚本：`scripts/gen-module-matrix.ts`；source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
 
 ## 正表：章节 → 覆盖目录
 

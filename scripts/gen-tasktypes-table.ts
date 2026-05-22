@@ -20,7 +20,6 @@ import {
   writeFile,
   readManifest,
   printDiffSummary,
-  nowIso,
   type ManifestItem,
 } from "./_lib.ts";
 
@@ -109,7 +108,6 @@ const items: ManifestItem[] = wireTypes.map((wire): ManifestItem => {
 });
 
 const manifest = {
-  generated_at: nowIso(),
   source_commit: sourceCommit,
   items,
   counts: {
@@ -127,7 +125,7 @@ writeManifest(manifestPath, manifest);
 const md = [
   `# 附录 E · TaskType 谱系`,
   ``,
-  `> 生成脚本：\`scripts/gen-tasktypes-table.ts\`；source_commit: \`${sourceCommit}\`；生成于 ${manifest.generated_at}`,
+  `> 生成脚本：\`scripts/gen-tasktypes-table.ts\`；source_commit: \`${sourceCommit}\``,
   ``,
   `wire 字面量合计 ${wireTypes.length} 个 = ${manifest.counts.default_registered} 默认注册 + ${manifest.counts.feature_gated} feature-gated + ${manifest.counts.in_process} in-process 特例。`,
   ``,

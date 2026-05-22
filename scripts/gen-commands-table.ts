@@ -22,7 +22,6 @@ import {
   writeFile,
   readManifest,
   printDiffSummary,
-  nowIso,
   type ManifestItem,
 } from "./_lib.ts";
 
@@ -65,7 +64,6 @@ let m: RegExpExecArray | null;
 while ((m = runtimeImportRe.exec(cmdsTs)) !== null) runtimeRefs.add(m[1]);
 
 const manifest = {
-  generated_at: nowIso(),
   source_commit: sourceCommit,
   items,
   runtime_summary: {
@@ -83,7 +81,7 @@ writeManifest(manifestPath, manifest);
 const md = [
   `# 附录 B · Commands 速查表`,
   ``,
-  `> 生成脚本：\`scripts/gen-commands-table.ts\`；source_commit: \`${sourceCommit}\`；生成于 ${manifest.generated_at}`,
+  `> 生成脚本：\`scripts/gen-commands-table.ts\`；source_commit: \`${sourceCommit}\``,
   ``,
   `- 一级目录：${dirs.length}`,
   `- 一级文件：${topFiles.length}`,

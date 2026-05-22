@@ -18,7 +18,6 @@ import {
   writeFile,
   readManifest,
   printDiffSummary,
-  nowIso,
   type ManifestItem,
 } from "./_lib.ts";
 
@@ -29,51 +28,58 @@ const sourceCommit = getSourceCommit(sourcePath);
 const coreSchemasPath = join(sourcePath, "entrypoints/sdk/coreSchemas.ts");
 const hooksSchemaPath = join(sourcePath, "schemas/hooks.ts");
 
-function extractHookEvents(text: string): string[] {
+function extractHookEvents(text: string): { events: string[]; start: number; end: number } {
   const m = text.match(/export const HOOK_EVENTS\s*=\s*\[([\s\S]*?)\]\s*as\s+const/);
-  if (!m) return [];
-  const out: string[] = [];
+  if (!m) return { events: [], start: 0, end: 0 };
+  const startIdx = text.indexOf(m[0]);
+  const endIdx = startIdx + m[0].length;
+  const startLine = text.slice(0, startIdx).split("\n").length;
+  const endLine = text.slice(0, endIdx).split("\n").length;
+  const events: string[] = [];
   const re = /['"]([A-Za-z]+)['"]/g;
   let mm: RegExpExecArray | null;
-  while ((mm = re.exec(m[1])) !== null) out.push(mm[1]);
-  return out;
+  while ((mm = re.exec(m[1])) !== null) events.push(mm[1]);
+  return { events, start: startLine, end: endLine };
 }
 
-function extractHookCommandTypes(text: string): string[] {
-  const out = new Set<string>();
-  // 形如 `type: z.literal('command')` / `type: z.literal('http')` 等。
+function extractHookCommandTypes(text: string): { name: string; line: number }[] {
+  const out: { name: string; line: number }[] = [];
   const re = /type:\s*z\.literal\(['"]([A-Za-z]+)['"]\)/g;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) out.add(m[1]);
-  return Array.from(out).sort();
+  while ((m = re.exec(text)) !== null) {
+    const line = text.slice(0, m.index).split("\n").length;
+    out.push({ name: m[1], line });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-const events = extractHookEvents(readFileSync(coreSchemasPath, "utf8"));
-const cmdTypes = extractHookCommandTypes(readFileSync(hooksSchemaPath, "utf8"));
+const coreText = readFileSync(coreSchemasPath, "utf8");
+const hooksText = readFileSync(hooksSchemaPath, "utf8");
+const eventInfo = extractHookEvents(coreText);
+const cmdTypes = extractHookCommandTypes(hooksText);
 
 const items: ManifestItem[] = [
-  ...events.map(
+  ...eventInfo.events.map(
     (e): ManifestItem => ({
       name: e,
       category: "event",
       wire_type: e,
-      source_files: ["entrypoints/sdk/coreSchemas.ts"],
+      source_files: [`entrypoints/sdk/coreSchemas.ts:${eventInfo.start}-${eventInfo.end}`],
     }),
   ),
   ...cmdTypes.map(
     (t): ManifestItem => ({
-      name: t,
+      name: t.name,
       category: "command_type",
-      source_files: ["schemas/hooks.ts"],
+      source_files: [`schemas/hooks.ts:${t.line}-${t.line}`],
     }),
   ),
 ];
 
 const manifest = {
-  generated_at: nowIso(),
   source_commit: sourceCommit,
   items,
-  counts: { events: events.length, command_types: cmdTypes.length },
+  counts: { events: eventInfo.events.length, command_types: cmdTypes.length },
 };
 
 const manifestPath = "docs/appendix/C.manifest.json";
@@ -83,27 +89,27 @@ writeManifest(manifestPath, manifest);
 const md = [
   `# 附录 C · Hooks 事件表`,
   ``,
-  `> 生成脚本：\`scripts/gen-hooks-table.ts\`；source_commit: \`${sourceCommit}\`；生成于 ${manifest.generated_at}`,
+  `> 生成脚本：\`scripts/gen-hooks-table.ts\`；source_commit: \`${sourceCommit}\``,
   ``,
-  `- HOOK_EVENTS：${events.length} 个`,
+  `- HOOK_EVENTS：${eventInfo.events.length} 个`,
   `- Hook command type：${cmdTypes.length} 类`,
   ``,
-  `## HOOK_EVENTS（来源：\`entrypoints/sdk/coreSchemas.ts\`）`,
+  `## HOOK_EVENTS（来源：\`entrypoints/sdk/coreSchemas.ts:${eventInfo.start}-${eventInfo.end}\`）`,
   ``,
   `| 事件名 |`,
   `|---|`,
-  ...events.map((e) => `| \`${e}\` |`),
+  ...eventInfo.events.map((e) => `| \`${e}\` |`),
   ``,
   `## Hook command type（来源：\`schemas/hooks.ts\`）`,
   ``,
-  `| 类型 |`,
-  `|---|`,
-  ...cmdTypes.map((t) => `| \`${t}\` |`),
+  `| 类型 | 行号 |`,
+  `|---|---|`,
+  ...cmdTypes.map((t) => `| \`${t.name}\` | ${t.line} |`),
   ``,
 ].join("\n");
 
 writeFile("docs/appendix/C.md", md);
 if (has("--diff-summary")) printDiffSummary("C", prev, manifest);
 console.log(
-  `[C] wrote docs/appendix/C.md + manifest (events=${events.length}, cmd_types=${cmdTypes.length})`,
+  `[C] wrote docs/appendix/C.md + manifest (events=${eventInfo.events.length}, cmd_types=${cmdTypes.length})`,
 );

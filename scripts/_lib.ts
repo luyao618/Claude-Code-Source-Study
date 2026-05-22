@@ -30,7 +30,6 @@ export type ManifestItem = {
 };
 
 export type Manifest = {
-  generated_at: string;
   source_commit: string;
   items: ManifestItem[];
   [k: string]: unknown;
@@ -173,6 +172,26 @@ export function printDiffSummary(
   }
 }
 
-export function nowIso(): string {
-  return new Date().toISOString();
+/**
+ * Compute a 1-based [start,end] line range for a regex match in a file.
+ */
+export function lineRangeFor(text: string, matchIndex: number, matchLen: number): { start: number; end: number } {
+  const start = text.slice(0, matchIndex).split("\n").length;
+  const end = text.slice(0, matchIndex + matchLen).split("\n").length;
+  return { start, end };
+}
+
+/**
+ * Find a single-line position (1-based) of the first occurrence of `needle` in `text`.
+ * Returns undefined if not found.
+ */
+export function findLine(text: string, needle: string | RegExp): number | undefined {
+  if (typeof needle === "string") {
+    const idx = text.indexOf(needle);
+    if (idx < 0) return undefined;
+    return text.slice(0, idx).split("\n").length;
+  }
+  const m = needle.exec(text);
+  if (!m) return undefined;
+  return text.slice(0, m.index).split("\n").length;
 }

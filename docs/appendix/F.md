@@ -39,7 +39,7 @@
 | C31 | Memory 子系统全景 | `memdir/`, `services/`, `assistant/` |
 | C32 | 命令系统全景 | `commands/` |
 | C33 | 状态管理与跨进程桥 | `state/`, `bridge/` |
-| C34 | 架构模式总结 v2 | （横切） |
+| C34 | 架构模式总结 | （横切） |
 
 ## 反查：目录 → 覆盖章节
 

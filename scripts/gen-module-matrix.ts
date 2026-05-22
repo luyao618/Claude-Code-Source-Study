@@ -114,7 +114,7 @@ const CHAPTER_COVERAGE: { id: string; title: string; dirs: string[] }[] = [
   },
   { id: "C32", title: "命令系统全景", dirs: ["commands"] },
   { id: "C33", title: "状态管理与跨进程桥", dirs: ["state", "bridge"] },
-  { id: "C34", title: "架构模式总结 v2", dirs: [] },
+  { id: "C34", title: "架构模式总结", dirs: [] },
 ];
 
 const allTopDirs = listTopLevelDirs(sourcePath);

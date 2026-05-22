@@ -21,7 +21,7 @@ Claude Code 的 MCP 实现涵盖了一个完整的客户端系统，需要解决
 
 ## 一、类型系统设计：精确建模 MCP 的一切
 
-MCP 的类型定义集中在 `services/mcp/types.ts`（约 259 行），这个文件是整个 MCP 子系统的**数据契约层**。
+MCP 的类型定义集中在 `services/mcp/types.ts`（258 行），这个文件是整个 MCP 子系统的**数据契约层**。
 
 ### 1.1 配置作用域与传输类型
 
@@ -161,7 +161,7 @@ export type MCPServerConnection =
 
 ## 二、两阶段配置加载：快启动 + 延迟补充
 
-MCP 的配置来源比 Claude Code 的 Settings 系统还要复杂。`services/mcp/config.ts`（约 1400 行）负责从多个层级收集、验证、去重和合并 MCP 服务器配置。但这个合并**并非一个函数一次性完成**，而是分为两个阶段、由多个调用方协作实现。
+MCP 的配置来源比 Claude Code 的 Settings 系统还要复杂。`services/mcp/config.ts`（1578 行）负责从多个层级收集、验证、去重和合并 MCP 服务器配置。但这个合并**并非一个函数一次性完成**，而是分为两个阶段、由多个调用方协作实现。
 
 ### 2.1 两阶段加载架构
 
@@ -388,7 +388,7 @@ function isMcpServerDenied(serverName: string, config?: McpServerConfig): boolea
 
 ## 三、传输层：六种方式统一连接
 
-`services/mcp/client.ts` 是整个 MCP 子系统最大的文件（约 3200+ 行），其中 `connectToServer()` 函数是核心——它根据配置类型创建对应的传输层，然后建立连接。
+`services/mcp/client.ts` 是整个 MCP 子系统最大的文件（3348 行），其中 `connectToServer()` 函数是核心——它根据配置类型创建对应的传输层，然后建立连接。
 
 ### 3.1 连接流程全景
 
@@ -531,7 +531,13 @@ transport = clientTransport
 
 注释中说明了原因：*"Run the Chrome MCP server in-process to avoid spawning a ~325 MB subprocess"*。这是一个务实的优化——如果每个 MCP 都启动独立进程，内存开销将不可接受。
 
-### 3.5 连接超时与竞争
+### 3.5 SdkControlTransport：跨进程的 SDK MCP 桥接
+
+`sdk` 类型的服务器走的不是上述任何一种传输，而是 `services/mcp/SdkControlTransport.ts`（136 行）提供的一对孪生传输：`SdkControlClientTransport` 在 CLI 进程内充当 MCP Client 的对端，`SdkControlServerTransport` 在 SDK 进程内充当 MCP Server 的对端。两端通过 SDK 控制消息（control request）相互投递 JSON-RPC 帧，控制帧的外壳里带上 `server_name` 与 `request_id`，让一台 CLI 同时桥接多个 SDK 内置的 MCP server 也不会串线。
+
+它的作用更像 InProcess 传输的"远房亲戚"——同样避免子进程，但跨的是 CLI ↔ SDK 这条已有的 stdio 控制通道，而不是同一进程内的微任务队列。Agent SDK 用户在 `mcpServers` 字段里塞一个 `{ type: 'sdk', name: 'foo' }`，CLI 端不会去 spawn 任何东西，而是把这条 transport 接到 SDK 的 `StructuredIO` 上，让 SDK 进程里的 MCP server 实例直接处理 `tools/list`、`tools/call` 等请求。
+
+### 3.6 连接超时与竞争
 
 连接使用 `Promise.race` 实现超时控制（默认 30 秒）：
 
@@ -837,7 +843,7 @@ const MAX_BACKOFF_MS = 30000
 
 ### 7.1 OAuth 认证流程
 
-对于远程 MCP 服务器，Claude Code 实现了完整的 OAuth 2.0 客户端（`services/mcp/auth.ts`，约 2000+ 行），包括：
+对于远程 MCP 服务器，Claude Code 实现了完整的 OAuth 2.0 客户端（`services/mcp/auth.ts`，2465 行），包括：
 
 - **ClaudeAuthProvider**：实现 MCP SDK 的 `OAuthClientProvider` 接口
 - **PKCE**：使用 S256 Code Challenge 防止授权码拦截
@@ -933,7 +939,7 @@ export function MCPConnectionManager({ children, dynamicMcpConfig, isStrictMcpCo
 }
 ```
 
-`useManageMCPConnections` Hook（约 1000+ 行）是 MCP 生命周期管理的核心，职责远不止"连接管理"：
+`useManageMCPConnections` Hook（1141 行）是 MCP 生命周期管理的核心，职责远不止"连接管理"：
 
 1. **两阶段配置加载与连接**：Phase 1 加载 Claude Code 配置并开始连接；Phase 2 等待 claude.ai 配置并追加连接（详见第二节）
 2. **同步 AppState**：将连接状态（clients, tools, commands, resources）同步到全局状态

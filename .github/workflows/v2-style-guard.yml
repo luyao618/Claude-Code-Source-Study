@@ -67,6 +67,12 @@ jobs:
       - name: lint-no-revision-codenames（禁用 v1/v2 修订代号）
         run: bun run check:no-revision-codenames
 
+      - name: check-no-frontmatter-in-chapters（章节正文禁 frontmatter · §0.1）
+        run: bun run check:no-frontmatter
+
+      - name: lint-no-spec-jargon-in-prose（章节正文禁 squad 内部术语 · §0.5.5）
+        run: bun run check:no-spec-jargon --base "$BASE_REF"
+
       - name: gen-module-matrix --check-orphans（孤儿模块闸）
         if: steps.src.outputs.available == 'true'
         run: bun run check:orphans

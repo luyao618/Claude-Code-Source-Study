@@ -18,7 +18,9 @@
     "check:code-ratio": "bun scripts/check-code-ratio.ts",
     "check:section-titles": "bun scripts/lint-section-titles.ts",
     "check:no-revision-codenames": "bun scripts/lint-no-revision-codenames.ts",
+    "check:no-frontmatter": "bun scripts/check-no-frontmatter-in-chapters.ts",
+    "check:no-spec-jargon": "bun scripts/lint-no-spec-jargon-in-prose.ts",
     "check:orphans": "bun scripts/gen-module-matrix.ts --check-orphans",
-    "check:docs": "bun run check:source-commits && bun run check:no-fuzzy && bun run check:no-revision-codenames && bun run check:prose-diff && bun run check:headings && bun run check:code-ratio && bun run check:section-titles && bun run check:orphans"
+    "check:docs": "bun run check:source-commits && bun run check:no-fuzzy && bun run check:no-revision-codenames && bun run check:no-frontmatter && bun run check:no-spec-jargon && bun run check:prose-diff && bun run check:headings && bun run check:code-ratio && bun run check:section-titles && bun run check:orphans"
   }
 }

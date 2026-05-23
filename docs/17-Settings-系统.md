@@ -650,7 +650,7 @@ export function initializePolicyLimitsLoadingPromise(): void {
 
 如果说 PolicyLimits 是"自上而下下发"，`services/settingsSync/` 就是"自机器之间互相搬运"。它解决的痛点是：用户在笔记本上配的偏好（模型、Hook、Permission、`CLAUDE.md` 记忆），怎么在另一台机器（甚至是托管在云端的 Claude Code Remote）上自然出现。
 
-后端 API 编号 `anthropic#218817`，文件头里直接给出来 —— 这是排查问题时极其有用的引线，比让读者去搜 backend 文档省很多事。
+后端 API 编号 `anthropic#218817`，文件头里直接给出来 —— 这是排查问题时极其有用的引线，比让读者去搜 backend 文档要省事得多。
 
 ### 5.6.1 两个方向、两组门禁
 

@@ -1,6 +1,6 @@
 # 第 17 篇：Settings 系统 — 多层配置的合并之道
 
-> 本篇是《深入 Claude Code 源码》系列第 17 篇。我们将剖析 Settings 系统如何从 5 个正式配置源（加 1 个 Plugin 基底层）中读取、验证、合并配置，以及如何在运行时监听变更并热更新 —— 一个面向企业级部署的多层配置合并架构。
+> 本篇是《深入 Claude Code 源码》系列第 17 篇。我们将剖析 Settings 系统如何从 5 个正式配置源（加 1 个 Plugin 基底层）中读取、验证、合并配置，以及如何在运行时监听变更并热更新 —— 一个面向企业级部署的多层配置合并架构。除了文件层的合并管线之外，Claude Code 还有两条独立运行的组织级服务管线 —— `services/policyLimits/` 与 `services/settingsSync/` —— 它们不参与设置合并，但同样在「企业管控」与「跨设备一致性」两个维度上塑造了用户最终看到的运行时配置面貌。
 
 ## 为什么需要多层配置？
 
@@ -571,6 +571,153 @@ export function startBackgroundPolling(): void {
   pollingIntervalId.unref()  // 不阻止进程退出
 }
 ```
+
+---
+
+## 五点五、PolicyLimits：与 Settings 平行的组织级开关
+
+读到这里，你已经看到 Settings 系统通过 Policy 层把"企业管控"塞进了同一条优先级链。但还有一类管控不适合走 Settings —— 它不是"应该用哪个模型"或"允许哪些权限"，而是"这个组织的用户能不能用某个产品特性"。`services/policyLimits/` 就是为这类组织级开关单独构建的一条服务。
+
+它和 Remote Managed Settings 像一对孪生兄弟：同样从 Anthropic API 拉取、同样缓存到 `~/.claude/policy-limits.json`、同样 1 小时间隔后台轮询、同样 fail-open。但它的责任面不一样 —— Settings 决定行为细节，PolicyLimits 决定特性可见性。
+
+### 5.5.1 资格判定：和 Remote Settings 同源但要求更严
+
+```typescript
+// services/policyLimits/index.ts:8-13（文件头注释）
+// Eligibility:
+// - Console users (API key): All eligible
+// - OAuth users (Claude.ai): Only Team and Enterprise/C4E subscribers are eligible
+// - API fails open (non-blocking) - if fetch fails, continues without restrictions
+// - API returns empty restrictions for users without policy limits
+```
+
+资格逻辑与 Remote Managed Settings 高度对齐 —— 都要求 1P Anthropic baseURL、都接受 OAuth Enterprise/Team 或 Console API Key —— 但 PolicyLimits 不接受 `subscriptionType === null` 的"外部注入 token"分支。原因很现实：PolicyLimits 是"硬关掉某个 UI 入口"的决策，宁可漏判（让某个 token 不受限）也不能误关（让一个普通 token 因元数据缺失被强制收紧）。
+
+### 5.5.2 默认值与 essential-traffic 反例
+
+`isPolicyAllowed(policy)` 是所有特性 gating 的统一入口。它的默认值在两种情况下截然不同：
+
+```typescript
+// 简化自 services/policyLimits/index.ts
+const ESSENTIAL_TRAFFIC_DENY_ON_MISS = new Set(['allow_product_feedback'])
+
+export function isPolicyAllowed(policy: string): boolean {
+  // 已有显式策略 → 用显式值
+  const restrictions = getSessionCache()
+  if (restrictions && policy in restrictions) {
+    return restrictions[policy].allowed
+  }
+
+  // 没有策略 → 看用户是不是 essential-traffic-only 模式
+  if (isEssentialTrafficOnly() && ESSENTIAL_TRAFFIC_DENY_ON_MISS.has(policy)) {
+    return false  // 反例：缺失即拒绝
+  }
+  return true  // 默认放行（fail-open）
+}
+```
+
+为什么 `allow_product_feedback` 要反着来？因为它涉及"把用户的交互数据发回 Anthropic"——对一个明确开启了"只发必要流量"的企业用户，缓存里没拉到策略**不等于**"管理员允许"，更可能是"还没拉到"，此时唯一安全的选择是不发。这是 fail-open 总原则下被显式拣出来的反例集合。
+
+### 5.5.3 缓存文件的 0o600 权限
+
+PolicyLimits 写 `~/.claude/policy-limits.json` 时显式指定 mode `0o600`（只允许文件所有者读写）。这一点和普通 Settings 文件不同 —— 后者依赖目录默认权限，而 PolicyLimits 缓存里可能包含组织级别的特性开关，对同机器其他用户暴露是不必要的信息泄露。
+
+### 5.5.4 一个 30 秒超时的 loading promise
+
+```typescript
+// services/policyLimits/index.ts:94-114
+export function initializePolicyLimitsLoadingPromise(): void {
+  if (loadingCompletePromise) return
+  if (isPolicyLimitsEligible()) {
+    loadingCompletePromise = new Promise(resolve => {
+      loadingCompleteResolve = resolve
+      setTimeout(() => {
+        if (loadingCompleteResolve) {
+          loadingCompleteResolve()  // 兜底防死锁
+          loadingCompleteResolve = null
+        }
+      }, LOADING_PROMISE_TIMEOUT_MS)  // 30 秒
+    })
+  }
+}
+```
+
+任何想 "等 PolicyLimits 就绪" 的调用方都可以 `await waitForPolicyLimitsLoaded()`，但即使 `loadPolicyLimits()` 因为某种原因从未被调用，promise 也会在 30 秒后自行 resolve —— 保证 fail-open 链条不会因为初始化路径上的漏接而把整个启动锁死。这是面对"远程依赖 + 启动 critical path"时一个常见但容易忘记的兜底动作。
+
+---
+
+## 五点六、SettingsSync：跨设备一致性的双向通道
+
+如果说 PolicyLimits 是"自上而下下发"，`services/settingsSync/` 就是"自机器之间互相搬运"。它解决的痛点是：用户在笔记本上配的偏好（模型、Hook、Permission、`CLAUDE.md` 记忆），怎么在另一台机器（甚至是托管在云端的 Claude Code Remote）上自然出现。
+
+后端 API 编号 `anthropic#218817`，文件头里直接给出来 —— 这是排查问题时极其有用的引线，比让读者去搜 backend 文档省很多事。
+
+### 5.6.1 两个方向、两组门禁
+
+```typescript
+// services/settingsSync/index.ts:60-74（上传路径门禁）
+if (
+  !feature('UPLOAD_USER_SETTINGS') ||
+  !getFeatureValue_CACHED_MAY_BE_STALE('tengu_enable_settings_sync_push', false) ||
+  !getIsInteractive() ||
+  !isUsingOAuth()
+) {
+  // 跳过
+  return
+}
+```
+
+上传方向（CLI → Server）的四道闸：bundle feature flag、GrowthBook 实时 flag、交互模式（`getIsInteractive()`）、OAuth 登录。为什么要交互？因为 SDK / CCR 这类非交互场景下用户没有"我正在调整偏好"的语义，把后台 Agent 的临时配置上传到 server 会污染用户的真实偏好集。
+
+下载方向（Server → CCR）则反过来 —— `feature('DOWNLOAD_USER_SETTINGS')` + `tengu_strap_foyer` flag，只在 CCR 启动并准备安装插件之前触发一次。
+
+### 5.6.2 增量上传：lodash pickBy 之美
+
+```typescript
+// services/settingsSync/index.ts:84-90
+const projectId = await getRepoRemoteHash()
+const localEntries = await buildEntriesFromLocalFiles(projectId)
+const remoteEntries = result.isEmpty ? {} : result.data!.content.entries
+const changedEntries = pickBy(
+  localEntries,
+  (value, key) => remoteEntries[key] !== value,
+)
+```
+
+这里没有 diff 算法、没有 mtime 比较 —— 只是把本地 4 个文件（`~/.claude/settings.json`、`~/.claude/CLAUDE.md`、项目级 `settings.local.json`、项目级 `CLAUDE.local.md`）的内容做成 `{ path: content }` 字典，和远程拉回来的字典逐 key 比一遍内容相等性，只上传变了的那几条。`lodash pickBy` 在这里既是过滤器也是 diff 引擎，简单到无可挑剔。
+
+`projectId = await getRepoRemoteHash()` 决定项目级文件用什么 key —— 同一个 Git remote 的 worktree 视为同一项目，自然支持"在 A 机器克隆，在 B 机器接着用"的场景。
+
+### 5.6.3 500KB 单文件上限与 MD5 完整性校验
+
+```typescript
+const MAX_FILE_SIZE_BYTES = 500 * 1024 // 500 KB per file (matches backend limit)
+```
+
+注释里那句 "matches backend limit" 是关键 —— 这个阈值不是 CLI 一时兴起，而是和服务端硬协定。读到 600KB 的 `CLAUDE.md` 时上传会跳过这一条但不阻塞其余条目，符合 fail-open 总原则。完整性靠 `UserSyncDataSchema` 里的 MD5 checksum 字段做端到端校验。
+
+### 5.6.4 落地时的内部写入标记
+
+下载完成后，要把远程内容写回本地文件。这一刻会触发 §6.2 描述的 chokidar 文件监听器 —— 如果不加标记，系统会把"自己刚写下去"误判为"用户外部改动"并触发一次完整的 settings 重载，造成无意义的抖动。
+
+```typescript
+// applyRemoteEntriesToLocal 简化伪代码
+markInternalWrite(targetPath)           // 5 秒窗口内的本次写入将被吞掉
+await writeFile(targetPath, content)
+resetSettingsCache()                    // 主动失效，让下一次读拿到新值
+clearMemoryFileCaches()                 // CLAUDE.md 类内存文件另有缓存
+```
+
+`markInternalWrite` / `consumeInternalWrite` 这对原语在 §6.2 详细介绍，这里只点出 SettingsSync 是它的第二位重要消费者 —— 第一位是 UI 触发的权限规则保存。两个完全不同的写入入口共享同一个"我自己写的，别回响"机制，是一处值得称道的 API 复用。
+
+### 5.6.5 一个 `/reload-plugins` 触发的快速重下
+
+```typescript
+// 简化：当用户执行 /reload-plugins 时
+await redownloadUserSettings(0)  // 第二个参数是 minIntervalMs，0 表示忽略节流
+```
+
+平时下载有最小间隔节流（避免被高频脚本打爆 API），但 `/reload-plugins` 命令明确表达"我要立刻看到新插件清单生效"，所以传 0 跳过节流。这是把"用户意图"通过参数显式传递给下游组件的一个干净例子 —— 比用全局开关或 environment 变量优雅得多。
 
 ---
 

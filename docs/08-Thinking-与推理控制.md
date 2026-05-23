@@ -933,7 +933,7 @@ export function shouldEnablePromptSuggestion(): boolean {
 
 ### 番外.2 为什么 PromptSuggestion 必须用"fork 的同参数 agent"
 
-整个文件最值得划重点的是 `generateSuggestion()` 的实现策略（`promptSuggestion.ts:294-352`）：它不开一个全新的轻量请求，而是把主对话当前的 `cacheSafeParams` 原样复制一份，只追加一条系统级 prompt（`SUGGESTION_PROMPT`，258-287 行）让模型从用户视角接龙。
+整个文件最值得划重点的是 `generateSuggestion()` 的实现策略（`promptSuggestion.ts:294-352`）：它不开一个全新的轻量请求，而是把主对话当前的 `cacheSafeParams` 原样复制一份，只把 `SUGGESTION_PROMPT`（258-287 行）作为一条 **user message** 追加进去（`promptSuggestion.ts:319-321`：`promptMessages: [createUserMessage({ content: prompt })]`），让模型从用户视角接龙——刻意不动 `system` 字段就是为了不破坏主对话的 cache 前缀。
 
 为什么这么绕？因为 Anthropic 的 Prompt Cache 是**前缀严格匹配**的——任何一个参数（包括 `system`、`tools`、`temperature`、甚至 `thinking` / `effort`）和主请求不一致，就会触发一次完整的 cache write 而不是 cache hit。代码注释里直接写了教训：
 
@@ -954,16 +954,18 @@ export function shouldEnablePromptSuggestion(): boolean {
 
 也就是说，PromptSuggestion 永远是"主对话已经在 cache 里巡航"时才出现的礼物，而不是冷启动时的额外开销。
 
-### 番外.4 11 道过滤闸——别把模型的话冒充成用户的话
+### 番外.4 12 道过滤闸——别把模型的话冒充成用户的话
 
-模型预测出来的字符串还要过 `shouldFilterSuggestion()`（`promptSuggestion.ts:354-456`）一长串过滤器，常见的几类：
+模型预测出来的字符串还要过 `shouldFilterSuggestion()`（`promptSuggestion.ts:354-456`）的 `filters` 数组（`promptSuggestion.ts:367-446`，共 12 项：`done` / `meta_text` / `meta_wrapped` / `error_message` / `prefixed_label` / `too_few_words` / `too_many_words` / `too_long` / `multiple_sentences` / `has_formatting` / `evaluative` / `claude_voice`），常见的几类：
 
-- `done` / `meta_text`：模型说出 "I'll do X" 或 "Sure, let me…" 这种助手腔；
-- `error_message`：把上一轮的报错直接回放；
-- `too_few_words` / `too_many_words` / `multiple_sentences`：短到只有"yes"、长到一段话、或者跨多个句子——都不像真人会一次输入的下一句；
+- `done` / `meta_text` / `meta_wrapped`：模型说出 "nothing found"、"stay silent" 或者把元推理包在括号 / 方括号里；
+- `error_message`：把上一轮的报错（"API Error:"、"prompt is too long" 等）直接回放；
+- `prefixed_label`：以 `word:` 这种标签前缀打头；
+- `too_few_words` / `too_many_words` / `too_long` / `multiple_sentences`：短到只有"yes"、长到 12 词以上 / 100 字符以上、或者跨多个句子——都不像真人会一次输入的下一句；
+- `has_formatting`：含换行或 markdown 强调；
 - `evaluative`：评价型句子（"this is good"），通常是 Claude 替用户在自我表扬；
 - `claude_voice`：第一人称视角串味；
-- 以及一个 `ALLOWED_SINGLE_WORDS` 白名单，专门放行 "continue" / "yes" / "no" 这类高频单词回复。
+- 以及 `too_few_words` 内的 `ALLOWED_SINGLE_WORDS` 白名单，专门放行 "continue" / "yes" / "no" 这类高频单词回复。
 
 整套过滤器的存在告诉我们一件朴素的事：让 LLM 模仿"用户视角"远比模仿"助手视角"难——光靠 prompt 不够，必须在工程层把所有泄露 AI 身份的输出拦下来。这也是本章 §五 Advisor 部分提到的"角色一致性"问题在另一种形态下的表现。
 

@@ -713,11 +713,14 @@ clearMemoryFileCaches()                 // CLAUDE.md 类内存文件另有缓存
 ### 5.6.5 一个 `/reload-plugins` 触发的快速重下
 
 ```typescript
-// 简化：当用户执行 /reload-plugins 时
-await redownloadUserSettings(0)  // 第二个参数是 minIntervalMs，0 表示忽略节流
+// services/settingsSync/index.ts:152-154
+export function redownloadUserSettings(): Promise<boolean> {
+  downloadPromise = doDownloadUserSettings(0)  // 0 = maxRetries
+  return downloadPromise
+}
 ```
 
-平时下载有最小间隔节流（避免被高频脚本打爆 API），但 `/reload-plugins` 命令明确表达"我要立刻看到新插件清单生效"，所以传 0 跳过节流。这是把"用户意图"通过参数显式传递给下游组件的一个干净例子 —— 比用全局开关或 environment 变量优雅得多。
+`redownloadUserSettings()` 本身不收参数，内部强制调用 `doDownloadUserSettings(0)`，把 `maxRetries` 压到 0 —— 启动路径走的是 `DEFAULT_MAX_RETRIES`，会自动重试一两轮；`/reload-plugins` 是用户主动敲的命令，只做一次尝试，失败就 fail-open（源码注释原话：`No retries: user-initiated command, one attempt + fail-open`），用户自己再敲一次就行。这是把"调用语义"通过同一个底层函数的不同入参显式表达出来的一个干净例子 —— 启动有韧性、用户命令有响应感，避免了为两个场景各写一份下载逻辑。
 
 ---
 

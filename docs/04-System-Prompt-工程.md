@@ -1,6 +1,6 @@
 # 第 4 篇：System Prompt 工程 — 精密控制模型行为的提示词体系
 
-> 本篇是《深入 Claude Code 源码》系列的第 4 篇。我们将深入 `constants/prompts.ts`（约 915 行）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
+> 本篇是《深入 Claude Code 源码》系列的第 4 篇。我们将深入 `constants/prompts.ts`（914 行，commit `290fdc94`）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
 
 ## 为什么 System Prompt 值得单独一篇？
 
@@ -78,7 +78,7 @@ export async function getSystemPrompt(
 注意两个容易被忽略的细节：
 
 1. **`getSimpleSystemSection()`**（`prompts.ts:186-197`）是独立于 `getSimpleIntroSection()` 的一个 section，包含了 prompt injection 防御、权限模式说明、Hooks 处理、上下文压缩提示等**基础系统约束**。它在静态段的位置紧跟 intro 之后，是整个行为规范的基座。
-2. **`getSimpleDoingTasksSection()` 是条件化的** — 当用户启用了自定义 Output Style 且该 style 未设置 `keepCodingInstructions: true` 时，任务执行指引（代码风格约束等）会被跳过。这允许 Output Style 完全重新定义模型的编程行为。
+2. **`getSimpleDoingTasksSection()` 是条件化的** — 当用户启用了自定义 Output Style 且该 style 未设置 `keepCodingInstructions: true` 时，任务执行指引（代码风格约束等）会被跳过。这允许 Output Style 完全重新定义模型的编程行为。`keepCodingInstructions` 这个字段从哪里来？看 `outputStyles/loadOutputStylesDir.ts:34-78` 就清楚了：每个 `.claude/output-styles/*.md` 文件的 frontmatter 都可以声明 `keep-coding-instructions: true`，loader 会把字符串和布尔值都归一化到 `true | false | undefined`，再喂给 `getSimpleDoingTasksSection()` 的开关。换句话说，**Output Style 不是只能追加 prompt，它还能反向「关掉」整段默认指引** — 这是它与 Skill / Plugin 这两条扩展路径在权限边界上的关键差异。
 
 下面这张图展示了 System Prompt 的完整分段组装流程：
 
@@ -417,7 +417,7 @@ function getSimpleSystemSection(): string {
 
 **第四层 — 操作安全准则**（`getActionsSection()`，`prompts.ts:255-267`）：
 
-这一整段约 1500 字的指引详细规定了操作的可逆性判断，包含具体的高风险操作示例（删除文件、force-push、发送消息等），以及核心原则：「measure twice, cut once」。
+这一整段指引（`prompts.ts:255-267`）详细规定了操作的可逆性判断，包含具体的高风险操作示例（删除文件、force-push、发送消息等），以及核心原则：「measure twice, cut once」。
 
 ### 4.2 代码风格约束：反「过度工程」的明确指令
 
@@ -671,7 +671,7 @@ System Prompt 不是一个大字符串模板，而是由十几个独立函数生
 
 [第 5 篇：对话循环 — query.ts 如何驱动一次完整的 AI 交互](./05-对话循环.md)
 
-我们将深入 `query.ts`（约 1729 行），追踪从用户输入到模型回复的完整数据流，理解流式响应处理、tool_use 循环、错误重试等核心机制。
+我们将深入 `query.ts`（1729 行），追踪从用户输入到模型回复的完整数据流，理解流式响应处理、tool_use 循环、错误重试等核心机制。
 
 ---
 

@@ -908,6 +908,81 @@ graph TD
 
 ---
 
+## 番外：PromptSuggestion — 预测用户的下一句，且不能打翻 Prompt Cache
+
+前面六节谈的都是"让模型多想"——Thinking、Effort、Advisor 都在主对话循环的关键路径上调整推理深度。还有一个相邻但方向相反的子系统：在主对话**等待用户输入**的间隙，悄悄派一个 fork 出去的小模型预测"用户接下来最可能输入什么"，写在输入框下方作为灰色提示。它不属于推理控制的主旋律，但和 Effort/Cache 子系统耦合极深，正好放在这里作为番外补完。
+
+**文件**：`services/PromptSuggestion/promptSuggestion.ts:1-523`
+
+### 番外.1 启用门与抑制理由
+
+PromptSuggestion 的开关链路比 Thinking 还要保守：
+
+```typescript
+// services/PromptSuggestion/promptSuggestion.ts:37-94
+export function shouldEnablePromptSuggestion(): boolean {
+  // 1) 环境变量硬覆盖（测试与禁用）
+  // 2) GrowthBook: tengu_chomp_inflection
+  // 3) 非交互（pipe/print 模式）直接 false
+  // 4) Swarm 子 agent（teammate）禁用
+  // 5) settings.promptSuggestionEnabled 用户开关
+}
+```
+
+每个 turn 还要走一遍 `getSuggestionSuppressReason()`，它会枚举五种当下不该出建议的理由：`disabled` / `pending_permission`（有 ToolUse 等用户批准）/ `elicitation_active`（MCP elicitation 弹窗）/ `plan_mode`（Plan 模式下 UX 噪音）/ `rate_limit`。任何一条命中都直接静默——这是 UX 工程里很容易踩的坑：辅助 UI 必须默认让位于关键路径，而不是反过来。
+
+### 番外.2 为什么 PromptSuggestion 必须用"fork 的同参数 agent"
+
+整个文件最值得划重点的是 `generateSuggestion()` 的实现策略（`promptSuggestion.ts:294-352`）：它不开一个全新的轻量请求，而是把主对话当前的 `cacheSafeParams` 原样复制一份，只追加一条系统级 prompt（`SUGGESTION_PROMPT`，258-287 行）让模型从用户视角接龙。
+
+为什么这么绕？因为 Anthropic 的 Prompt Cache 是**前缀严格匹配**的——任何一个参数（包括 `system`、`tools`、`temperature`、甚至 `thinking` / `effort`）和主请求不一致，就会触发一次完整的 cache write 而不是 cache hit。代码注释里直接写了教训：
+
+```typescript
+// PR #18143 复盘：早期版本把建议请求的 effort 强行降到 'low' 节省成本，
+// 结果 cache write 量飙升 45x，主对话的 cache hit rate 从 92.7% 跌到 61%。
+// 节省的那点 effort 钱远抵不上 cache miss 多花的钱。
+```
+
+这就是第 7 篇 Prompt Cache 那一章反复强调的"前缀稳定"原则在这里的反向印证——**子系统宁可多花点 token 跑一遍同等 effort 的模型，也不能动主对话的缓存前缀**。这条约束和本章 §二 里 Thinking 的 `thinkingClearLatched` 是一个家族的设计：所有"会改变 API 请求关键字段"的开关，都要先回答"它会不会让主对话的缓存掉血"。
+
+### 番外.3 早退守卫与父缓存温度
+
+`tryGenerateSuggestion()` 在真正去 fork 模型之前还要过两道闸（`promptSuggestion.ts:125-182`）：
+
+- **`assistantTurnCount < 2` → early_conversation**：对话刚开始时，模型根本没有足够上下文预测，直接放弃；
+- **父缓存冷启动守卫**：通过 `MAX_PARENT_UNCACHED_TOKENS = 10_000`（239 行）阈值判断——如果上一轮主请求自己就是 cache miss、未缓存 token 超过 1 万，那么这一轮 fork 出去再跑一遍只会让账单雪上加霜，干脆不跑。
+
+也就是说，PromptSuggestion 永远是"主对话已经在 cache 里巡航"时才出现的礼物，而不是冷启动时的额外开销。
+
+### 番外.4 11 道过滤闸——别把模型的话冒充成用户的话
+
+模型预测出来的字符串还要过 `shouldFilterSuggestion()`（`promptSuggestion.ts:354-456`）一长串过滤器，常见的几类：
+
+- `done` / `meta_text`：模型说出 "I'll do X" 或 "Sure, let me…" 这种助手腔；
+- `error_message`：把上一轮的报错直接回放；
+- `too_few_words` / `too_many_words` / `multiple_sentences`：短到只有"yes"、长到一段话、或者跨多个句子——都不像真人会一次输入的下一句；
+- `evaluative`：评价型句子（"this is good"），通常是 Claude 替用户在自我表扬；
+- `claude_voice`：第一人称视角串味；
+- 以及一个 `ALLOWED_SINGLE_WORDS` 白名单，专门放行 "continue" / "yes" / "no" 这类高频单词回复。
+
+整套过滤器的存在告诉我们一件朴素的事：让 LLM 模仿"用户视角"远比模仿"助手视角"难——光靠 prompt 不够，必须在工程层把所有泄露 AI 身份的输出拦下来。这也是本章 §五 Advisor 部分提到的"角色一致性"问题在另一种形态下的表现。
+
+### 番外.5 它和本章其它子系统的位置
+
+把番外节放回本章的全景图里：
+
+| 子系统 | 触发时机 | 对主对话 cache 的影响 | 模型推理深度 |
+| --- | --- | --- | --- |
+| ThinkingConfig | 主对话每一轮 | 会变（thinkingClearLatched 控制何时清） | 由模型自决（adaptive/enabled） |
+| Effort | 主对话每一轮 | 会变（必须 sticky 避免抖动） | 由参数显式锁定 |
+| Ultrathink | 用户句中含关键词的那一轮 | 不变（仅 prompt 追加） | 当轮拔高 |
+| Advisor | 模型在某些节点主动调用 | 单独的 server_tool_use，不在主缓存里 | 用更强模型 |
+| **PromptSuggestion（番外）** | **主对话静默等待用户输入时** | **绝不能变（fork 必须同参数）** | **与主对话相同** |
+
+最后一行才是这个番外的真正价值——它让"Thinking / Effort / Cache"三条独立链路在一个具体功能上同时被约束，整个 Effort 系统的"sticky 优先"和 Prompt Cache 章的"前缀稳定"在这里合龙。
+
+---
+
 ## 九、可迁移的设计模式
 
 ### 模式 1：能力检测 + 优雅降级

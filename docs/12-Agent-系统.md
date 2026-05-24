@@ -189,6 +189,12 @@ investigate complex codebase questions...
 
 `parseAgentFromMarkdown()`（`loadAgentsDir.ts:541-755`）对每个 frontmatter 字段都做了严格的验证和降级处理——无效值不会导致整个 Agent 加载失败，而是记录警告并忽略该字段。
 
+### 1.5 `/agents`：交互式管理入口
+
+用户不必手写 Markdown 文件。`commands/agents/agents.tsx` 注册了一个非常薄的 slash 命令——它的 React 组件只渲染一个 `<AgentsMenu>`，其余逻辑都委托给 `components/agents/AgentsMenu.tsx`（同目录还有 `AgentDetail`、`AgentEditor`、`ToolSelector`、`ModelSelector`、`ColorPicker`、`generateAgent` 等子组件）。
+
+这条入口的存在意义在于：把 `tools/AgentTool/` 里那套加载、覆盖、frontmatter 校验的规则**反向暴露**成一组可视化编辑器——用户在 UI 里选择工具集、模型、颜色、权限模式，最终落盘的还是 `.claude/agents/*.md`，下一次 `getAgentDefinitionsWithOverrides()` 就会把它读回来。换句话说，`/agents` 不是新的数据通路，而是同一份数据蓝图的写入端。
+
 ---
 
 ## 二、runAgent()：子 Agent 的完整生命周期
@@ -944,6 +950,54 @@ export function loadAgentMemoryPrompt(agentType, scope) {
 ```
 
 注意 `ensureMemoryDirExists` 是 fire-and-forget——因为 `getSystemPrompt()` 是同步调用的（在 React render 中），不能 await。Agent 的第一个 API 请求至少需要一个网络往返，到那时目录创建早已完成。
+
+---
+
+## 七.5、AgentSummary：后台进度摘要
+
+异步 Agent 跑起来之后，UI 上"in progress"的一行字会让用户失去耐心。Claude Code 给出的解法不是改 UI，而是再开一个 Agent ——`services/AgentSummary/agentSummary.ts` 实现了一个 30 秒一拍的后台摘要器，定时 fork 当前对话，让模型自己用 3-5 个英文单词描述"我此刻正在做什么"，再把这句话写回 `AgentProgress` 供前端显示。
+
+```typescript
+// services/AgentSummary/agentSummary.ts:26
+const SUMMARY_INTERVAL_MS = 30_000
+```
+
+整段实现里最值得抄的不是 fork 本身，而是它**保护 prompt cache 的方式**。每一拍生成摘要，子请求必须和父请求共用同一个 cache key，否则每 30 秒就要为整段历史付一次全价。`startAgentSummarization` 因此做了三件相互呼应的事：
+
+```typescript
+// services/AgentSummary/agentSummary.ts:55
+const { forkContextMessages: _drop, ...baseParams } = cacheSafeParams
+```
+
+第一步，把闭包里残留的 `forkContextMessages` 立刻丢掉。这条字段在 timer 启动那一刻是真实的，但 30 秒后早已过时——保留下来反而会把陈旧的对话钉死在每一拍 fork 里。每次 `runSummary()` 改为从 `getAgentTranscript(agentId)` 重新读取实时 transcript，再用 `filterIncompleteToolCalls` 清理掉那些没收到结果的 `tool_use`。
+
+```typescript
+// services/AgentSummary/agentSummary.ts:94-98
+const canUseTool = async () => ({
+  behavior: 'deny' as const,
+  message: 'No tools needed for summary',
+  decisionReason: { type: 'other' as const, reason: 'summary only' },
+})
+```
+
+第二步是这段代码中唯一被注释着重提醒的"反直觉"细节：**禁用工具必须走 `canUseTool` 回调，绝不能改 `tools: []`**。后者会改变请求的 cache key（工具列表是 key 的一部分），整段历史的缓存瞬间作废；前者只在调用阶段拒绝，请求本身仍然把完整工具集发出去，cache 才能继续命中。
+
+第三步是它**没做**的事——源码注释花了 8 行篇幅说为什么不能设 `maxOutputTokens`：
+
+```typescript
+// services/AgentSummary/agentSummary.ts:100-104
+// DO NOT set maxOutputTokens here. The fork piggybacks on the main
+// thread's prompt cache by sending identical cache-key params (system,
+// tools, model, messages prefix, thinking config). Setting maxOutputTokens
+// would clamp budget_tokens, creating a thinking config mismatch that
+// invalidates the cache.
+```
+
+`maxOutputTokens` 会被向下传到 thinking config 的 `budget_tokens`，而 thinking config 本身也参与 cache key——一个看似无害的"省点输出"会让所有缓存全部失效。把这三点（丢闭包、用 callback 拒绝、不动 token 上限）放在一起，才能解释为什么 fork 出来跑了一句话的子 Agent 不会把每次唤醒变成一次全量计费。
+
+最后，`runSummary` 用 `finally` 块里的 `scheduleNext()` 排下一拍，而不是用 `setInterval`——这样可以保证两次摘要绝不重叠：哪怕这一拍因为网络慢跑了 50 秒，下一拍也要等它结束才计时 30 秒。摘要本身用 `runForkedAgent` 而非 `runAgent`，配合 `skipTranscript: true`，确保 fork 出来的临时对话不会被写回 sidechain 污染主历史。
+
+整个文件不到 180 行，却同时示范了三件事：怎样定时地复用一段昂贵对话、怎样在共享 cache 的前提下临时收紧工具权限、以及怎样在 closure 里有意"忘掉"过期数据。当你以后要给任意 long-running Agent 加一个"它现在在干嘛"的旁路通道时，照着这三条原则做基本不会出错。
 
 ---
 

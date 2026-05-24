@@ -1,6 +1,6 @@
 # 第 10 篇：BashTool 深度剖析 — 最复杂的单个工具
 
-> 本篇是《深入 Claude Code 源码》系列第 10 篇。BashTool 是 Claude Code 中代码量最大、安全逻辑最复杂的单个工具，总计约 12,400 行代码。我们将从命令语义分析、多层安全防线、沙箱执行、输出处理、权限匹配五个维度，完整剖析它如何让 AI 安全地执行 Shell 命令。
+> 本篇是《深入 Claude Code 源码》系列第 10 篇。BashTool 是 Claude Code 中代码量最大、安全逻辑最复杂的单个工具，总计 12,411 行代码。我们将从命令语义分析、多层安全防线、沙箱执行、输出处理、权限匹配五个维度，完整剖析它如何让 AI 安全地执行 Shell 命令；末尾再以 PowerShellTool 作为 Windows 路径上的对照实现。
 
 ## 为什么 BashTool 是最复杂的工具？
 
@@ -10,7 +10,7 @@
 1. **足够强大** — AI 需要通过 Shell 命令完成 git 操作、运行测试、安装依赖、查看日志等几乎一切任务
 2. **足够安全** — 绝不能让 AI（或通过 prompt injection 操控 AI 的攻击者）执行破坏性操作
 
-这个矛盾造就了一个包含 18 个源码文件、总计约 12,400 行代码的庞大子系统：
+这个矛盾造就了一个包含 18 个源码文件、总计 12,411 行代码的庞大子系统：
 
 | 文件 | 行数 | 职责 |
 |------|------|------|
@@ -23,7 +23,7 @@
 | `prompt.ts` | 369 | BashTool 的 System Prompt 生成 |
 | `shouldUseSandbox.ts` | 153 | 沙箱决策逻辑 |
 | `commandSemantics.ts` | 140 | 退出码语义解释 |
-| 其他 8 个文件 | ~1,405 | UI 渲染、sed 编辑解析、破坏性命令警告等 |
+| 其他 8 个文件 | 1,416 | UI 渲染、sed 编辑解析、破坏性命令警告等 |
 
 接下来，我们沿着一条命令从 AI 生成到执行完成的完整生命周期来分析这个系统。
 
@@ -757,6 +757,32 @@ const DESTRUCTIVE_PATTERNS: DestructivePattern[] = [
 对输入进行语义分类（搜索/读取/列表/静默/破坏性），根据分类结果采取不同的 UI 展示和安全策略。这比"一刀切"的处理方式能同时提供更好的用户体验和更精确的安全控制。
 
 **适用场景**：处理多种类型输入的工具系统。电商系统中的订单（预付/货到付款/退款）、日志系统中的事件（info/warn/error）等都可以从语义分类中获益。
+
+---
+
+## 十、Windows 路径上的对照：PowerShellTool
+
+整本书的视角一直站在 macOS / Linux 这一侧，把 BashTool 当成"AI 在用户机器上执行任意代码"的唯一通道。但翻开 `tools/PowerShellTool/` 目录会发现，Windows 用户其实走的是另一条几乎平行的路径——14 个源码文件、合计 8,959 行代码，与 BashTool 那 18 个文件、12,411 行的庞大体量虽不在一个量级，但**整体形状几乎是镜像的**。
+
+镜像主要体现在三件事上。
+
+**入口与生命周期完全对齐**。`tools/PowerShellTool/PowerShellTool.tsx`（1,000 行）和 `BashTool.tsx`（1,143 行）几乎是同一份骨架：同样的 `PROGRESS_THRESHOLD_MS = 2000`、`ASSISTANT_BLOCKING_BUDGET_MS = 15_000`（PowerShellTool.tsx:159–162），同样的 `runPowerShellCommand` AsyncGenerator（PowerShellTool.tsx:663），同样的 `detectBlockedSleepPattern`（PowerShellTool.tsx:189）只是把检测目标从 `sleep` 换成了 `Start-Sleep`。`isSearchOrReadPowerShellCommand()`（PowerShellTool.tsx:101）干的事和 BashTool 那套 `BASH_SEARCH/READ/LIST` 集合一模一样，只不过命令名换成了 `select-string`、`get-content`、`write-output` 这些 PowerShell cmdlet（PowerShellTool.tsx:54–93）。
+
+**安全防线的层数和顺序也对齐**。`powershellPermissions.ts`（1,648 行）对应 `bashPermissions.ts`（2,621 行）；`powershellSecurity.ts`（1,090 行）对应 `bashSecurity.ts`（2,592 行）；`readOnlyValidation.ts` 在两边都各有一份（1,823 行 vs 1,990 行）。`pathValidation.ts` 甚至更厚——PowerShell 这边有 2,049 行，比 Bash 的 1,303 行还多，因为 Windows 路径要处理的边角情形（drive-relative `C:foo`、PS provider 前缀 `FileSystem::`、NTFS 尾部空格 / 点剥离、`/` 与 `\` 互通、`–`/`—`/`―` 各种 dash 字符当 parameter 前缀）远比 POSIX 路径多。
+
+**但又有两块东西是 PowerShell 独有的，BashTool 那边没有对应物**。
+
+第一块是 `gitSafety.ts`（176 行）。它要解决的攻击场景和 BashTool 的 `cd + git` 防护完全一样——bare repo hook 攻击、git 内部目录写入后再跑 git——但 Windows 路径的特殊性逼出了一整套独立的归一化逻辑：`normalizeGitPathArg()`（gitSafety.ts:48 起）要把 PS 的 colon-bound parameter（`/Path:hooks/pre-commit`）、provider 前缀（`Microsoft.PowerShell.Core\FileSystem::path`）、drive-relative 路径（`C:foo` 是 cwd-relative，`C:\foo` 是绝对路径，二者必须区别对待）、NTFS 尾部空格 / 点剥离全部归约成一条规范路径，然后才能去比对 `hooks/`、`HEAD`、`objects/` 这些 git 内部目录前缀。BashTool 没有这一层，是因为 POSIX 文件系统不会把 `hooks ` 和 `hooks` 当作同一个文件，而 NTFS 会。
+
+第二块是 `clmTypes.ts`（211 行），对应的是 PowerShell 那条 BashTool 里完全不存在的攻击面：**.NET 类型实例化**。一行看起来很无辜的 PowerShell 代码 `[adsi]'LDAP://evil.com/...'`，只是一次"类型转换"，但运行时会真的去和远端 LDAP 服务器建立网络连接——这在 bash 里没有等价物。Microsoft 的 Constrained Language Mode 维护了一份"在系统锁定状态下仍然可以使用"的 .NET 类型白名单（clmTypes.ts 的 `CLM_ALLOWED_TYPES`），PowerShellTool 把这份白名单当成自己的判定基准：AST 解析时遇到的任意 `TypeName.Name`，只要不在这份白名单里就拒绝放行，要求用户确认。值得注意的一处倒退：`adsi` 和 `adsisearcher` 被显式从 Microsoft 的原白名单中**摘掉**了——Microsoft 允许它们是因为预设场景是 Windows 域内管理员，而 Claude Code 的场景里调用方未必可信。
+
+还有几处"形似而不神似"的差异值得点一句：
+
+- **沙箱**：BashTool 的 `shouldUseSandbox.ts`（153 行）在 macOS / Linux 上通过 sandbox-exec 或 namespace 隔离实现；而 PowerShellTool.tsx:210 写得很直白——"Enterprise policy requires sandboxing, but sandboxing is not available on native Windows"，原生 Windows 上根本没有等价的沙箱原语，于是策略要求沙箱时只能**拒绝执行**而不是 silently 跳过。
+- **版本分裂**：PowerShell 5.1 和 PowerShell 7+ 的语法不兼容（5.1 不支持 `&&`/`||`，会直接 parser error），`prompt.ts` 因此要在 System Prompt 里把当前检测到的 `PowerShellEdition` 告诉模型，避免它写出"在训练数据里看着合法、运行时直接 exit 1"的命令。BashTool 没有这种问题，因为 bash 的语法在主流版本间稳定得多。
+- **管道语义**：PowerShell 的管道传递的是 .NET 对象而不是字节流，`commandSemantics.ts`（142 行，对照 BashTool 那边的 140 行）的退出码语义表大小一致，但 PowerShell 这边要额外处理 `$?`/`$LASTEXITCODE` 两套退出状态。
+
+回头看 BashTool 那 12,411 行和 PowerShellTool 那 8,959 行，真正想强调的事其实只有一件：**让 AI 在用户机器上跑代码这件事，没法做成一份"通用 Shell 工具"**。Shell 的差异（POSIX vs PowerShell）、文件系统的差异（大小写敏感、路径规范化、文件名合法字符）、隔离原语的差异（sandbox-exec vs "没有"）、攻击面的差异（命令注入 vs .NET 类型实例化）逼着 Claude Code 不得不在 `tools/` 下养着两套几乎平行的实现。看似冗余，实则是"在两套操作系统语义下都要 fail-closed"的最小代价。
 
 ---
 

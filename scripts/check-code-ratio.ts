@@ -55,7 +55,7 @@ function getChangedFiles(base: string): string[] {
  *
  * 表（spec §9.3）：
  *   C04 配置迁移即代码                    → docs/26-配置迁移即代码.md
- *   C13 通信、调度、问询与合成工具         → docs/<NN>-…md （writer 领取时由 OC-Dev 在 spec 中分配）
+ *   C13 通信、调度、问询与合成工具         → docs/27-通信调度问询与合成工具.md
  *   C17 Coordinator、Cron 与定时调度       → docs/<NN>-…md （同上）
  *   C24 Bridge IPC 与远程会话              → docs/<NN>-…md
  *   C25 DirectConnect 与上游代理           → docs/<NN>-…md
@@ -63,14 +63,15 @@ function getChangedFiles(base: string): string[] {
  *   C29 Buddy 人格                         → docs/<NN>-…md
  *   C30 Doctor 屏与 Output Style 体验      → docs/<NN>-…md
  *
- * 仅 C04 在 YAO-135 仲裁中被显式落槽；其余 7 篇的 NN 在各自 issue 启动时由
+ * 仅 C04 / C13 在 YAO-135 仲裁中被显式落槽；其余 6 篇的 NN 在各自 issue 启动时由
  * OC-Dev 在 spec §9.3 表格中追加，**同时**更新本集合。集合与 spec 表格保持
  * 一一对应是硬约束——任何新章下笔前若 NN 未在此集合中登记，CI 会 fail（缺
  * `is_new_chapter` 身份导致 25% 占比闸 skip = 漏判）。
  */
 const NEW_CHAPTER_FILES = new Set<string>([
   "docs/26-配置迁移即代码.md",
-  // 其余 7 篇（C13/C17/C24/C25/C28/C29/C30）在各自 issue 启动时追加。
+  "docs/27-通信调度问询与合成工具.md",
+  // 其余 6 篇（C17/C24/C25/C28/C29/C30）在各自 issue 启动时追加。
 ]);
 
 const SOURCE_LANGS = new Set([

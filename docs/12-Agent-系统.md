@@ -193,7 +193,7 @@ investigate complex codebase questions...
 
 用户不必手写 Markdown 文件。`commands/agents/agents.tsx` 注册了一个非常薄的 slash 命令——它的 React 组件只渲染一个 `<AgentsMenu>`，其余逻辑都委托给 `components/agents/AgentsMenu.tsx`（同目录还有 `AgentDetail`、`AgentEditor`、`ToolSelector`、`ModelSelector`、`ColorPicker`、`generateAgent` 等子组件）。
 
-这条入口的存在意义在于：把 `tools/AgentTool/` 里那套加载、覆盖、frontmatter 校验的规则**反向暴露**成一组可视化编辑器——用户在 UI 里选择工具集、模型、颜色、权限模式，最终落盘的还是 `.claude/agents/*.md`，下一次 `getAgentDefinitionsWithOverrides()` 就会把它读回来。换句话说，`/agents` 不是新的数据通路，而是同一份数据蓝图的写入端。
+这条入口的存在意义在于：把 `tools/AgentTool/` 里那套加载、覆盖、frontmatter 校验的规则**反向暴露**成一组可视化编辑器——用户在 UI 里选择工具集、模型、颜色，最终落盘的还是 `.claude/agents/*.md`，下一次 `getAgentDefinitionsWithOverrides()` 就会把它读回来。换句话说，`/agents` 不是新的数据通路，而是同一份数据蓝图的写入端。
 
 ---
 

@@ -46,7 +46,7 @@ if (getFileModificationTime(fullPath) > readTimestamp.timestamp) {
 }
 ```
 
-这一段就是"先读后写"的全部实现。注意它没有去比对内容是否真的变了，只比 mtime —— 这意味着如果 prettier 在你 read 之后只是把同一份内容重新格式化了一次然后保存回去，你也会拿到 `errorCode: 10`。这是个保守的选择，理由源码注释里写得很直白："silent data loss" 是不能接受的，而 "读一次再来" 是廉价的。
+这一段就是"先读后写"的全部基线：三者都靠 `readFileState` 防 stale。但在 mtime 失配之后，三件套的处理并不一致：FileWrite (`FileWriteTool.ts:279-293`) 和 FileEdit (`FileEditTool.ts:289-309`) 在 full read 路径下都带了一层"内容相等兜底"——即使 `getFileModificationTime` 比 read 时新，只要把磁盘当前内容拿出来和 `readFileState` 里缓存的 content 逐字节比对完全一致，就继续放行，不抛 `errorCode: 10`。这样可以容忍 prettier、IDE 自动保存这种"重写但内容没变"的场景。NotebookEdit (`NotebookEditTool.ts:230-237`) 则没有这层兜底，是纯 mtime 判断——只要 mtime 变大就保守拒绝，理由源码注释里写得很直白："silent data loss" 是不能接受的，而 "读一次再来" 是廉价的；对 `.ipynb` 这种 JSON 容器来说，按字节比 content 也不太可靠，所以宁可严一点。
 
 写完之后，三件套都做了一件事：把 `readFileState` 的时间戳就地刷新成"写后 mtime"。NotebookEditTool 里的注释把背后那个隐藏的 bug 讲得很清楚：
 

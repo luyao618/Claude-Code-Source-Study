@@ -137,7 +137,7 @@ export const EXPLORE_AGENT: BuiltInAgentDefinition = {
 
 **双重安全保障**：System Prompt 通过自然语言告诉模型"不能修改"，`disallowedTools` 则在工具注册层面直接移除写入工具。这是"Prompt 约束 + 工具约束"的双保险模式。
 
-**成本优化**：`omitClaudeMd: true` 是一个关键优化。在 `runAgent.ts:386-398` 中，这个标记使 Agent 启动时跳过 CLAUDE.md 注入：
+**成本优化**：`omitClaudeMd: true` 是一个关键优化。在 `runAgent.ts:390-398` 中，这个标记使 Agent 启动时跳过 CLAUDE.md 注入：
 
 ```typescript
 // tools/AgentTool/runAgent.ts:390-398
@@ -208,7 +208,7 @@ export const PLAN_AGENT: BuiltInAgentDefinition = {
 
 **文件**：`tools/AgentTool/built-in/verificationAgent.ts`
 
-这是内置 Agent 中 System Prompt **最长、设计最精密** 的一个（约 130 行纯 prompt 文本）。它的核心理念是：**验证者的价值在于找到问题，而不是确认正确**。
+这是内置 Agent 中 System Prompt **最长、设计最精密** 的一个 —— `VERIFICATION_SYSTEM_PROMPT` 常量在 `verificationAgent.ts:10-129` 占了 120 行单一字符串字面量。它的核心理念是：**验证者的价值在于找到问题，而不是确认正确**。
 
 与 Explore/Plan 的"完全 READ-ONLY"不同，Verification Agent 的约束更精细 —— **项目目录只读，但允许在临时目录写入测试脚本**：
 
@@ -306,7 +306,7 @@ export const VERIFICATION_AGENT: BuiltInAgentDefinition = {
 }
 ```
 
-`criticalSystemReminder_EXPERIMENTAL` 是一个特殊字段 —— 它会在 Agent 的**每个 user turn** 都被重新注入，防止模型在长对话中"忘记"自己的约束。注意这条 reminder 的措辞精确区分了"项目目录禁写"和"tmp 允许"，与 System Prompt 中的约束保持一致。这在 `runAgent.ts:711` 中通过 `createSubagentContext()` 传递给 `ToolUseContext`。
+`criticalSystemReminder_EXPERIMENTAL` 是一个特殊字段 —— 它会在 Agent 的**每个 user turn** 都被重新注入，防止模型在长对话中"忘记"自己的约束。注意这条 reminder 的措辞精确区分了"项目目录禁写"和"tmp 允许"，与 System Prompt 中的约束保持一致。在 `runAgent.ts:700` 处，`createSubagentContext()` 把这个字段透传进子 Agent 的 `ToolUseContext`（字段拼装见 `runAgent.ts:711-712`）。
 
 ### 2.4 General-purpose Agent：通用万能工
 

@@ -32,7 +32,7 @@ export function isCoordinatorMode(): boolean {
 
 两个门一起把：先是 `feature('COORDINATOR_MODE')` 这一层编译期开关——按第 19 篇讲过的 DCE 机制，外部构建里这整块逻辑会被完整剔掉，不留任何字节；其次才是运行时的 env truthy 判断。两道门是有讲究的：Coordinator 模式不是给所有用户的默认行为，它会把模型平时拿在手里的 Read / Write / Edit / Bash 这一摞工具全部抽走，换成一份完全不一样的工具集。如果不小心被外部用户撞开，体验上会像「Claude 突然不会改文件了」。所以外部构建宁可让这段代码不存在，也不要它存在但默认关。
 
-真正进入 Coordinator 模式之后，**主会话第一件事是给自己换一张身份证**。它的 system prompt 不再是「你是一个帮用户写代码的 AI」，而是一份接近 370 行、读起来像「项目经理岗位说明书」的大段说明。这份 prompt 的来源是 `getCoordinatorSystemPrompt()`，里面被反复强调的几条要点抄一下：
+真正进入 Coordinator 模式之后，**主会话第一件事是给自己换一张身份证**。它的 system prompt 不再是「你是一个帮用户写代码的 AI」，而是一段读起来像「项目经理岗位说明书」的大段说明。这份 prompt 的来源是 `coordinator/coordinatorMode.ts:111-369` 里的 `getCoordinatorSystemPrompt()`，里面被反复强调的几条要点抄一下：
 
 - 你的角色是分派工作给 Worker，不是亲自完成代码改动；
 - 你拿到的工具只有 `AgentTool`（派 Worker）、`SendMessage`（给已经在跑的 Worker 续指令）、`TaskStopTool`（必要时杀掉跑偏的 Worker）；
@@ -73,7 +73,7 @@ Coordinator 解决了「不让用户每一步都按回车」的问题，但它�
 
 `CronDeleteTool` 看起来最简单，但它带了一道权限检查：teammate 只能删自己创建的 cron，错误码 2。这是 multi-Agent 协作里典型的最小权限——不希望 Agent A 跑着跑着把 Agent B 排好的提醒删掉。`CronListTool` 则反过来给了不对称的视角：teammate 调 List 只能看到自己的 cron；主会话（没有 `agentId`）调 List 能看到这个项目里所有的 cron。
 
-这三个工具共享一个隐藏属性：`isReadOnly` 和 `isConcurrencySafe` 在 `CronListTool` 上都给了 true，意思是模型可以在同一回合里把三个 cron 列表查询打成 batch 并发跑——这在「项目里一次性看清所有定时任务」这种场景下省一轮 round trip。
+这三个工具里只有 `CronListTool` 把 `isReadOnly()` 和 `isConcurrencySafe()` 都置成 true（`tools/ScheduleCronTool/CronListTool.ts:51-55`），`CronCreateTool` / `CronDeleteTool` 都没有这两个标记。这两道开关的意思是：模型可以放心地把 CronList 跟同回合的其它只读工具（Read / Grep / 别的 List）并发跑而不需要排队——在「同时看 cron 和当前文件状态」这种综合排查场景下省一轮 round trip。CronList 的 input schema 本身是空对象（`CronListTool.ts:17`），不接受参数，它一次拿回所有 cron，并不是把多条查询打成 batch。
 
 ### 2.2 jitter：永远不要在整点触发
 
@@ -163,19 +163,19 @@ const schedulerLockSchema = lazySchema(() =>
 
 scheduler 拿到锁之后，每秒钟做的事大致分三步：
 
-第一步是「重读 `scheduled_tasks.json` 看看有没有新任务」——但这一步不是每秒真的去 stat 文件，而是由 chokidar 在文件变更时触发 reload，scheduler 自己 tick 时只读内存里的任务列表。这是一种典型的「事件驱动 + 周期兜底」的混合：chokidar 漏掉一次（NFS、Docker volume 的 inotify 经常不可靠），下一秒 tick 也会从内存里继续往前走。
+第一步是「内存里有哪些任务」。文件型任务由 chokidar 在 `scheduled_tasks.json` 发生变更时调 `load()`（`utils/cronScheduler.ts:440-448`、`179-228`）把磁盘内容刷进内存 `tasks` 数组；scheduler 每秒 tick 只读这份内存，并不每秒去 stat 文件。session-only 任务则在每次 tick 都从 `bootstrap/state` 里现取 `getSessionCronTasks()`（`cronScheduler.ts:376-378`）——它们没有文件事件，必须 tick 时再读一次。这是「事件驱动文件 + 周期读内存 / session 存储」的混合：chokidar 在 NFS、Docker volume 这类 inotify 不可靠的环境里漏掉一次也只是把新增 cron 的可见时间推迟到下一次文件事件，已经在内存里的任务一秒一秒继续走。
 
 第二步是计算每一个任务的 `nextFireAt` 并跟 `Date.now()` 比较。`nextFireAt` 的锚点是 `lastFiredAt ?? createdAt`——也就是说一个新创建的任务从「创建时刻」开始算下一次触发，一个已经跑过的任务从「上一次触发时刻」开始算。这条选择避免了一个细微的偏移问题：如果用 `Date.now()` 当锚点，每次 tick 都会让下一次触发往后挪一秒，长期运行会累积成可见的飘移。
 
-第三步是「该触发就触发」。`fireCronTask()` 把任务的 prompt 包装成一条 `task-notification`，调 `enqueuePendingNotification()` 塞回 messageQueueManager 的 `'later'` 队列，然后把 `lastFiredAt` 更新为 `now`、`nextFireAt` 重新计算并加 jitter。注意周期任务这里有个细节：reschedule 的起点是 `now` 而不是「本来的 next」——这条选择让长时间不在线的会话醒来之后**只补跑一次**而不是补跑过去几小时积累的所有触发。
+第三步是「该触发就触发」。这一段没有一个独立的 `fireCronTask()` 函数，触发逻辑就写在 `createCronScheduler()` 内部 `check()` 的 `process()` 闭包里（`utils/cronScheduler.ts:230-345`）：当 `now >= next` 时优先调 `onFireTask(task)` 把完整 CronTask 交给上层（useScheduledTasks 走这条），上层不存在时再 fall back 调 `onFire(t.prompt)`（`cronScheduler.ts:293-297`）。然后立刻为周期任务计算下一次 `nextFireAt`——起点是 `now` 而不是「本来的 next」（`cronScheduler.ts:315-321`），这条选择让长时间不在线的会话醒来之后**只补跑一次**而不是把过去几小时积累的所有触发一并补上；同时把 `lastFiredAt = now` 通过 `markCronTasksFired()` 批量回写到磁盘（`cronScheduler.ts:358-369`），下一次进程启动 first-sight 时能从同一个锚点重建出相同的 `nextFireAt`。
 
 ### 3.3 missed task：开机时怎么补
 
 scheduler 还要回答另一个问题：如果一个 cron 任务定的是「下午 3 点跑」，但你下午 2 点关电脑、下午 5 点才重新打开会话，这个任务还跑不跑？
 
-源码的处理是：**只对一次性、非周期的 cron 任务补跑**，并且只在 scheduler 第一次启动（initial load）的时候补一次。周期任务过期就过期了（前面说过，周期任务从 `now` 开始算下一次，自然就是下一个周期）；一次性任务如果错过了，错过的窗口太大就直接当过期处理。这条策略跟 vixie-cron 在 `anacron` 上的处理思路是一致的——既不要丢一次性任务、也不要因为错过几小时就连补好几次周期任务。
+源码的处理是：**只在 scheduler 第一次启动（initial load）的时候，把过期的一次性任务作为「missed」补一次**——`load(initial)` 里只在 `initial === true` 时计算 `findMissedTasks()`，并显式 `filter(t => !t.recurring && ...)` 把周期任务排除（`utils/cronScheduler.ts:184-197`）。周期任务在初始 load 不走 missed 通道，而是由后续 tick 的 `check()` 按 `lastFiredAt ?? createdAt` 计算 `nextFireAt`：如果这个锚点离 `now` 已经过去了一个甚至多个完整周期，第一次 tick 就会触发一次，然后从 `now` 重新算下一次（`cronScheduler.ts:253-321`）——也就是说在线缺席多久都只补一次，不会补多次。这条策略跟 vixie-cron 在 `anacron` 上的处理思路一致——既不要丢一次性任务、也不要因为错过几小时就连补好几次周期任务。
 
-而周期任务还有另一道生命周期闸：`recurringMaxAgeMs = 7 * 24 * 60 * 60 * 1000`，也就是 7 天。任何周期任务在 7 天里如果一次都没真正被触发（比如这个项目 7 天都没人打开），下一次再触发时会**触发最后一次**，然后从磁盘里删掉。这条决定回答的是「定一个每天检查 CI 的提醒，结果项目荒废了 3 个月」这种长尾——不要让一份 `.claude/scheduled_tasks.json` 里堆着几百条过期任务陪你一辈子。
+而周期任务还有另一道生命周期闸：`recurringMaxAgeMs = 7 * 24 * 60 * 60 * 1000`，也就是 7 天。判定函数 `isRecurringTaskAged()` 看的是 `nowMs - t.createdAt >= maxAgeMs`（`utils/cronScheduler.ts:53-60`），跟「这 7 天里有没有真的被触发过」无关——一条已经稳稳触发过几十次的周期任务，超过 7 天同样会被判 aged。aged 命中的任务会在下一次到点时**触发最后一次**，然后从磁盘里删掉（`cronScheduler.ts:302-313`、`325-344`）；`permanent: true` 的内置任务以及 `recurringMaxAgeMs === 0` 时整体豁免。这条决定回答的是「定一个每天检查 CI 的提醒，结果半年过去早不需要了」这种长尾——不要让一份 `.claude/scheduled_tasks.json` 里堆着几十条久远的周期任务永远跑下去。
 
 ### 3.4 buildMissedTaskNotification：包装 prompt 的小学问
 
@@ -191,7 +191,7 @@ scheduler 还要回答另一个问题：如果一个 cron 任务定的是「下�
 
 第一是 `isLoadingRef` 这一个 ref。如果不用 ref 而用普通的 closure 变量，第一次 render 时拿到的 `isLoading` 会被 closure 进 scheduler 回调里——之后 isLoading 变化了，scheduler 看到的还是当时那个值。React 里这是个老毛病，解决方案就是 ref。
 
-第二是「按 agentId 路由」。fire 事件回调里要判断这个 cron 是主会话创建的还是某个 teammate 创建的——前者直接 `enqueuePendingNotification()` 走主队列，后者要走 teammate 自己的 mailbox。如果这个 teammate 已经不在了（被用户主动 kill、或者父 session 关闭），cron 任务变成了孤儿，hook 这里会把它从 `.claude/scheduled_tasks.json` 里删掉——这条「自动清理」是前面 §2.1 提到的「teammate-no-durable」规则的搭档：在创建端禁止，在执行端清理，两头堵死「孤儿 cron」这种状态。
+第二是「按 agentId 路由」。fire 事件回调里要判断这个 cron 是主会话创建的还是某个 teammate 创建的——前者直接 `enqueuePendingNotification()` 走主队列，后者要走 teammate 自己的 mailbox（`hooks/useScheduledTasks.ts:91-115`）。如果这个 teammate 已经不在了（被用户主动 kill、或者父 session 关闭），cron 任务变成了孤儿，hook 这里会调 `removeCronTasks([task.id])`（`useScheduledTasks.ts:101-108`）做清理。注意 teammate cron 在创建端就被禁止 durable（`CronCreateTool.ts:105-113`），`agentId` 也被显式标注为 runtime-only、never written to disk（`utils/cronTasks.ts:64-69`）——所以这一手清理实际操作的是 session store 而不是磁盘上的 `.claude/scheduled_tasks.json`。这跟前面 §一·1.2 提到的「teammate-no-durable」规则是搭档：在创建端禁止落盘，在执行端清理 session store，两头堵死「孤儿 cron 跨会话残留」这种状态。
 
 第三是 `workload: WORKLOAD_CRON` 这个字段。它会出现在通知插队进 query loop 的 metadata 里，最终通过 HTTP header 传到 Anthropic 后端，用作 QoS 分类——cron 触发的请求会被打上「这是后台任务，不是 user-facing」的标签，在系统繁忙时可以被优先 deprioritize。这是一种端到端的 attribution：从 hook 注入开始，metadata 一路跟着这条消息走到 API 调用，让后端知道这一刻这个会话的「忙」不是真的有人在等回复。
 
@@ -209,7 +209,7 @@ scheduler 还要回答另一个问题：如果一个 cron 任务定的是「下�
 
 三道门同时为真，工具才注册。`isDurableCronEnabled()` 是一个独立的子开关（`tengu_kairos_cron_durable`），单独控制「durable 任务能不能用」——这条分层让 Anthropic 在线上能精细控制：先把 session-only 的 cron 开给所有用户用一段时间，确认稳定之后再把 durable 开关打开。
 
-GrowthBook 的判断结果带了 5 分钟的缓存（`KAIROS_CRON_REFRESH_MS = 5 * 60 * 1000`），不会每次工具枚举都去远端查一次。这跟 §0.4 那条「运行时可用类陈述必须列出依赖变量」的规矩对得很齐：工具是否可用不是一个常量，而是「feature flag 状态 × env 状态 × GrowthBook 5 分钟缓存」三者的乘积。
+GrowthBook 的判断结果带了 5 分钟的缓存（`KAIROS_CRON_REFRESH_MS = 5 * 60 * 1000`），不会每次工具枚举都去远端查一次。所以一个工具是否对模型可见，并不是一个常量，而是「编译期 feature flag × 本地 env kill switch × GrowthBook 5 分钟缓存的远端 gate」三者的乘积——三者中任何一个翻转都能让 CronCreate/CronDelete/CronList 整族从 `<available-deferred-tools>` 列表里消失。
 
 `DEFAULT_MAX_AGE_DAYS = 7` 这个常量也在 prompt 里被提到——告诉模型「周期任务超过 7 天没人理会自动过期」，让模型在帮用户设置长期提醒时知道边界。这种「把生命周期写进 prompt」的小细节是工具家族里反复出现的：模型看到的工具描述不仅要讲怎么用，还要讲什么时候会失效。
 

@@ -71,7 +71,8 @@ function getChangedFiles(base: string): string[] {
 const NEW_CHAPTER_FILES = new Set<string>([
   "docs/26-配置迁移即代码.md",
   "docs/27-通信调度问询与合成工具.md",
-  // 其余 6 篇（C17/C24/C25/C28/C29/C30）在各自 issue 启动时追加。
+  "docs/28-Coordinator-Cron-与定时调度.md",
+  // 其余 5 篇（C24/C25/C28/C29/C30）在各自 issue 启动时追加。
 ]);
 
 const SOURCE_LANGS = new Set([

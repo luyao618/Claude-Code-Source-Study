@@ -578,7 +578,7 @@ OC-PM 据本文档为每个 v2 章节产出 1 个 parent issue，包含三件套
 |---|---|---|---|
 | C04 | 配置迁移即代码 | `docs/26-配置迁移即代码.md` | YAO-135 仲裁，YAO-106 落地 |
 | C13 | 通信、调度、问询与合成工具 | `docs/27-通信调度问询与合成工具.md` | YAO-135 仲裁，YAO-114 落地 |
-| C17 | Coordinator、Cron 与定时调度 | _（待 issue 启动时由 OC-Dev 追加）_ | |
+| C17 | Coordinator、Cron 与定时调度 | `docs/28-Coordinator-Cron-与定时调度.md` | YAO-135 仲裁，YAO-137 追加（NN=28，承接 26/27 落地，准 YAO-117 启动） |
 | C24 | Bridge IPC 与远程会话 | _（待 issue 启动时由 OC-Dev 追加）_ | |
 | C25 | DirectConnect 与上游代理 | _（待 issue 启动时由 OC-Dev 追加）_ | |
 | C28 | Keybindings、Vim 与 Voice 输入 | _（待 issue 启动时由 OC-Dev 追加）_ | |

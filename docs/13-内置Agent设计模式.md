@@ -208,7 +208,7 @@ export const PLAN_AGENT: BuiltInAgentDefinition = {
 
 **文件**：`tools/AgentTool/built-in/verificationAgent.ts`
 
-这是内置 Agent 中 System Prompt **最长、设计最精密** 的一个 —— `VERIFICATION_SYSTEM_PROMPT` 常量在 `verificationAgent.ts:10-129` 占了 120 行单一字符串字面量。它的核心理念是：**验证者的价值在于找到问题，而不是确认正确**。
+这是内置 Agent 中 System Prompt **最长、设计最精密** 的一个（120 行纯 prompt 文本，见 `verificationAgent.ts:10-129`）。它的核心理念是：**验证者的价值在于找到问题，而不是确认正确**。
 
 与 Explore/Plan 的"完全 READ-ONLY"不同，Verification Agent 的约束更精细 —— **项目目录只读，但允许在临时目录写入测试脚本**：
 
@@ -637,17 +637,19 @@ Skill 预加载发生在 `runAgent.ts:578-645` —— Agent 启动时，frontmat
 一个巧妙的优化是**Agent 列表外置**。源码注释揭示了动机：
 
 ```typescript
-// tools/AgentTool/prompt.ts:53-63
+// tools/AgentTool/prompt.ts:59-64
 // 动态 Agent 列表占 fleet cache_creation token 的 ~10.2%：
 // MCP 异步连接、/reload-plugins、权限模式变更都会改变列表 →
 // 描述变化 → 工具 schema 缓存完全失效。
 export function shouldInjectAgentListInMessages(): boolean {
-  ...
+  if (isEnvTruthy(process.env.CLAUDE_CODE_AGENT_LIST_IN_MESSAGES)) return true
+  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_AGENT_LIST_IN_MESSAGES))
+    return false
   return getFeatureValue_CACHED_MAY_BE_STALE('tengu_agent_list_attach', false)
 }
 ```
 
-当此开关打开时，Agent 列表从工具描述中移出，改为通过 `system-reminder` 消息注入。工具描述变为静态字符串，避免因 Agent 列表变化导致的 prompt cache 失效。这是**缓存稳定性与信息完整性之间的权衡**。
+当此开关打开时（默认由 GrowthBook `tengu_agent_list_attach` 决定，也可用环境变量 `CLAUDE_CODE_AGENT_LIST_IN_MESSAGES` 显式覆盖），Agent 列表从工具描述中移出，改为通过 `system-reminder` 消息注入。工具描述变为静态字符串，避免因 Agent 列表变化导致的 prompt cache 失效。这是**缓存稳定性与信息完整性之间的权衡**。
 
 `getPrompt()` 还会根据 fork subagent 是否启用，生成不同的使用指南和示例。当 fork 启用时，Prompt 中增加了 "When to fork" 章节和 fork 特有的示例；当不启用时，使用传统的 agent 调用示例。
 

@@ -306,7 +306,7 @@ try {
 
 而在内存里把 token 收紧的那一手，是 `setNonDumpable`（`upstreamproxy/upstreamproxy.ts:225-252`）：
 
-用 Bun FFI 直接调 libc 的 `prctl(PR_SET_DUMPABLE, 0)`（`upstreamproxy/upstreamproxy.ts:225-252`，通过 `bun:ffi` 的 `dlopen('libc.so.6', { prctl: ... })` 拿到符号，再 `lib.symbols.prctl(PR_SET_DUMPABLE, 0n, 0n, 0n, 0n)`）。这一手很硬核——它告诉内核「我这个进程不可被 dump」，于是同 UID 的进程没法 `gdb -p $PPID` 去扒堆里的 token。注释里直接给了威胁模型：「a prompt-injected `gdb -p $PPID` can't scrape the token from the heap」。在 CCR 这种「同一个容器里跑用户代码 + 我们自己代码」的场景里，prompt injection 让大模型生成一段 `gdb` 命令并不是天方夜谭，这一行是真在防具体威胁。Linux 之外的平台静默 no-op——`prctl` 是 Linux-only 的 syscall，本地开发态的 macOS / Windows 上跑不到这一步。
+用 Bun FFI 直接调 libc 的 `prctl(PR_SET_DUMPABLE, 0)`（`upstreamproxy/upstreamproxy.ts:225-252`，通过 `bun:ffi` 的 `dlopen('libc.so.6', { prctl: ... })` 拿到符号，再 `lib.symbols.prctl(PR_SET_DUMPABLE, 0n, 0n, 0n, 0n)`）。这一手意图很硬核——它告诉内核「我这个进程不可被 dump」，于是同 UID 的进程没法 `gdb -p $PPID` 去扒堆里的 token。注释里直接给了威胁模型：「a prompt-injected `gdb -p $PPID` can't scrape the token from the heap」。在 CCR 这种「同一个容器里跑用户代码 + 我们自己代码」的场景里，prompt injection 让大模型生成一段 `gdb` 命令并不是天方夜谭，所以这条防线是有明确目标的。但要注意它**实际生效的范围非常窄**：`upstreamproxy/upstreamproxy.ts:225-227` 的守卫是 `if (process.platform !== 'linux' || typeof Bun === 'undefined') return`——只有 Linux 且 Bun runtime 才会真去调 `prctl`。CCR 容器里 CLI 是用 Node 跑的（见 §3.4 对 `upstreamproxy/relay.ts:152-154` 的引用），所以 CCR 路径上这一行其实**不会执行**，本地开发态的 macOS / Windows 上自然也跑不到。这一段更像是「写好备用、等 Bun 能跑 CCR 时自动激活」的占位防线，而不是当前 CCR 部署中真正在挡 `gdb` 的那条防线。
 
 ### 3.3 NO_PROXY 列表
 
@@ -495,7 +495,7 @@ registerUpstreamProxyEnvFn(getUpstreamProxyEnv)
 await initUpstreamProxy()
 ```
 
-只有当 CCR env var 都满足时才 dynamic import 这个模块，把它的 env 提供函数注册回去。这套「依赖反转 + 懒加载」是冷启动优化的常见手法，但它在这里还有第二层好处：让 `utils/subprocessEnv.ts` 这个被几十处 import 的低层工具，不去依赖 `upstreamproxy/` 这个上层特性模块，反向防止依赖循环。
+这里要把 lazy import 的闸门口径说精确：`entrypoints/init.ts:167-176` 只检查 `CLAUDE_CODE_REMOTE` 这一个 env var——只要进程认为自己跑在 CCR 容器里，就会 dynamic import 这个模块并 `registerUpstreamProxyEnvFn`，**不**会顺带读 `CCR_UPSTREAM_PROXY_ENABLED`。第二道功能闸 `CCR_UPSTREAM_PROXY_ENABLED` 是在 `initUpstreamProxy()` 内部 `upstreamproxy/upstreamproxy.ts:85-94` 才 return early 的——也就是说，CCR 模式下模块一定会被 load / register，但 init 可能立刻 no-op 退出。所以这套「依赖反转 + 懒加载」省的是「非 CCR 启动」那一类进程的 load 成本，并不能让 CCR 容器里禁用了 upstream proxy 的会话也跳过模块加载。即便如此第二层好处仍然成立：让 `utils/subprocessEnv.ts` 这个被几十处 import 的低层工具，不去依赖 `upstreamproxy/` 这个上层特性模块，反向防止依赖循环。
 
 `getUpstreamProxyEnv` 还有一个继承分支（`upstreamproxy/upstreamproxy.ts:160-183`）：当本进程没启用 proxy，但环境里已经有 `HTTPS_PROXY` 和 `SSL_CERT_FILE`，就把父进程的代理设定原样传下去。意图很清楚：CCR 容器里第一层 `claude` 进程把 token 文件 unlink 了，第二层 `claude` 子进程没办法再 init 一遍，但父进程的 relay 还在跑、端口还活着——子进程只要继承同一份 env，就能用上父亲那条代理。
 

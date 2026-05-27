@@ -908,7 +908,7 @@ graph TD
 
 ---
 
-## 番外：PromptSuggestion — 预测用户的下一句，且不能打翻 Prompt Cache
+## 番外：PromptSuggestion — 预测用户的下一句，且不能打破 Prompt Cache
 
 前面六节谈的都是"让模型多想"——Thinking、Effort、Advisor 都在主对话循环的关键路径上调整推理深度。还有一个相邻但方向相反的子系统：在主对话**等待用户输入**的间隙，悄悄派一个 fork 出去的小分支 agent（旁路请求，同参数）预测"用户接下来最可能输入什么"，写在输入框下方作为灰色提示。它不属于推理控制的主旋律，但和 Effort/Cache 子系统耦合极深，正好放在这里作为番外补完。
 

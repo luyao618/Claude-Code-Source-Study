@@ -22,8 +22,6 @@
 
 真正有意思的是它跟写工具之间的契约 —— `readFileState`。每次成功读完一个文件，FileReadTool 都会在 `FileReadTool.ts:830-846` 把这条记录写进 `ToolUseContext` 共享的 `readFileState` Map：`{ content, timestamp: getFileModificationTime(...), offset, limit }`。这一手是为后面写工具留的伏笔。如果你跳过 FileRead 直接 FileWrite，validateInput 阶段会拒；如果你读完之后，文件被 linter / 用户在外部改了一次，再写也会拒。这条规矩没写在某一份单独的文档里，它在每一个写工具的 `validateInput` 里都重复实现了一遍 —— 错误码也各自一套：FileWrite 用 `errorCode: 2 / 3`（`FileWriteTool.ts:198-218`），FileEdit 用 `errorCode: 6 / 7`（`FileEditTool.ts:275-307`），NotebookEdit 用 `errorCode: 9 / 10`（`NotebookEditTool.ts:218-237`），前者表示"还没读过"，后者表示"读完之后又被外部改了"。
 
-FileRead 还藏着一个不显眼的细节：UNC 路径短路。
-
 FileRead 还藏着一个不显眼的细节：UNC 路径短路。`FileReadTool.ts:458-465` 在所有 stat/readFile 操作之前对 `\\host\share\file` 或 `//...` 形式的路径直接 `return { result: true }` 不做任何 I/O —— Windows 上对 UNC 路径调 `fs.existsSync()` 之类会自动触发 SMB / NTLM 握手，如果 host 是攻击者控制的，等于把当前用户的 hash 送出去（源码注释原文："Skip filesystem operations for UNC paths to prevent NTLM credential leaks"）。所以这条短路不是"按 UNC 处理"，而是 **validate 阶段一律放行、不在权限通过前对 UNC 做任何 filesystem I/O**，把真正的 stat/read 延后到用户授权后的 `call` 阶段做。同样的两行你在 NotebookEdit、FileEdit、FileWrite 的 `validateInput` 里都会再看到一遍 —— 工具家族层面没有抽出一个 helper，因为每个工具都有自己的"放行返回值"形状，凑成 helper 反而要外挂参数。这是源码里"重复优于错误抽象"的典型一刀。
 
 再读完之后，结果块通过 `mapToolResultToToolResultBlockParam` 决定回给模型的是什么。如果是 `file_unchanged` 这个内部 stub（同一文件在同一时刻被读两次，第二次直接返回"没变"），返回的会是一段固定文本 `FILE_UNCHANGED_STUB`，而不是把整份文件再塞一次回上下文 —— 这是上下文窗口意义上的去重。

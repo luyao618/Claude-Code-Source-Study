@@ -93,7 +93,7 @@ grep -rhoE "feature\(['\"]([A-Z_0-9]+)['\"]\)" --include="*.ts" --include="*.tsx
   | sort | uniq -c | sort -rn | wc -l
 ```
 
-得到 **89 个**独立 flag。下面先看高频 Top 15（使用次数 ≥ 16），随后给出剩下 74 个 flag 的**分类速查表**——按主题域分组，每组给出 flag 名 + 使用次数，方便按特性家族而非字母序检索。
+得到 **89 个**独立 flag。下面先看高频 Top 16（使用次数 ≥ 16），随后给出剩下 73 个 flag 的**分类速查表**——按主题域分组，每组给出 flag 名 + 使用次数，方便按特性家族而非字母序检索。
 
 注：这里频繁出现的 `KAIROS`（希腊语「恰当时机」）出现 156 次，几乎是第二名的 1.5 倍——它对应的是 Claude Code 的**「Assistant 助手 / 聊天」模式**，一个内部大型实验功能（入口在 `assistant/index.ts`、`assistant/gate.ts`、`commands/assistantChat.tsx` 等），其下还派生出 5 个 `KAIROS_*` 子 flag（详见下面的速查表）。
 
@@ -116,9 +116,9 @@ grep -rhoE "feature\(['\"]([A-Z_0-9]+)['\"]\)" --include="*.ts" --include="*.tsx
 | `HISTORY_SNIP` | 16 | 历史片段剪辑 |
 | `CHICAGO_MCP` | 16 | Computer Use MCP |
 
-#### 1.3.1 剩余 74 个 flag 的分类速查表
+#### 1.3.1 剩余 73 个 flag 的分类速查表
 
-按主题域分组（**逐个列出**，不再让读者自行 grep）。"次"指 `feature('X')` 在源码中的出现次数。
+按主题域分组（**逐个列出**，不再让读者自行 grep）。"次"指 `feature('X')` 在源码中的出现次数。下方各组合计 73 个唯一 flag（`BUDDY` 已在 Top 16 中、未在此重复计数）。
 
 **Assistant / KAIROS 家族（除 KAIROS、KAIROS_BRIEF、KAIROS_CHANNELS 外的 3 个）**
 
@@ -204,11 +204,11 @@ grep -rhoE "feature\(['\"]([A-Z_0-9]+)['\"]\)" --include="*.ts" --include="*.tsx
 | `UPLOAD_USER_SETTINGS` | 2 | 用户设置上传 |
 | `DOWNLOAD_USER_SETTINGS` | 5 | 用户设置下载 |
 
-**UI / 终端 / 输入输出（10 个）**
+**UI / 终端 / 输入输出（9 个，另含 `BUDDY` 已在 Top 16）**
 
 | Flag | 次 | 用途 |
 |---|---|---|
-| `BUDDY` | (Top15) | Buddy 宠物 |
+| `BUDDY` | (见 Top 16) | Buddy 宠物（跨主题域，归 UI 一族） |
 | `TERMINAL_PANEL` | 5 | 终端面板 |
 | `QUICK_SEARCH` | 5 | 快速搜索面板 |
 | `MESSAGE_ACTIONS` | 5 | 消息动作菜单 |
@@ -280,7 +280,7 @@ grep -rhoE "feature\(['\"]([A-Z_0-9]+)['\"]\)" --include="*.ts" --include="*.tsx
 | `TORCH` | 1 | Torch 调试探针 |
 | `BUILDING_CLAUDE_APPS` | 1 | 构建 Claude apps 工作流 |
 
-合计：Top 15 共 16 项（其中 `BUDDY` 与下方"UI"组重复出现，故按 16 - 1 = 15 主条目 + 16 行展示），加上以上 16 个主题组内 73 + 1（`BUDDY` 已计） = 74 个剩余 flag，正好覆盖完整的 89 个。这张速查表的目的是：**当你在源码里看到 `feature('XYZ')` 时，可以一眼定位它属于哪条产品线**，而不必把整张表重新 grep 一遍。
+合计：Top 16（16 个唯一 flag，其中 `BUDDY` 同时归入下方"UI"组但**不重复计数**） + 下方 16 个主题组共 73 个唯一 flag = 89，正好覆盖完整集合。这张速查表的目的是：**当你在源码里看到 `feature('XYZ')` 时，可以一眼定位它属于哪条产品线**，而不必把整张表重新 grep 一遍。
 
 ### 1.4 feature() 的全栈影响
 

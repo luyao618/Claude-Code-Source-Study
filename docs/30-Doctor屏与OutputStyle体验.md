@@ -4,9 +4,9 @@
 
 ## 为什么把这三屏放在同一章？
 
-`screens/` 目录下只有三个文件：`REPL.tsx`（主回合）、`ResumeConversation.tsx`（会话恢复）、`Doctor.tsx`（自检屏）。前面三十多章已经把 REPL 拆得很彻底，本章把镜头对准另外两块——一块是**给用户的自检仪表盘**，一块是**给用户的换装系统**。
+`screens/` 目录下只有三个文件：`REPL.tsx`（主回合）、`ResumeConversation.tsx`（会话恢复）、`Doctor.tsx`（自检屏）。前面三十多章已经把 REPL 拆得很彻底，本章把镜头对准剩下两块 `screens/` —— `Doctor.tsx`（**给用户的自检仪表盘**）与 `ResumeConversation.tsx`（**会话恢复拣选器**），再加上不在 `screens/` 目录、但同样面向最终用户、由一组 markdown 文件驱动的 **Output Style 换装系统**（`outputStyles/loadOutputStylesDir.ts` + `constants/outputStyles.ts`）。三块合起来构成本章标题所列的"三屏"承诺。
 
-它们看上去毫无关系：一个是 574 行的诊断面板（`screens/Doctor.tsx`），另一个是 markdown 驱动的 prompt 注入链路（`outputStyles/loadOutputStylesDir.ts` + `constants/outputStyles.ts`）。但拉远看，它们共用一种很少被单独强调的设计思路——**把 CLI 里那些"软参数"暴露成用户能直接看见或直接替换的东西**。Doctor 把"我是怎么被装上的、跟什么冲突、为什么自动更新不工作、MCP 工具吃了多少 token"这些藏在源码深处的运行期事实搬到一屏上；Output Style 则把"对模型说话用的那段 system prompt 的尾巴"做成了 `.claude/output-styles/*.md` 这种用户可以直接覆写的文件。两者都在回答同一个问题：**当一个 AI CLI 装得越来越复杂，怎么让用户在不读源码的前提下，自己看明白它、自己改造它**。
+它们看上去毫无关系：一个是 574 行的诊断面板（`screens/Doctor.tsx`），一个是会话拣选器（`screens/ResumeConversation.tsx`），还有一个是 markdown 驱动的 prompt 注入链路（`outputStyles/loadOutputStylesDir.ts` + `constants/outputStyles.ts`）。但拉远看，它们共用一种很少被单独强调的设计思路——**把 CLI 里那些"软参数"暴露成用户能直接看见或直接替换的东西**。Doctor 把"我是怎么被装上的、跟什么冲突、为什么自动更新不工作、MCP 工具吃了多少 token"这些藏在源码深处的运行期事实搬到一屏上；ResumeConversation 把"我之前哪些会话还能接着聊"摊到一屏让用户挑；Output Style 则把"对模型说话用的那段 system prompt 的尾巴"做成了 `.claude/output-styles/*.md` 这种用户可以直接覆写的文件。三者都在回答同一个问题：**当一个 AI CLI 装得越来越复杂，怎么让用户在不读源码的前提下，自己看明白它、自己改造它**。
 
 本章按两条线索讲。第一节走完 Doctor 屏从 `getDoctorDiagnostic()` 到 React 树的整条路径，看一个自检屏背后实际上检了多少东西。第二节走完 Output Style 从 `.md` 文件被加载到最终拼进 system prompt 的注入链路，看一个"换装系统"真正改的是哪一段。第三节回到 `screens/` 目录本身，把 `ResumeConversation.tsx` 这条以前没在书里露过面的"会话拣选器"路径补上。最后两节把这一章的工程模式抽出来，给一个可以直接照搬的实战示例。
 

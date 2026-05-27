@@ -299,7 +299,7 @@ const BASH_SECURITY_CHECK_IDS = {
 
 ### 2.4 每子命令权限判定中的只读验证（readOnlyValidation.ts）
 
-只读验证**并非主链路的独立层**，而是在每个子命令的权限判定函数 `bashToolCheckPermission()`（bashPermissions.ts:1050-1178）内部的第 7 步调用。整个函数的 7 步骨架（**每一步的行号区间已校对到源码**）：
+只读验证**并非主链路的独立层**，而是在每个子命令的权限判定函数 `bashToolCheckPermission()`（bashPermissions.ts:1050-1178）内部的第 8 步调用。整个函数的 8 步骨架（**每一步的行号区间已校对到源码**）；其后还有一条 passthrough 兜底分支，不计入这 8 步：
 
 | 步骤 | 名称 | 行号区间 | 命中后行为 |
 | --- | --- | --- | --- |
@@ -308,12 +308,13 @@ const BASH_SECURITY_CHECK_IDS = {
 | 3 | 路径约束检查（`checkPathConstraints`） | 1106-1122 | 非 passthrough 立即返回 |
 | 4 | 精确匹配 allow 规则 | 1124-1127 | allow 立即返回 |
 | 5 | 前缀/通配符 allow 规则 | 1129-1139 | allow 立即返回 |
-| 5b | sed 约束检查（`checkSedConstraints`） | 1141-1145 | 非 passthrough 立即返回 |
-| 6 | 权限模式分支（`checkPermissionMode`） | 1147-1151 | 非 passthrough 立即返回（acceptEdits/plan 等模式专用） |
-| 7 | **只读验证**：`BashTool.isReadOnly(input)` → `checkReadOnlyConstraints()` | 1153-1163 | 命中即 allow（`reason: 'Read-only command is allowed'`） |
-| 8 | passthrough 兜底 | 1165-1177 | 触发权限确认对话框，附带 exact-match 建议 |
+| 6 | sed 约束检查（`checkSedConstraints`） | 1141-1145 | 非 passthrough 立即返回 |
+| 7 | 权限模式分支（`checkPermissionMode`） | 1147-1151 | 非 passthrough 立即返回（acceptEdits/plan 等模式专用） |
+| 8 | **只读验证**：`BashTool.isReadOnly(input)` → `checkReadOnlyConstraints()` | 1153-1163 | 命中即 allow（`reason: 'Read-only command is allowed'`） |
 
-deny 规则的优先级高于只读放行：如果用户设置了 `Bash(git status)` 的 deny 规则，即使 `git status` 是只读命令也会被拒绝。同时注意第 5b/6 步在第 7 步之前——sed 危险写入和 plan 模式都能在只读放行之前先把命令拦下。
+> **兜底分支（在 8 步之外）**：passthrough（1165-1177）—— 前 8 步均未命中时触发权限确认对话框，附带 exact-match 建议。
+
+deny 规则的优先级高于只读放行：如果用户设置了 `Bash(git status)` 的 deny 规则，即使 `git status` 是只读命令也会被拒绝。同时注意第 6/7 步在第 8 步之前——sed 危险写入和 plan 模式都能在只读放行之前先把命令拦下。
 
 `readOnlyValidation.ts` 长达 1,990 行，其中大部分是命令配置。它为 100+ 个常用命令定义了"安全标志白名单"。但在判定一条命令是否只读之前，`checkReadOnlyConstraints()` 还有**一串关键的安全前置条件**（readOnlyValidation.ts:1882-1966）：
 

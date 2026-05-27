@@ -26,6 +26,34 @@ voice/, services/voice*, hooks/useVoice* # 按住一个键 → 一段 PCM 流
 
 ---
 
+## 全景图：同一条按键流被三套子系统分别解释
+
+```mermaid
+graph TB
+    Ink["Ink useInput<br/>（按下了哪个键）"]
+
+    Ink --> KB["keybindings/<br/>按键 → 动作 ID"]
+    Ink --> Vim["vim/<br/>按键序列 → 一次 vim 命令"]
+    Ink --> Voice["voice/ + services/voice*<br/>按住一个键 → PCM 流"]
+
+    KB --> Action["dispatch 到 action handler"]
+    Vim --> Buffer["编辑 buffer / 运动 / 操作符"]
+    Voice --> Native["原生录音模块"]
+    Native --> WS[("Deepgram WebSocket")]
+    WS --> Text["转写文本回灌到 PromptInput"]
+
+    Action -.高优先级.-> Result["上层意图"]
+    Buffer -.中优先级.-> Result
+    Text -.低优先级.-> Result
+
+    style Ink fill:#fff3e0
+    style KB fill:#e1f5fe
+    style Vim fill:#f3e5f5
+    style Voice fill:#e8f5e9
+```
+
+---
+
 ## 一、Keybindings：一套带优先级的按键解析器
 
 ### 1.1 为什么这件事值得做成一个子系统？

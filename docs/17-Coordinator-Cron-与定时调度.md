@@ -11,6 +11,37 @@
 
 ---
 
+## 全景图：Coordinator 与 Cron 两条线汇到同一入口
+
+```mermaid
+graph TB
+    subgraph Spatial["空间维度：Coordinator"]
+        Main["主会话<br/>（项目经理 system prompt）"]
+        Main --> Worker1["Worker Agent 1"]
+        Main --> Worker2["Worker Agent 2"]
+        Worker1 --> WorkerDone["Worker 完成"]
+        Worker2 --> WorkerDone
+    end
+
+    subgraph Temporal["时间维度：Cron"]
+        CronCreate["CronCreateTool"]
+        CronCreate --> Disk[("cron.json")]
+        Tick["scheduler: setInterval(1000)"]
+        Tick --> Disk
+        Disk --> Trigger["到点触发：读出 prompt"]
+    end
+
+    WorkerDone --> Enqueue["enqueuePendingNotification()"]
+    Trigger --> Enqueue
+    Enqueue --> Queue[("messageQueueManager<br/>'later' 优先级")]
+    Queue --> QueryLoop["主线程 query loop<br/>继续转"]
+
+    style Enqueue fill:#fff3e0
+    style Queue fill:#e1f5fe
+```
+
+---
+
 ## 一、为什么放在同一章？
 
 > 本节先解释合章动机；具体源码位置见 §二（`coordinator/coordinatorMode.ts`）与 §三、§四（`tools/ScheduleCronTool/`、`utils/cronScheduler.ts`、`hooks/useScheduledTasks.ts`）。

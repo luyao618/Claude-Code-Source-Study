@@ -12,6 +12,33 @@
 
 ---
 
+## 全景图：screens/ 三屏 + outputStyles 的体验入口
+
+```mermaid
+graph TB
+    User["用户"]
+
+    User --> Doctor["screens/Doctor.tsx<br/>自检仪表盘（574 行）"]
+    User --> Resume["screens/ResumeConversation.tsx<br/>会话拣选器"]
+    User --> OS["/output-style 命令<br/>+ .claude/output-styles/*.md"]
+
+    Doctor --> Diag["getDoctorDiagnostic()"]
+    Diag --> Items["安装 / 冲突 / 自动更新 /<br/>MCP token / 权限规则 / hooks ..."]
+
+    Resume --> Local["本地 session 文件"]
+    Resume --> Remote["远端 session API"]
+
+    OS --> Loader["outputStyles/loadOutputStylesDir.ts"]
+    Loader --> Const["constants/outputStyles.ts<br/>getOutputStyleConfig()"]
+    Const --> SP[("system prompt 末尾<br/>getOutputStyleSection()")]
+
+    style Doctor fill:#e1f5fe
+    style Resume fill:#fff3e0
+    style OS fill:#f3e5f5
+```
+
+---
+
 ## 一、Doctor 屏：把诊断结果摆在一屏上
 
 ### 1.1 命令入口薄到只剩门面

@@ -19,6 +19,42 @@
 
 ---
 
+## 全景图：本地 CLI 与远端控制器之间的两层架构
+
+```mermaid
+graph TB
+    subgraph LocalMachine["你的笔记本"]
+        CLI["本地 Claude Code 进程"]
+        Bridge["bridge/<br/>environment + session 两层"]
+        Sub["sessionRunner 子进程"]
+        CLI -.内部 IPC.-> Bridge
+        Bridge --> Sub
+    end
+
+    subgraph Cloud["服务端"]
+        Reg["register / poll / work secret 端点"]
+        WS[("SessionsWebSocket")]
+    end
+
+    subgraph Remote["手机 / Web / Desktop"]
+        Phone["浏览器 / App"]
+    end
+
+    Bridge -- "握手 + 心跳" --> Reg
+    Bridge <-- "对话帧 / 控制帧 / 取消" --> WS
+    Phone -- "登录会话" --> WS
+    Sub -- "stdout JSON 流" --> Bridge
+
+    Sub -.activity 事件.-> Phone
+    Phone -.control_request 权限询问.-> Bridge
+    Bridge -.control_response.-> Phone
+
+    style Bridge fill:#e1f5fe
+    style WS fill:#fff3e0
+```
+
+---
+
 ## 一、为什么需要 Bridge？
 
 在拆代码之前先把场景描清楚。手机上点一下「Claude」图标，看到的是一条对话窗，但模型不在手机上跑——本地的 `claude` 进程还得动磁盘、读你的项目、跑测试。中间需要一条管道，把对面的输入翻译成本地 REPL 的「下一条用户消息」，再把本地的回答、工具调用、权限请求一路反向送出去。

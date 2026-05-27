@@ -25,6 +25,35 @@ Hook 脚本 → Skill 文件 → Agent 定义 → Plugin 包
 
 > **章内导读**：§一 自定义 Skill → §二 自定义 Agent → §三 Plugin 系统架构 → §四 Hook 脚本 → §五 MCP Skill 桥接 → §六 Output Style 作为第三条扩展路径 → §七 实战示例 → §八 可迁移模式。本章按「扩展点从轻量到重量」组织：Skill → Agent → Plugin → Hook → MCP → Output Style。读完前六节后 §七 是一份可直接照抄的 walkthrough。
 
+## 全景图：四档扩展机制 + Output Style 第三条路径
+
+```mermaid
+graph TB
+    User["扩展开发者"]
+
+    User --> Hook["Hook 脚本<br/>（最轻：shell 命令钩子）"]
+    User --> Skill["Skill<br/>（一份 markdown：prompt + 行为约束）"]
+    User --> Agent["Agent<br/>（独立 AI 角色：prompt + 工具集 + 模型）"]
+    User --> Plugin["Plugin<br/>（最重：目录包，可携带上述三种 + MCP + Output Style）"]
+
+    User --> OS["Output Style<br/>（体验层第三条路径：<br/>system prompt 末尾的可替换 tail）"]
+
+    Hook -.触发于.-> Events["27 个 HOOK_EVENTS"]
+    Skill -.被模型自主调用.-> SkillTool["SkillTool 桥接"]
+    Agent -.spawn 时加载.-> AgentRuntime["runAgent()"]
+    Plugin -.聚合.-> Hook
+    Plugin -.聚合.-> Skill
+    Plugin -.聚合.-> Agent
+    Plugin -.聚合.-> OS
+
+    OS -.注入.-> Prompt[("constants/prompts.ts<br/>getOutputStyleSection()")]
+
+    style Plugin fill:#e1f5fe
+    style OS fill:#fff3e0
+```
+
+---
+
 ## 一、自定义 Skill 编写
 
 ### 1.1 目录结构与发现机制

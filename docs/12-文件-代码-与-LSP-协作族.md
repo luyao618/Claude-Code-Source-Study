@@ -12,6 +12,38 @@
 
 ---
 
+## 全景图：八工具 + LSP/REPL 服务的协作关系
+
+```mermaid
+graph TB
+    Model["AI Agent"] --> Read["FileReadTool"]
+    Model --> Write["FileWriteTool"]
+    Model --> Edit["FileEditTool"]
+    Model --> NB["NotebookEditTool"]
+    Model --> Glob["GlobTool"]
+    Model --> Grep["GrepTool"]
+    Model --> LSPTool["LSPTool"]
+    Model --> REPL["REPLTool"]
+
+    Read --> ReadState[("readFileState<br/>读过没有 / 读完之后改没改")]
+    Write --> ReadState
+    Edit --> ReadState
+    NB --> ReadState
+
+    Glob --> RipGrep[("ripgrep")]
+    Grep --> RipGrep
+
+    LSPTool --> LSPSvc[("services/lsp/<br/>LSPClient / LSPDiagnosticRegistry /<br/>LSPServerManager")]
+
+    REPL --> Hidden["8 个 deferred 工具<br/>（写文件/REPL/Glob/Grep/LSP）"]
+
+    style ReadState fill:#fff3e0
+    style RipGrep fill:#e1f5fe
+    style LSPSvc fill:#e1f5fe
+```
+
+---
+
 ## 一、读：FileReadTool 与"先读后写"这条暗规
 
 `tools/FileReadTool/FileReadTool.ts:1-1183` 是这一族里最长的一个文件 —— 不是因为它要做什么复杂的事，而是因为读文件这件事在 Claude Code 里有太多形态：纯文本、二进制图片、PDF、Jupyter notebook、超长日志，每一种都要在同一个工具里走完"路径解析 → 编码探测 → 截断 → 回执"的全套流程。

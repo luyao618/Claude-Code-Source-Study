@@ -13,6 +13,38 @@
 3. **这两条线为什么放在一章？** — 它们在工程范式上是一对镜像
 4. **能从中学到哪些可复用模式？** — 握手与长连分离、单 WS 双向 RPC、fail open、贴近 surface 的状态注入
 
+## 全景图：server/ 与 upstreamproxy/ 两段对称的"直连"
+
+```mermaid
+graph TB
+    subgraph LocalCLI["本地 Claude Code 进程"]
+        REPL["REPL / query loop"]
+    end
+
+    subgraph DirectConnect["server/ — DirectConnect"]
+        DCM["directConnectManager.ts"]
+        DCSession["createDirectConnectSession"]
+        DCM --> DCSession
+    end
+
+    subgraph UpstreamProxy["upstreamproxy/ — CCR MITM"]
+        Relay["relay.ts"]
+        Proxy["upstreamproxy.ts"]
+        Relay --> Proxy
+    end
+
+    REPL -- "本地 REPL → 远端 session<br/>（接管者视角）" --> DCM
+    DCSession -. WS 双向 RPC .-> RemoteSrv[("远端服务端")]
+
+    REPL -- "出网 API 流量" --> Relay
+    Proxy -. "注入企业头 / 走企业代理" .-> Upstream[("Anthropic API / 企业 LLM")]
+
+    style DCM fill:#e1f5fe
+    style Relay fill:#fff3e0
+```
+
+---
+
 ## 一、两条「直连」线，一个 CLI
 
 打开 `claude-code-cli` 的目录，你会看到两个名字里都带「直」「连」「代理」气息的目录：

@@ -130,24 +130,13 @@ if (key.escape) {
 **单按键解析。** `resolveKey` 传入当前激活的上下文列表与用户合成绑定后的全表，输出当前这一下按键应该派给哪个动作——或者 `unbound`：
 
 ```typescript
-// keybindings/resolver.ts:32-61
-export function resolveKey(
-  input: string,
-  key: Key,
-  activeContexts: KeybindingContextName[],
-  bindings: ParsedBinding[],
-): ResolveResult {
-  let match: ParsedBinding | undefined
-  const ctxSet = new Set(activeContexts)
-
-  for (const binding of bindings) {
-    if (binding.chord.length !== 1) continue
-    if (!ctxSet.has(binding.context)) continue
-    if (matchesBinding(input, key, binding)) {
-      match = binding  // last-wins
-    }
-  }
-  // ...
+// keybindings/resolver.ts:32-61（核心循环）
+const ctxSet = new Set(activeContexts)
+let match: ParsedBinding | undefined
+for (const binding of bindings) {
+  if (binding.chord.length !== 1) continue
+  if (!ctxSet.has(binding.context)) continue
+  if (matchesBinding(input, key, binding)) match = binding  // last-wins
 }
 ```
 
@@ -292,20 +281,14 @@ INSERT 里没有任何状态机，就是普通的文本输入；NORMAL 里挂着
 `vim/transitions.ts` 是这台状态机的派发表。`transition` 函数是一个 switch，按当前状态名字分派到对应的 `fromXxx` 函数：
 
 ```typescript
-// vim/transitions.ts:59-87（精简：11 个 case 全部派发到对应 fromXxx）
+// vim/transitions.ts:59-87（精简骨架）
 export function transition(state, input, ctx) {
   switch (state.type) {
     case 'idle':            return fromIdle(input, ctx)
     case 'count':           return fromCount(state, input, ctx)
     case 'operator':        return fromOperator(state, input, ctx)
-    case 'operatorCount':   return fromOperatorCount(state, input, ctx)
-    case 'operatorFind':    return fromOperatorFind(state, input, ctx)
-    case 'operatorTextObj': return fromOperatorTextObj(state, input, ctx)
-    case 'find':            return fromFind(state, input, ctx)
-    case 'g':               return fromG(state, input, ctx)
-    case 'operatorG':       return fromOperatorG(state, input, ctx)
-    case 'replace':         return fromReplace(state, input, ctx)
-    case 'indent':          return fromIndent(state, input, ctx)
+    // operatorCount / operatorFind / operatorTextObj / find /
+    // g / operatorG / replace / indent —— 同形派发，共 11 case
   }
 }
 ```
@@ -388,24 +371,17 @@ Voice 是这一篇里最不像"输入子系统"的子系统。它的"输入"是�
 `voice/voiceModeEnabled.ts` 只有几十行，但它是 Voice 的总开关：
 
 ```typescript
-// voice/voiceModeEnabled.ts:16-23
+// voice/voiceModeEnabled.ts:16-54（精简）
 export function isVoiceGrowthBookEnabled(): boolean {
   return feature('VOICE_MODE')
     ? !getFeatureValue_CACHED_MAY_BE_STALE('tengu_amber_quartz_disabled', false)
     : false
 }
-
-// voice/voiceModeEnabled.ts:32-44
 export function hasVoiceAuth(): boolean {
   if (!isAnthropicAuthEnabled()) return false
-  const tokens = getClaudeAIOAuthTokens()
-  return Boolean(tokens?.accessToken)
+  return Boolean(getClaudeAIOAuthTokens()?.accessToken)
 }
-
-// voice/voiceModeEnabled.ts:52-54
-export function isVoiceModeEnabled(): boolean {
-  return hasVoiceAuth() && isVoiceGrowthBookEnabled()
-}
+export const isVoiceModeEnabled = () => hasVoiceAuth() && isVoiceGrowthBookEnabled()
 ```
 
 第一道闸是 `tengu_amber_quartz_disabled` 这个 GrowthBook 特性。注意名字里的 `disabled`——这是一个"反向 kill switch"，true 表示"关闭 Voice"。当线上 Voice 出问题需要紧急关停时，运维端把这个 flag 翻 true 就行，不需要发新版本。
@@ -423,21 +399,12 @@ React 端把上面这一组判定再裹一层：`hooks/useVoiceEnabled.ts` 把"�
 ```typescript
 // services/voice.ts:335-396（精简骨架）
 export async function startRecording(...): Promise<boolean> {
-  // 第一档：原生 cpal (Rust + N-API)
   const napi = await loadAudioNapi()
-  if (napi.isNativeAudioAvailable() && napi.startNativeRecording(onData, onEnd)) {
-    return true
-  }
+  if (napi.isNativeAudioAvailable() && napi.startNativeRecording(...)) return true
   if (process.platform === 'win32') return false  // Windows 无回退
-
-  // 第二档：arecord (Linux ALSA)
   if (process.platform === 'linux' && hasCommand('arecord')
-      && (await probeArecord()).ok) {
-    return startArecordRecording(onData, onEnd)
-  }
-
-  // 第三档：SoX rec (macOS/Linux fallback)
-  return startSoxRecording(onData, onEnd, options)
+      && (await probeArecord()).ok) return startArecordRecording(...)
+  return startSoxRecording(...)  // 第三档兜底
 }
 ```
 
@@ -477,10 +444,10 @@ export const FINALIZE_TIMEOUTS_MS = {
 }
 ```
 
-WebSocket 走 `/api/ws/speech_to_text/voice_stream` 这个 path，跑在 Anthropic 后端，由它代理到 Deepgram。建连之后客户端开始按帧推 PCM，同时维护两条计时器：
+WebSocket 走 `/api/ws/speech_to_text/voice_stream` 这个 path，跑在 Anthropic 后端，由它代理到 Deepgram。这里走自家后端再代理而不是让客户端直连 Deepgram，是为了把第三方 API key 留在服务端，同时让 Anthropic 自己有一层对音频请求的鉴权、限流、审计与计费切入点。建连之后客户端开始按帧推 PCM，同时维护两条计时器：
 
 - **心跳**：每 8 秒发一条 ping，让中间件不要把空闲连接关掉；
-- **finalize 计时器**：分两条。`noData: 1500` 毫秒——如果连续 1.5 秒没有新的 PCM 进来，就主动发 finalize 让服务端把当前帧的识别结果收尾返回。`safety: 5000` 毫秒——用户按完松开后无论如何 5 秒兜底 finalize 一次，避免某些边界场景下 noData 没触发就把会话挂着。
+- **finalize 计时器**：分两条。`noData: 1500` 毫秒——如果连续 1.5 秒没有新的 PCM 进来，就主动发 finalize 让服务端把当前帧的识别结果收尾返回。`safety: 5000` 毫秒——用户按完松开后无论如何 5 秒兜底 finalize 一次，避免某些边界场景下 noData 没触发就把会话挂着。心跳和 finalize 在同一个事件循环里互不相干：心跳关心的是连接的存活，finalize 关心的是这一轮"按住—说话—松开"的语义边界。把这两件事拆成两条计时器而不是合并成一条状态机，是因为它们的故障模式完全不同：心跳失败时连接可能还活着只是网络抖动，finalize 失败时连接活得好好的但用户已经在等结果了。
 
 `FinalizeSource` 列出 finalize 的五种结算源：
 
@@ -656,64 +623,6 @@ Keybindings 是按键派发的基础设施，但 Vim 的 Escape 故意绕过这�
 [第 32 篇：Buddy 人格系统 — 用户写的小角色文件如何变成 system prompt](./32-Buddy-人格系统.md)（待发布）
 
 下一篇我们转到 Buddy 人格——另一个挂在 Ink 之上、走另一条路、解决完全不同问题的子系统：用户写的小角色文件如何被解析、加载、用进 system prompt。
-
----
-
-## 附：本章源码引用清单
-
-| 文件 | 行 | 作用 |
-|------|-----|------|
-| `keybindings/schema.ts` | 12-32 | 18 个 KEYBINDING_CONTEXTS |
-| `keybindings/schema.ts` | 64-172 | KEYBINDING_ACTIONS 枚举 |
-| `keybindings/schema.ts` | 177-229 | zod KeybindingsSchema |
-| `keybindings/defaultBindings.ts` | 15 | IMAGE_PASTE_KEY 跨平台 |
-| `keybindings/defaultBindings.ts` | 21-30 | SUPPORTS_TERMINAL_VT_MODE / MODE_CYCLE_KEY |
-| `keybindings/defaultBindings.ts` | 32-340 | DEFAULT_BINDINGS 全表 |
-| `keybindings/parser.ts` | 25-46 | 修饰键别名 |
-| `keybindings/parser.ts` | 80-84 | parseChord |
-| `keybindings/parser.ts` | 157-176 | keystrokeToDisplayString |
-| `keybindings/match.ts` | 60-79 | modifiersMatch（alt/meta 折叠） |
-| `keybindings/match.ts` | 96-102 | escape 假 meta 补丁 |
-| `keybindings/resolver.ts` | 32-61 | resolveKey 单按键 |
-| `keybindings/resolver.ts` | 166-244 | resolveKeyWithChordState |
-| `keybindings/useKeybinding.ts` | 33-97 | useKeybinding + false 协议 |
-| `keybindings/reservedShortcuts.ts` | — | NON_REBINDABLE / TERMINAL_RESERVED / MACOS_RESERVED |
-| `keybindings/loadUserBindings.ts` | 41-46 | isKeybindingCustomizationEnabled |
-| `keybindings/KeybindingContext.tsx` | 119-123 | invokeAction |
-| `vim/types.ts` | 49-51 | VimState |
-| `vim/types.ts` | 59-75 | CommandState 11 变体 |
-| `vim/types.ts` | 92-119 | RecordedChange |
-| `vim/types.ts` | 182 | MAX_VIM_COUNT |
-| `vim/transitions.ts` | 59-87 | transition 派发 |
-| `vim/transitions.ts` | 98-200 | handleNormalInput |
-| `vim/transitions.ts` | 206-242 | handleOperatorInput |
-| `vim/transitions.ts` | 272 | count 上限截断 |
-| `vim/operators.ts` | 42-54 | executeOperatorMotion |
-| `hooks/useVimInput.ts` | 61-68 | INSERT 段提交 RecordedChange |
-| `hooks/useVimInput.ts` | 109-173 | replayLastChange |
-| `hooks/useVimInput.ts` | 189-195 | Escape 写死的 useInput |
-| `hooks/useVimInput.ts` | 265-269 | 方向键 / Backspace 映射 |
-| `voice/voiceModeEnabled.ts` | 16-23 | isVoiceGrowthBookEnabled |
-| `voice/voiceModeEnabled.ts` | 32-44 | hasVoiceAuth |
-| `voice/voiceModeEnabled.ts` | 52-54 | isVoiceModeEnabled |
-| `services/voice.ts` | 24-36 | loadAudioNapi lazy |
-| `services/voice.ts` | 40-45 | RECORDING_* / SILENCE_* 常量 |
-| `services/voice.ts` | 75-118 | probeArecord 150ms race |
-| `services/voice.ts` | 130-139 | linuxHasAlsaCards 早返 |
-| `services/voice.ts` | 335-396 | startRecording 三档回落 |
-| `services/voiceStreamSTT.ts` | 36 | VOICE_STREAM_PATH |
-| `services/voiceStreamSTT.ts` | 38 | KEEPALIVE_INTERVAL_MS |
-| `services/voiceStreamSTT.ts` | 44-47 | FINALIZE_TIMEOUTS_MS |
-| `services/voiceStreamSTT.ts` | 60-65 | FinalizeSource union |
-| `services/voiceStreamSTT.ts` | 157-165 | Nova 2 / Nova 3 ramp |
-| `hooks/useVoice.ts` | 93-114 | SUPPORTED_LANGUAGE_CODES |
-| `hooks/useVoice.ts` | 121-134 | normalizeLanguageForSTT |
-| `hooks/useVoice.ts` | 160 | RELEASE_TIMEOUT_MS |
-| `hooks/useVoice.ts` | 171-180 | REPEAT_FALLBACK_MS / FIRST_PRESS_FALLBACK_MS / FOCUS_SILENCE_TIMEOUT_MS / AUDIO_LEVEL_BARS |
-| `hooks/useVoice.ts` | 185-197 | computeLevel |
-| `commands/keybindings/keybindings.ts` | — | `/keybindings` 命令 |
-| `commands/vim/vim.ts` | — | `/vim` 命令 |
-| `commands/voice/voice.ts` | — | `/voice` 命令 |
 
 ---
 

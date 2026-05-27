@@ -622,7 +622,7 @@ Keybindings 是按键派发的基础设施，但 Vim 的 Escape 故意绕过这�
 
 ## 下一章预告
 
-[第 29 章：Buddy 人格 — 在 PromptInput 边上养一只随机生成的小动物](./29-Buddy人格.md)
+[第 29 章：Buddy 宠物 — 在 PromptInput 边上养一只随机生成的小动物](./29-Buddy宠物.md)
 
 我们看 buddy/ 目录下的 6 个源码文件，以及它们怎么悄悄接进 REPL、PromptInput、配置、附件、消息流——最后挤出一只会眨眼、会冒话框的小动物。
 

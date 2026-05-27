@@ -75,7 +75,7 @@ const NEW_CHAPTER_FILES = new Set<string>([
   "docs/24-Bridge-IPC-与远程会话.md",
   "docs/25-DirectConnect-与上游代理.md",
   "docs/28-Keybindings-Vim与Voice输入.md",
-  "docs/29-Buddy人格.md",
+  "docs/29-Buddy宠物.md",
   "docs/30-Doctor屏与OutputStyle体验.md",
 ]);
 

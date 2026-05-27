@@ -6,7 +6,13 @@
 
 一个 AI Agent 与普通 chatbot 的本质区别在于：**Agent 能执行动作**。当模型决定读取一个文件、运行一条 Shell 命令、或搜索代码时，它依赖的就是工具系统。
 
-Claude Code 内置工具的真实集合不是一个固定数字，而是「`tools/` 下作为 family 的顶层目录」「`tools.ts` 默认 register 的运行期 leaf」「受 `feature(...)` / 环境变量条件装载的 feature-gated」三列模型 —— 完整清单见 [附录 A · 工具速查表](./appendix/A.md)。再叠加 MCP 协议接入的、动态规模的外部工具，管理这样规模的工具集面临几个核心挑战：
+Claude Code 内置工具的真实集合不是一个固定数字，而是由以下三列组成（完整清单见 [附录 A · 工具速查表](./appendix/A.md)）：
+
+1. **Family（家族）**：`tools/` 下作为 family 的顶层目录
+2. **Runtime leaf（运行期 leaf）**：`tools.ts` 默认 register 的运行期工具
+3. **Feature-gated（条件装载）**：受 `feature(...)` 或环境变量条件装载的工具
+
+再叠加 MCP 协议接入的、动态规模的外部工具，管理这样规模的工具集面临几个核心挑战：
 
 1. **接口一致性**：每个工具需要统一的调用、验证、权限检查、UI 渲染协议
 2. **安全默认**：工具涉及文件系统和 Shell 操作，默认行为必须 fail-closed
@@ -21,7 +27,7 @@ Claude Code 内置工具的真实集合不是一个固定数字，而是「`tool
 
 ### 1.1 接口定义
 
-`Tool.ts` 是整个工具系统的类型基础，定义了完整的 `Tool` 接口。这个接口有 **30+ 个方法/属性**，下面展示按职责域分组的核心子集（完整接口还包括 `interruptBehavior`、`isSearchOrReadCommand`、`shouldDefer`/`alwaysLoad`、`mcpInfo`、`strict`、`backfillObservableInput`、`preparePermissionMatcher`、`extractSearchText`、`renderToolUseTag`、`renderToolUseQueuedMessage`、`isResultTruncated` 等方法，详见 `Tool.ts:362-695`）：
+`Tool.ts` 是整个工具系统的类型基础，定义了完整的 `Tool` 接口。这个接口有 **30+ 个方法/属性**，下面展示按职责域分组的核心子集。完整接口还包含约十多个其它方法（如 `interruptBehavior`、`isSearchOrReadCommand`、`shouldDefer`、`alwaysLoad`、`mcpInfo`、`strict`、`backfillObservableInput`、`preparePermissionMatcher`、`extractSearchText`、`renderToolUseTag`、`renderToolUseQueuedMessage`、`isResultTruncated` 等），分别对应工具中断行为、命令分类、延迟加载、MCP 元数据、权限匹配预处理与扩展渲染 — 详见 `Tool.ts:362-695`：
 
 ```typescript
 // Tool.ts:362-695 (简化展示)
@@ -437,7 +443,12 @@ const getTeamCreateTool = () =>
 注册表之外，`tools/` 目录还有两处不属于任何单一工具、但被多个工具共用的基座：
 
 - **`tools/utils.ts`**（40 行 · `tools/utils.ts:12-24`）只暴露两个函数 `tagMessagesWithToolUseID` 与 `getToolUseIDFromParentMessage`。前者遍历传入的消息数组，仅对 `m.type === 'user'` 的条目附上 `sourceToolUseID`，让 "X is running" 这类瞬态 user 消息在工具结束后自动消失（attachment 与 system 类型原样透传，不被打标）；后者用来从 assistant 消息里反查特定工具的 `tool_use.id`。两件事都不属于哪个具体工具，所以从工具实现里拎出来落在这里。
-- **`tools/shared/`** 当前只有两个文件：`gitOperationTracking.ts`（277 行）与 `spawnMultiAgent.ts`。`detectGitOperation`（`tools/shared/gitOperationTracking.ts:135-186`）是一个纯解析函数：它扫描 BashTool / PowerShellTool 跑过的命令字符串与 stdout/stderr，识别 `git commit` / `git push` / `git merge` / `git rebase` / `gh pr create|edit|merge|comment|close|ready` 等动作，把命中结果组装成 `{ commit, push, branch, pr }` 对象返回，本身不发任何事件、也不动计数器。真正的事件发射与 OTLP counter 更新发生在另一个函数 `trackGitOperations`（`gitOperationTracking.ts:189-277`）：它在命令成功（`exitCode === 0`）时根据正则命中分别 `logEvent('tengu_git_operation', ...)` 并对 `getCommitCounter()` / `getPrCounter()` 做 `add(1)`；额外的，`gh pr create` 成功还会动态 import `linkSessionToPR` 把当前 session 与新 PR 绑定，`glab mr create` 与 `curl POST <pulls|pull-requests|merge[-_]requests>` 端点的 PR 创建也被识别为 `pr_create` 并计数。这套识别因为操作的是裸命令字符串，对 Bash 与 PowerShell 是同一份正则（`gitOperationTracking.ts:1-9` 注释明示该设计意图），所以放在 `shared/` 而不是任一 shell 自己的目录里。
+- **`tools/shared/`** 当前只有两个文件：`gitOperationTracking.ts`（277 行）与 `spawnMultiAgent.ts`。`gitOperationTracking.ts` 是 BashTool 与 PowerShellTool 共用的 Git 行为识别基座，由两个函数构成：
+
+  - **`detectGitOperation`**（`tools/shared/gitOperationTracking.ts:135-186`）是纯解析函数 —— 扫描命令字符串与 stdout/stderr，识别 `git commit` / `git push` / `git merge` / `git rebase` / `gh pr create|edit|merge|comment|close|ready` 等动作，把命中结果组装成 `{ commit, push, branch, pr }` 对象返回。不发事件、不动计数器。
+  - **`trackGitOperations`**（`gitOperationTracking.ts:189-277`）才是实际发射事件的入口 —— 在命令成功（`exitCode === 0`）时根据正则命中分别 `logEvent('tengu_git_operation', ...)` 并对 `getCommitCounter()` / `getPrCounter()` 做 `add(1)`。额外的，`gh pr create` 成功还会动态 import `linkSessionToPR` 把当前 session 与新 PR 绑定；`glab mr create` 与 `curl POST <pulls|pull-requests|merge[-_]requests>` 端点的 PR 创建也被识别为 `pr_create` 并计数。
+
+  这套识别因为操作的是裸命令字符串，对 Bash 与 PowerShell 是同一份正则（`gitOperationTracking.ts:1-9` 注释明示该设计意图），所以放在 `shared/` 而不是任一 shell 自己的目录里。
 
 ---
 
@@ -566,8 +577,12 @@ export function isDeferredTool(tool: Tool): boolean {
 
 延迟的工具以名称列表形式告知模型，但具体的呈现方式取决于运行模式。源码中存在两条路径（`tools/ToolSearchTool/prompt.ts:31-42`）：
 
-- **Delta 模式**（`isDeferredToolsDeltaEnabled()` 为 true，即内部用户或 `tengu_glacier_2xr` feature flag 开启时）：deferred 工具通过增量 attachment 出现在 `<system-reminder>` 消息中，只通知新增/移除的工具
-- **Legacy 模式**：deferred 工具出现在 `<available-deferred-tools>` 消息块中，每次列出全量
+| 维度 | Delta 模式 | Legacy 模式 |
+|------|-----------|------------|
+| 启用条件 | `isDeferredToolsDeltaEnabled()` 为 true（内部用户或 `tengu_glacier_2xr` flag 开启） | 默认 |
+| 呈现位置 | `<system-reminder>` 消息块（增量 attachment） | `<available-deferred-tools>` 消息块 |
+| 通知策略 | 只通知新增/移除的工具 | 每次列出全量 |
+| Token 成本 | 增量推送，节省稳态 token | 每轮重复全量列表 |
 
 无论哪种模式，模型都看不到 deferred 工具的参数 schema 和详细描述，只能看到工具名称：
 
@@ -691,7 +706,7 @@ tools/
 │   ├── prompt.ts        # 工具名常量 + description 文本
 │   └── UI.tsx           # render* 方法的实现
 ├── BashTool/
-│   ├── BashTool.tsx     # 主文件（最复杂的单个工具）
+│   ├── BashTool.tsx     # 主文件
 │   ├── prompt.ts        # description + 超时配置
 │   ├── UI.tsx           # 渲染逻辑
 │   ├── bashPermissions.ts    # 权限匹配逻辑

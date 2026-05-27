@@ -13,6 +13,8 @@
 
 ## 一、为什么放在同一章？
 
+> 本节先解释合章动机；具体源码位置见 §二（`coordinator/coordinatorMode.ts`）与 §三、§四（`tools/ScheduleCronTool/`、`utils/cronScheduler.ts`、`hooks/useScheduledTasks.ts`）。
+
 Coordinator 看起来像「多 Agent 编排」，Cron 看起来像「定时任务调度」。表面上是两个题目。
 
 但只要把两块代码同时翻一遍，就会发现它们解决的是同一个问题：**怎么让 Claude Code 在没人按回车的情况下，自己产生下一回合**。
@@ -230,7 +232,7 @@ scheduler 拿到锁之后，每秒钟做的事大致分三步。
 
 **第二步**是计算每一个任务的 `nextFireAt` 并跟 `Date.now()` 比较。`nextFireAt` 的锚点是 `lastFiredAt ?? createdAt` -- 也就是说新任务从「创建时刻」开始算，已经跑过的任务从「上一次触发时刻」开始算。这条选择避免了一个细微的偏移问题：如果用 `Date.now()` 当锚点，每秒 tick 都会让下一次触发往后挪一秒，长期运行会累积成可见的飘移。
 
-**第三步**是「该触发就触发」。这一段没有一个独立的 `fireCronTask()` 函数，触发逻辑就写在 `createCronScheduler()` 内部 `check()` 的 `process()` 闭包里：
+**第三步**是「该触发就触发」。这一段没有一个独立的 `fireCronTask()` 函数——之所以单独点出这点，是因为读者按"调度系统"的常识很容易期待一个 `fireCronTask()` 入口去搜，结果在源码里找不到。Claude Code 把触发逻辑就近写在 `createCronScheduler()` 内部 `check()` 的 `process()` 闭包里，这样 `process()` 可以直接闭包捕获 `onFireTask` / `onFire` / `markCronTasksFired` 这些回调，不需要再走一遍参数传递：
 
 ```typescript
 // utils/cronScheduler.ts:293-297 (节选)
@@ -392,13 +394,15 @@ Cron 工具家族的「编译期 feature × 本地 env × 远端 gate」三层�
 
 ### 模式 4：用 prompt 反复纠偏模型的默认动作
 
-Coordinator 的 system prompt 把「永远不要写 'based on your findings'」「必须把 Worker 的 research 落到具体的下一步指令」这类规矩反复写了好几遍。这不是冗余，这是在和模型的训练偏好对抗 -- 模型默认想直接动手，要让它学会派活，必须用文字把默认行为按住。
+Coordinator 的 system prompt 把「永远不要写 'based on your findings'」「必须把 Worker 的 research 落到具体的下一步指令」这类规矩反复写了好几遍。这不是冗余，这是在和模型的训练偏好对抗 -- 模型默认想直接动手，要让它学会派活，必须用文字把默认行为按住。第 15 章 §六（对抗性 Prompt 模式）会把这种"用 prompt 反复按住模型偏好"的设计单独成节展开——Verification Agent 的"不要 PASS 走人"和 Coordinator 的"不要直接动手"是同一份工程美学的两个出口。
 
 **适用场景**：任何把通用模型塞进特定角色的应用 -- 客服机器人、代码 review 助手、SQL 生成器。如果你发现模型在某种场景下总是「忍不住」做某件你不希望它做的事，先别急着调温度或换 prompt 框架 -- 把那条禁令写进 system prompt 里反复强调三次，往往比任何 prompt engineering 技巧都管用。
 
 ---
 
 ## 九、实战示例：用这一章的工具搭一个「每天早上的 CI 巡检」
+
+> 本节是把前八节零件拼起来的**实践演练**，而不是新内容的回顾。读完前八节再过一遍这条端到端流程，可以检验自己是否把 cron → scheduler → useScheduledTasks → Coordinator 这条主链路理清楚了。
 
 把上面这些零件拼一下，看 Claude Code 是怎么落地一个真实需求的：「每天早上 9 点 17 分自动检查一遍 main 分支的 CI 状态，如果失败就用 Coordinator 模式开 Worker 去查」。
 

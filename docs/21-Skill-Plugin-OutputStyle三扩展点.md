@@ -1028,14 +1028,17 @@ team-toolkit/
 ---
 name: "concise-zh"
 description: "简洁中文回答，没有客套"
-keep-coding-instructions: true
 force-for-plugin: true
 ---
 
 用简短、直接的中文回答。先给结论再展开理由，不要客气话。
 ```
 
-安装后，Plugin 会把 `commands/stand-up.md` 暴露为 `/team-toolkit:stand-up`、把 `skills/review-pr/` 注册为 `/team-toolkit:review-pr`、把 `agents/test-fixer.md` 加入可调用的 Agent 池、把 `hooks/hooks.json` 中的 hooks 接进事件总线，并自动把 `concise-zh` 作为输出腔调启用 —— 这就是前面四档扩展点合在一起、走完整 Plugin 发行流程的样子。
+> Plugin 来源的 Output Style 由 `utils/plugins/loadPluginOutputStyles.ts:36-85` 的 `loadOutputStyleFromFile()` 加载，frontmatter 只解析 `name`、`description`、`force-for-plugin` 三个字段（外加正文 prompt），其它键会被忽略 —— 比如 `keep-coding-instructions` 在 plugin 路径上不会生效，要保留 system-reminder 行为请直接在正文里写明。
+>
+> 同时第 55 行会把样式名命名空间化为 `${pluginName}:${baseStyleName}`，所以下面 `concise-zh` 安装后真正注册的名字是 `team-toolkit:concise-zh`。
+
+安装后，Plugin 会把 `commands/stand-up.md` 暴露为 `/team-toolkit:stand-up`、把 `skills/review-pr/` 注册为 `/team-toolkit:review-pr`、把 `agents/test-fixer.md` 加入可调用的 Agent 池、把 `hooks/hooks.json` 中的 hooks 接进事件总线，并自动把 `team-toolkit:concise-zh` 作为输出腔调启用 —— 这就是前面四档扩展点合在一起、走完整 Plugin 发行流程的样子。
 
 ---
 

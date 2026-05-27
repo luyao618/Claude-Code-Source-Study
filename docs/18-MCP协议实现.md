@@ -278,7 +278,7 @@ if (doesEnterpriseMcpConfigExist()) {
 
 需要注意的是，enterprise 独占模式并不完全排斥所有外部配置。SDK 类型的服务器（`type: 'sdk'`）在策略过滤时被豁免（`filterMcpServersByPolicy` 中 `c.type === 'sdk'` 直接放行），因为 SDK 服务器是进程内传输的占位符，CLI 不会为它们 spawn 进程或打开网络连接，URL/command 形式的 allowlist 对它们也无意义。
 
-### 2.2 Project 配置的向上遍历
+### 2.4 Project 配置的向上遍历
 
 Project 级别的 `.mcp.json` 有一个特殊行为：**从 CWD 开始，向上遍历到文件系统根目录**，越靠近 CWD 的配置优先级越高：
 
@@ -306,7 +306,7 @@ case 'project': {
 
 这意味着 monorepo 的根目录可以定义通用的 MCP 服务器，子项目目录可以覆盖或添加自己的。
 
-### 2.3 插件去重：基于签名的内容比对
+### 2.5 插件去重：基于签名的内容比对
 
 当多个来源定义了指向同一个底层服务的 MCP 服务器时（例如，用户手动配置了 Slack MCP，插件也提供了 Slack MCP），需要智能去重。
 
@@ -332,7 +332,7 @@ export function getMcpServerSignature(config: McpServerConfig): string | null {
 - **插件内先到先得**：多个插件提供相同服务器时，先加载的赢
 - **手动配置 > claude.ai 连接器**：用户手动配置表达了更强的意图
 
-### 2.4 环境变量展开
+### 2.6 环境变量展开
 
 MCP 配置支持 `${VAR}` 和 `${VAR:-default}` 语法的环境变量展开：
 
@@ -356,7 +356,7 @@ export function expandEnvVarsInString(value: string): {
 
 这个展开会递归应用到 stdio 服务器的 `command`、`args`、`env`，以及远程服务器的 `url`、`headers` 上。
 
-### 2.5 企业策略过滤：Allowlist 与 Denylist
+### 2.7 企业策略过滤：Allowlist 与 Denylist
 
 企业管理员可以通过 `allowedMcpServers` 和 `deniedMcpServers` 控制哪些 MCP 服务器可以使用。策略支持三种匹配方式：
 
@@ -548,7 +548,7 @@ const timeoutPromise = new Promise<never>((_, reject) => {
   const timeoutId = setTimeout(() => {
     if (inProcessServer) inProcessServer.close().catch(() => {})
     transport.close().catch(() => {})
-    reject(new TelemetrySafeError_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS(
+    reject(new TelemetrySafeError(
       `MCP server "${name}" connection timed out after ${getConnectionTimeoutMs()}ms`,
       'MCP connection timeout',
     ))
@@ -972,8 +972,6 @@ Channel 通知的注册逻辑尤其值得关注——它经过多层门控（`ga
 按资源消耗特性将连接分组（本地进程 spawn vs 远程网络请求），每组使用不同的并发上限，再通过 `pMap` 实现滑动窗口调度。
 
 **适用场景**：任何需要批量连接异构资源的系统，如微服务编排器、分布式任务调度器。
-
----
 
 ---
 

@@ -1,6 +1,6 @@
 # 第 20 篇：API 调用与错误恢复 — 面向不可靠网络的鲁棒设计
 
-> 本篇是《深入 Claude Code 源码》系列第 20 篇。我们将深入 API 调用层的错误恢复机制，看看一个生产级 AI CLI 如何在不可靠的网络环境下保持稳定运行。
+> 本篇是《深入 Claude Code 源码》系列第 20 篇。我们将沿着一次 `messages.create` 调用从应用层进入传输层，看一个生产级 AI CLI 如何在不可靠网络、过期凭证、容量过载、TLS 拦截代理、空闲连接被回收等多重不确定性下保持稳定运行。
 
 ## 为什么需要如此复杂的错误恢复？
 
@@ -11,10 +11,11 @@
 3. **认证令牌过期** — OAuth token、AWS credential、GCP credential 都有 TTL
 4. **流式连接脆弱** — SSE 流可能在中途断开、超时、或被代理截断
 5. **多 Provider 差异** — 同一份代码要兼容 Anthropic 直连、AWS Bedrock、GCP Vertex、Azure Foundry 四种后端
+6. **远程会话有第二张图** — Bridge / Teleport 场景下，CLI 不仅要和模型 API 对话，还要和会话服务做双向通信，链路上的每一段都可能独立出问题
 
-如果每种错误都让用户手动重试，用户体验将是灾难性的 —— 想象你在一个需要 10 分钟的 agentic 编程任务中途遇到一次 529，不得不从头开始。
+如果每种错误都让用户手动重试，用户体验将是灾难性的 —— 想象你在一个需要 10 分钟的 agentic 编程任务中途遇到一次 529，不得不从头开始。再想象远程会话用户的笔记本盖上 20 分钟，醒来时希望 CLI 自动追上中间漏掉的所有事件，而不是抛出 `ECONNRESET` 让一切归零。
 
-Claude Code 的解决方案是一套**三层防御架构**：`withRetry` 通用重试层 → 流式/非流式双模式 → 错误分类与用户友好提示。本篇将逐层拆解。
+Claude Code 的解决方案是一套**两条主线 + 一组共享工具**的架构：一条是面向模型 API 的 `withRetry` 通用重试层，处理 429/529/认证/上下文溢出；另一条是面向会话服务的传输层（WebSocket / SSE / Hybrid 三态），处理长连接断线、批量上传、状态合并；两条主线共享同一套错误分类、SSL 提示、HTML 清洗工具。本篇按这个层次逐段拆解，最后给出可迁移的设计模式。流式与非流式的双模式切换、404 端点降级在源码里属于 `claude.ts` 的内部职责，下一篇 C25 会专门处理，本篇不再展开。
 
 ---
 
@@ -73,20 +74,16 @@ export function getRetryDelay(
   retryAfterHeader?: string | null,
   maxDelayMs = 32000,
 ): number {
-  // 如果服务器通过 Retry-After 头指定了等待时间，优先使用
   if (retryAfterHeader) {
     const seconds = parseInt(retryAfterHeader, 10)
     if (!isNaN(seconds)) {
       return seconds * 1000
     }
   }
-
-  // 指数退避：500ms, 1s, 2s, 4s, 8s, 16s, 32s（封顶）
   const baseDelay = Math.min(
     BASE_DELAY_MS * Math.pow(2, attempt - 1),
     maxDelayMs,
   )
-  // 加 25% 随机抖动，避免多客户端雷同重试（thundering herd）
   const jitter = Math.random() * 0.25 * baseDelay
   return baseDelay + jitter
 }
@@ -142,15 +139,14 @@ Fast Mode 是一个加速模式（使用更快的推理路径）。当遇到 429
 // services/api/withRetry.ts:284-304
 const retryAfterMs = getRetryAfterMs(error)
 if (retryAfterMs !== null && retryAfterMs < SHORT_RETRY_THRESHOLD_MS) {
-  // 短等待（< 20 秒）：保持 Fast Mode，等一下再试
-  // 保持同一个模型名可以复用 prompt cache
+  // 短等待（< 20 秒）：保持 Fast Mode，等一下再试，复用 prompt cache
   await sleep(retryAfterMs, options.signal, { abortError })
   continue
 }
 // 长等待或未知：切回标准速度，进入冷却期
 const cooldownMs = Math.max(
   retryAfterMs ?? DEFAULT_FAST_MODE_FALLBACK_HOLD_MS, // 30 分钟
-  MIN_COOLDOWN_MS, // 10 分钟
+  MIN_COOLDOWN_MS,                                     // 10 分钟
 )
 triggerFastModeCooldown(Date.now() + cooldownMs, cooldownReason)
 retryContext.fastMode = false
@@ -162,7 +158,6 @@ continue
 #### 分支 2：后台请求立即放弃（withRetry.ts:316-324）
 
 ```typescript
-// services/api/withRetry.ts:316-324
 // Non-foreground sources bail immediately on 529
 if (is529Error(error) && !shouldRetry529(options.querySource)) {
   logEvent('tengu_api_529_background_dropped', { ... })
@@ -183,23 +178,16 @@ if (is529Error(error) && !shouldRetry529(options.querySource)) {
 这个分支**不是对所有模型和用户都生效的通用机制**，而是有明确的前提条件：
 
 ```typescript
-// services/api/withRetry.ts:327-365
 if (
   is529Error(error) &&
-  // 条件化：环境变量显式启用 OR（非订阅用户 且 使用非自定义 Opus 模型）
   (process.env.FALLBACK_FOR_ALL_PRIMARY_MODELS ||
     (!isClaudeAISubscriber() && isNonCustomOpusModel(options.model)))
 ) {
   consecutive529Errors++
   if (consecutive529Errors >= MAX_529_RETRIES) {
     if (options.fallbackModel) {
-      // 抛出 FallbackTriggeredError，由 query.ts 接收并切换模型
-      throw new FallbackTriggeredError(
-        options.model,
-        options.fallbackModel,
-      )
+      throw new FallbackTriggeredError(options.model, options.fallbackModel)
     }
-    // 外部用户、没有 fallback model，直接告诉用户
     if (process.env.USER_TYPE === 'external' &&
         !process.env.IS_SANDBOX &&
         !isPersistentRetryEnabled()) {
@@ -231,28 +219,24 @@ if (innerError instanceof FallbackTriggeredError && fallbackModel) {
 当 API 返回 `input length and max_tokens exceed context limit` 错误时，`withRetry` 会自动计算可用空间并调整 `maxTokensOverride`：
 
 ```typescript
-// services/api/withRetry.ts:388-416
 const overflowData = parseMaxTokensContextOverflowError(error)
 if (overflowData) {
   const { inputTokens, contextLimit } = overflowData
   const safetyBuffer = 1000
-  const availableContext = Math.max(
-    0,
-    contextLimit - inputTokens - safetyBuffer,
-  )
+  const availableContext = Math.max(0, contextLimit - inputTokens - safetyBuffer)
   if (availableContext < FLOOR_OUTPUT_TOKENS) {
-    throw error // 可用空间太小，无法恢复
+    throw error
   }
   retryContext.maxTokensOverride = Math.max(
     FLOOR_OUTPUT_TOKENS,
     availableContext,
-    minRequired, // thinking budget + 1
+    minRequired,
   )
-  continue // 用调整后的 maxTokens 重试
+  continue
 }
 ```
 
-`parseMaxTokensContextOverflowError` 通过正则从错误消息中提取 token 数字（`withRetry.ts:550-595`）。这种"从错误消息中提取结构化数据"的技巧在生产系统中很常见 —— API 通常会在错误消息中包含关键数字，但不提供结构化字段。
+`parseMaxTokensContextOverflowError` 通过正则从错误消息中提取 token 数字。这种"从错误消息中提取结构化数据"的技巧在生产系统中很常见 —— API 通常会在错误消息中包含关键数字，但不提供结构化字段。
 
 ### 1.5 Persistent Retry：无人值守模式
 
@@ -260,7 +244,6 @@ if (overflowData) {
 
 ```typescript
 // services/api/withRetry.ts:91-104
-// CLAUDE_CODE_UNATTENDED_RETRY: for unattended sessions (ant-only).
 function isPersistentRetryEnabled(): boolean {
   return feature('UNATTENDED_RETRY')
     ? isEnvTruthy(process.env.CLAUDE_CODE_UNATTENDED_RETRY)
@@ -271,14 +254,11 @@ function isPersistentRetryEnabled(): boolean {
 当 persistent retry 启用后，429/529 的退避策略变为：
 
 ```typescript
-// services/api/withRetry.ts:96-98
 const PERSISTENT_MAX_BACKOFF_MS = 5 * 60 * 1000      // 最大退避 5 分钟
 const PERSISTENT_RESET_CAP_MS = 6 * 60 * 60 * 1000   // 最长等待 6 小时
-const HEARTBEAT_INTERVAL_MS = 30_000                   // 每 30 秒心跳
+const HEARTBEAT_INTERVAL_MS = 30_000                 // 每 30 秒心跳
 
-// services/api/withRetry.ts:477-506
 if (persistent) {
-  // 将长等待切分为 30 秒的心跳块
   let remaining = delayMs
   while (remaining > 0) {
     if (options.signal?.aborted) throw new APIUserAbortError()
@@ -287,7 +267,6 @@ if (persistent) {
     await sleep(chunk, options.signal, { abortError })
     remaining -= chunk
   }
-  // 钳制 attempt 计数器，使 for 循环永不终止
   if (attempt >= maxRetries) attempt = maxRetries
 }
 ```
@@ -295,7 +274,6 @@ if (persistent) {
 两个关键设计：
 
 1. **心跳分块** —— 将长等待（可能几小时）切分为 30 秒的小块，每块都通过 `yield` 向 stdout 输出状态。这是为了防止宿主环境（如 CI runner）因为没有输出而判定会话空闲并杀掉进程。
-
 2. **attempt 钳制** —— `if (attempt >= maxRetries) attempt = maxRetries` 让 `for` 循环永远不会因为 `attempt > maxRetries + 1` 而退出。实际的退避用独立的 `persistentAttempt` 计数器计算。
 
 ---
@@ -305,55 +283,34 @@ if (persistent) {
 并非所有错误都值得重试。`shouldRetry()` 函数（`withRetry.ts:696-787`）实现了一个精细的判断链：
 
 ```typescript
-// services/api/withRetry.ts:696-787（简化）
 function shouldRetry(error: APIError): boolean {
   // 1. Mock 错误（测试用）永不重试
   if (isMockRateLimitError(error)) return false
-
   // 2. Persistent 模式：429/529 无条件重试
-  if (isPersistentRetryEnabled() && isTransientCapacityError(error))
-    return true
-
+  if (isPersistentRetryEnabled() && isTransientCapacityError(error)) return true
   // 3. CCR（远程容器）模式：401/403 视为暂态错误
   if (isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) &&
-      (error.status === 401 || error.status === 403))
-    return true
-
+      (error.status === 401 || error.status === 403)) return true
   // 4. 消息体中的 overloaded_error（SDK 有时不传 529 状态码）
-  if (error.message?.includes('"type":"overloaded_error"'))
-    return true
-
+  if (error.message?.includes('"type":"overloaded_error"')) return true
   // 5. Context overflow 可以通过调整 max_tokens 恢复
-  if (parseMaxTokensContextOverflowError(error))
-    return true
-
+  if (parseMaxTokensContextOverflowError(error)) return true
   // 6. x-should-retry 响应头 —— 服务器显式指令
   const shouldRetryHeader = error.headers?.get('x-should-retry')
   if (shouldRetryHeader === 'true' &&
-      (!isClaudeAISubscriber() || isEnterpriseSubscriber()))
-    return true
+      (!isClaudeAISubscriber() || isEnterpriseSubscriber())) return true
   if (shouldRetryHeader === 'false') {
-    // Ant 员工对 5xx 错误忽略 x-should-retry: false
     const is5xxError = error.status !== undefined && error.status >= 500
-    if (!(process.env.USER_TYPE === 'ant' && is5xxError))
-      return false
+    if (!(process.env.USER_TYPE === 'ant' && is5xxError)) return false
   }
-
   // 7. 连接错误总是可重试
   if (error instanceof APIConnectionError) return true
-
   // 8. 按状态码分类
-  if (error.status === 408) return true  // 请求超时
-  if (error.status === 409) return true  // 锁超时
-  if (error.status === 429) {            // 限流
-    return !isClaudeAISubscriber() || isEnterpriseSubscriber()
-  }
-  if (error.status === 401) {            // 认证失败
-    clearApiKeyHelperCache()
-    return true
-  }
-  if (error.status && error.status >= 500) return true  // 服务端错误
-
+  if (error.status === 408) return true
+  if (error.status === 409) return true
+  if (error.status === 429) return !isClaudeAISubscriber() || isEnterpriseSubscriber()
+  if (error.status === 401) { clearApiKeyHelperCache(); return true }
+  if (error.status && error.status >= 500) return true
   return false
 }
 ```
@@ -384,7 +341,6 @@ if (
   isVertexAuthError(lastError) ||
   isStaleConnection
 ) {
-  // 401/403 时强制刷新 token
   if (
     (lastError instanceof APIError && lastError.status === 401) ||
     isOAuthTokenRevokedError(lastError)
@@ -394,12 +350,11 @@ if (
       await handleOAuth401Error(failedAccessToken)
     }
   }
-  // 重新创建客户端（会使用刷新后的 token）
   client = await getClient()
 }
 ```
 
-注意 client 的创建策略：**只在首次请求、认证错误、或 stale connection 后才创建新 client**（`withRetry.ts:232-251` 的条件列表包含 `client === null`、401、OAuth revoked、Bedrock/Vertex auth error、以及 `isStaleConnection`）。正常的非认证类重试复用已有的 client 实例，避免不必要的 token 刷新和连接建立开销。
+注意 client 的创建策略：**只在首次请求、认证错误、或 stale connection 后才创建新 client**。正常的非认证类重试复用已有的 client 实例，避免不必要的 token 刷新和连接建立开销。
 
 ### 3.2 AWS/GCP 凭证过期处理
 
@@ -442,11 +397,10 @@ function isStaleConnectionError(error: unknown): boolean {
   return details?.code === 'ECONNRESET' || details?.code === 'EPIPE'
 }
 
-// services/api/withRetry.ts:218-230
 const isStaleConnection = isStaleConnectionError(lastError)
 if (isStaleConnection && getFeatureValue_CACHED_MAY_BE_STALE(
     'tengu_disable_keepalive_on_econnreset', false)) {
-  disableKeepAlive()  // 禁用连接池复用，强制新建连接
+  disableKeepAlive()
 }
 ```
 
@@ -456,195 +410,314 @@ if (isStaleConnection && getFeatureValue_CACHED_MAY_BE_STALE(
 
 ## 四、流式双模式：Streaming + Non-Streaming Fallback
 
-Claude Code 的 API 调用默认使用**流式模式**（SSE），但当流式请求失败时，会自动降级到**非流式模式**。这个双模式设计在 `claude.ts` 的 `queryModel` 函数中实现。
+Claude Code 的 API 调用默认走流式（SSE），失败时自动降级到非流式；某些不支持 SSE 端点的代理返回 404 时也会走相同的降级路径。这一组机制涉及 `claude.ts` 内部的 `queryModel` 主流程、Stream Idle Watchdog、Stall 监控、`executeNonStreamingRequest` 包装、以及 404 端点降级，链路深、状态多，单独成章更易维持代码与叙事的对齐度。
 
-### 4.1 流式请求的创建
+> 这部分内容已迁移到[第 25 篇：DirectConnect 与上游代理](./29-DirectConnect-与上游代理.md)。本节作为占位锚点保留，便于从历史目录直接跳转，并提示读者：流式降级与本篇的 `withRetry` 主循环、传输层长连接是三条互不相同的代码路径，请勿混淆。
 
-```typescript
-// services/api/claude.ts:1778-1846（简化）
-const generator = withRetry(
-  () => getAnthropicClient({
-    maxRetries: 0,  // 禁用 SDK 自带重试，由 withRetry 统一管理
-    model: options.model,
-    source: options.querySource,
-  }),
-  async (anthropic, attempt, context) => {
-    const params = paramsFromContext(context)
-    // 使用原始流而非 BetaMessageStream
-    // 因为 BetaMessageStream 对每个 input_json_delta 调用 partialParse()，是 O(n²)
-    const result = await anthropic.beta.messages
-      .create({ ...params, stream: true }, { signal })
-      .withResponse()
-    return result.data  // 返回 Stream<BetaRawMessageStreamEvent>
-  },
-  { model: options.model, fallbackModel: options.fallbackModel, ... },
-)
-```
+## 客户端传输层：WebSocket / SSE / Hybrid 三态
 
-注意 `maxRetries: 0` —— SDK 自带的重试被禁用了，所有重试逻辑由 `withRetry` 统一管理。这避免了两套重试机制相互干扰。
+到此为止讨论的都是面向模型 API（`api.anthropic.com/messages`）的请求-响应往返。但 Claude Code 还有一条独立的传输路径 —— **客户端与会话服务的长连接**。Bridge、Teleport、远程容器都依赖它在浏览器、容器、CLI 之间双向同步事件。它的失败模式和模型 API 完全不同：断网不再是"重发一次 POST"那么简单，而是要面对**断线重连、事件重放、token 刷新、休眠唤醒、批量上传与背压、多副本切换**。
 
-### 4.2 流式空闲看门狗（Stream Idle Watchdog）
-
-流式连接的一个隐患是**静默断开** —— TCP 连接没有报错，但服务端已经不再发送数据。SDK 的 `timeout` 只覆盖初始 `fetch()`，不覆盖后续的 SSE 流。
-
-源码通过一个**可选的**看门狗（watchdog）机制解决。需要注意的是，看门狗**默认不启用** —— 必须通过环境变量 `CLAUDE_ENABLE_STREAM_WATCHDOG` 显式开启：
+`cli/transports/` 目录维护了三个共享 `Transport` 接口的实现，由一个轻量级 dispatcher 根据环境变量挑选：
 
 ```typescript
-// services/api/claude.ts:1874-1928（简化）
-const streamWatchdogEnabled = isEnvTruthy(
-  process.env.CLAUDE_ENABLE_STREAM_WATCHDOG,
-)
-const STREAM_IDLE_TIMEOUT_MS = parseInt(
-  process.env.CLAUDE_STREAM_IDLE_TIMEOUT_MS || '', 10
-) || 90_000  // 启用后的默认超时 90 秒
-
-function resetStreamIdleTimer(): void {
-  clearStreamIdleTimers()
-  if (!streamWatchdogEnabled) return  // 未启用时直接返回，不设置任何定时器
-  // 半程警告
-  streamIdleWarningTimer = setTimeout(() => {
-    logForDebugging(`Streaming idle warning: ...`)
-  }, STREAM_IDLE_WARNING_MS)
-  // 超时中断
-  streamIdleTimer = setTimeout(() => {
-    streamIdleAborted = true
-    releaseStreamResources()  // 主动释放流资源
-  }, STREAM_IDLE_TIMEOUT_MS)
-}
-
-// 每收到一个 chunk 就重置定时器
-for await (const part of stream) {
-  resetStreamIdleTimer()
-  // ... 处理 part
-}
-```
-
-当看门狗启用时，每收到一个 SSE 事件就重置定时器；如果超过 90 秒没有收到任何事件，看门狗触发、释放流资源、并标记 `streamIdleAborted = true`。随后代码检测到这个标记，抛出错误触发 non-streaming fallback。
-
-> **为什么默认不启用？** 看门狗是一个保守的安全网。在某些网络环境下（如高延迟卫星链路），模型的长时间思考可能导致 90 秒内没有任何 SSE 事件，误触发超时。默认关闭让这种误杀不会发生，但用户可以在已知网络不稳定的环境中显式启用。
-
-### 4.3 流式 Stall 检测
-
-除了完全断开，流还可能出现**间歇性卡顿** —— 比如网关缓冲导致的突发延迟。源码对此有独立的监控：
-
-```typescript
-// services/api/claude.ts:1936-1966
-const STALL_THRESHOLD_MS = 30_000 // 30 秒
-let totalStallTime = 0
-let stallCount = 0
-
-for await (const part of stream) {
-  const now = Date.now()
-  if (lastEventTime !== null) {
-    const timeSinceLastEvent = now - lastEventTime
-    if (timeSinceLastEvent > STALL_THRESHOLD_MS) {
-      stallCount++
-      totalStallTime += timeSinceLastEvent
-      logEvent('tengu_streaming_stall', { ... })
+// cli/transports/transportUtils.ts:16-45
+export function getTransportForUrl(url, headers, sessionId, refreshHeaders) {
+  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_CCR_V2)) {
+    // v2: SSE for reads, HTTP POST for writes
+    const sseUrl = new URL(url.href)
+    if (sseUrl.protocol === 'wss:') sseUrl.protocol = 'https:'
+    else if (sseUrl.protocol === 'ws:') sseUrl.protocol = 'http:'
+    sseUrl.pathname = sseUrl.pathname.replace(/\/$/, '') + '/worker/events/stream'
+    return new SSETransport(sseUrl, headers, sessionId, refreshHeaders)
+  }
+  if (url.protocol === 'ws:' || url.protocol === 'wss:') {
+    if (isEnvTruthy(process.env.CLAUDE_CODE_POST_FOR_SESSION_INGRESS_V2)) {
+      return new HybridTransport(url, headers, sessionId, refreshHeaders)
     }
+    return new WebSocketTransport(url, headers, sessionId, refreshHeaders)
   }
-  lastEventTime = now
+  throw new Error(`Unsupported protocol: ${url.protocol}`)
+}
+```
+
+调度优先级有意思：**SSE 优先于 Hybrid，Hybrid 优先于 WebSocket**。原因是 SSE 已经显式拒绝了 WebSocket URL（必须切到 https），而 Hybrid 是 WebSocket 的子集 —— 它只把"写"换成 POST，"读"仍走 WS。这种"逐步收缩到更安全协议"的迁移路径让运维可以分阶段灰度，而不是一次性把所有用户切到 SSE。
+
+### 5.1 WebSocketTransport：自动断线重连与休眠唤醒
+
+`WebSocketTransport` 是三种传输里历史最久、也最复杂的一个。它要同时处理 Bun 内置 WebSocket 与 Node 上的 `ws` 包两条代码路径，要在网络中断时重连、在笔记本休眠时识别"我睡了 20 分钟"并直接重连而非干等，还要在认证失败码 4003 上调用 `refreshHeaders()` 拿新 token 再试。
+
+四组关键常量：
+
+```typescript
+// cli/transports/WebSocketTransport.ts:26-42
+const DEFAULT_RECONNECT_GIVE_UP_MS = 600_000         // 重连放弃门槛：10 分钟
+const DEFAULT_PING_INTERVAL = 10000                  // 应用层 ping：10 秒
+const DEFAULT_KEEPALIVE_INTERVAL = 300_000           // TCP keep-alive：5 分钟
+const SLEEP_DETECTION_THRESHOLD_MS = DEFAULT_MAX_RECONNECT_DELAY * 2 // 60s
+const PERMANENT_CLOSE_CODES = new Set([1002, 4001, 4003])
+```
+
+`PERMANENT_CLOSE_CODES` 的成员设计是关键。`1002`（协议错误）、`4001`（永久拒绝）属于真正不可恢复，但 `4003`（认证失败）只在**没有提供 `refreshHeaders` 回调**或**新旧 token 完全相同**时才视为永久错误：
+
+```typescript
+// cli/transports/WebSocketTransport.ts:438-454（简化）
+const closeCode = event.code
+const isPermanent =
+  PERMANENT_CLOSE_CODES.has(closeCode) &&
+  !(closeCode === 4003 && this.refreshHeaders && newToken !== oldToken)
+```
+
+这一行设计让"OAuth token 刷新"完全融入了 WebSocket 的生命周期 —— 服务端用 close code 4003 告诉客户端"这个 token 失效了"，客户端去拿新的，然后无缝重连。从用户视角，会话从未中断。
+
+**休眠检测**是另一个细节。Mac 笔记本盖上盖子后 V8 的 `setInterval` 会暂停，醒来时一次性触发所有积压的回调。如果 `setInterval` 间隔是 5 秒，盖了 20 分钟，醒来会同时触发 240 次 ping 失败 —— 而真实情况只是"我睡了 20 分钟"：
+
+```typescript
+// cli/transports/WebSocketTransport.ts:476-492
+const now = Date.now()
+const elapsed = now - this.lastReconnectAttemptTime
+if (elapsed > SLEEP_DETECTION_THRESHOLD_MS) {
+  // 检测到长时间空档：跳过指数退避，立即重连
+  this.reconnectAttempts = 0
+}
+if (elapsed < DEFAULT_RECONNECT_GIVE_UP_MS) {
+  this.scheduleReconnect()
+}
+```
+
+`SLEEP_DETECTION_THRESHOLD_MS = 60s` 是"最大正常重连延迟的两倍" —— 如果两次重连尝试的时间差超过这个值，可以判定为机器进入了睡眠状态，应该重置退避计数器立即重连，而不是按指数退避慢慢退到 5 分钟。
+
+**消息重放**用一个固定容量的 `CircularBuffer` 实现。每条出站消息附带客户端生成的 `requestId`，服务端在重连握手时返回 `x-last-request-id` 头告诉客户端"我处理到这条为止"：
+
+```typescript
+// cli/transports/WebSocketTransport.ts: replayBufferedMessages (节选)
+const lastConfirmedId = response.headers?.['x-last-request-id']
+const lastConfirmedIndex = this.outboundBuffer.findIndex(
+  m => m.requestId === lastConfirmedId,
+)
+if (lastConfirmedIndex >= 0) {
+  // 服务端确认到这里，前面的可以丢
+  this.outboundBuffer.evictThrough(lastConfirmedIndex)
+}
+for (const message of this.outboundBuffer.values()) {
+  this.send(message)
+}
+```
+
+这种"客户端缓冲 + 服务端确认游标"的模式让重连不会丢消息也不会重复处理 —— 经典的 at-least-once 转 exactly-once 实现，比单纯的"重连后重发所有未确认消息"更安全。
+
+### 5.2 SSETransport：单向流 + Sequence Dedup + Last-Event-ID
+
+SSE（Server-Sent Events）是 HTTP 上的单向推送，比 WebSocket 简单：用 `EventSource` 风格的 `text/event-stream` 接收事件，用普通 `POST` 写出。但 SSE 没有应用层 ping，也没有 close code —— 一切异常都要自己识别。
+
+```typescript
+// cli/transports/SSETransport.ts:21-27
+const LIVENESS_TIMEOUT_MS = 45_000
+const PERMANENT_HTTP_CODES = new Set([401, 403, 404])
+```
+
+`LIVENESS_TIMEOUT_MS = 45s` 是 SSE 的"心跳超时"。CCR 服务端每隔几秒会推送一条空的 `:keepalive` 注释，客户端只要收到任何字节就重置定时器；连续 45 秒没字节就主动断开重连。`PERMANENT_HTTP_CODES = {401, 403, 404}` 在握手阶段直接判定为永久错误，跳过重连。
+
+**序号去重**是 SSE 转重连场景下最重要的不变量。服务端给每个事件分配单调递增的 `sequence_num`，客户端用一个 `Set<number>` 记录已经处理过的序号；重连时通过 `from_sequence_num` 查询参数或 `Last-Event-ID` 头告诉服务端"我处理到哪了"：
+
+```typescript
+// cli/transports/SSETransport.ts:245-249（简化）
+sseUrl.searchParams.set('from_sequence_num', String(this.lastSequenceNum))
+```
+
+```typescript
+// 收到事件后 (parseSSEFrames → 处理循环)
+if (this.seenSequences.has(ev.sequence_num)) {
+  continue  // 重连后服务端可能从更早的点重发，去重
+}
+this.seenSequences.add(ev.sequence_num)
+this.lastSequenceNum = Math.max(this.lastSequenceNum, ev.sequence_num)
+// 当 set 超过 1000 条时，删掉最旧的一半，防止无限增长
+```
+
+`parseSSEFrames` 这个工具函数被显式 `export` 出来 —— 既是 SSE 帧解析的核心逻辑，也方便测试隔离覆盖各种"半帧到达"的边界情况（一个事件被切成多个 TCP 包、`\n\n` 分隔符落在两个 chunk 边界等）。
+
+**POST 写出**走的是带 10 次重试的指数退避循环 —— 和 `withRetry` 的思路一致，但不依赖 `withRetry` 本身，因为这里不需要错误分类与 Fast Mode 那一套，只需要"失败就重试，永久错误就放弃"的简单语义。
+
+### 5.3 HybridTransport：WS 读 + POST 批量写
+
+`HybridTransport` 在 `WebSocketTransport` 基础上做一件事 —— 把"写"从 WS 帧换成 100ms 批量的 HTTP POST：
+
+```typescript
+// cli/transports/HybridTransport.ts:12-22
+const BATCH_FLUSH_INTERVAL_MS = 100
+const POST_TIMEOUT_MS = 15_000
+const CLOSE_GRACE_MS = 3000
+```
+
+为什么要这么折腾？因为某些企业代理对单向上行的 WS 帧不友好（防火墙会缓冲、丢弃、或者按 HTTP 标准 4KB chunk 切分），而 HTTP POST 永远兼容。`HybridTransport` 把上行流量整形成"每 100ms 攒一次的 POST 请求"，下行仍走 WS，兼顾了实时性和兼容性。
+
+实际的批量逻辑委托给一个通用类 `SerialBatchEventUploader<T>`：
+
+```typescript
+// cli/transports/HybridTransport.ts:79-85（节选）
+this.uploader = new SerialBatchEventUploader({
+  maxBatchSize: 500,
+  // 这个值故意远超 maxBatchSize —— enqueue 不 await
+  // 一次性塞过 maxQueueSize 就会死锁
+  maxQueueSize: 100_000,
   // ...
-}
+})
 ```
 
-Stall 检测不会中断流，但会记录遥测数据。团队可以据此判断哪些网络环境/区域的流式体验差，决定是否需要在特定条件下默认使用非流式模式。
+`maxQueueSize = 100_000` 远大于 `maxBatchSize = 500`，这是一个**反背压设计**。源码注释解释：调用方调用 `enqueue()` 时**不 await**，如果在一个 microtask 里塞了 600 条进队列、队列容量只有 500，那 `enqueue()` 会永远卡住等待 `processBatch` 把队列腾出位置 —— 而 `processBatch` 本身要等当前 microtask 跑完才能拿到 event loop。所以队列容量必须显著大于一次性可能塞入的批量大小，否则会死锁。
 
-### 4.4 Non-Streaming Fallback
+**关闭时的 3 秒宽限**：`CLOSE_GRACE_MS = 3000` 让 WebSocket 在 `close()` 之后多等 3 秒，确保最后一批 POST 上行能完成。源码注释强调，archive 写入和 close 之间存在 await，没有这个宽限期就会丢最后一两条事件。
 
-当流式请求失败时（不管是连接错误、超时、还是看门狗中断），系统自动降级到非流式模式：
+### 5.4 SerialBatchEventUploader：通用串行批量上传器
+
+`SerialBatchEventUploader<T>` 是一个泛型工具，被 `HybridTransport`（上传事件）、`SSETransport`（上传 POST 写）、以及其他需要"批量 + 串行 + 重试"的场景复用。它的核心抽象是一个 `RetryableError`：
 
 ```typescript
-// services/api/claude.ts:2504-2569（简化）
-} catch (streamingError) {
-  // 用户主动中断不触发 fallback
-  if (streamingError instanceof APIUserAbortError) {
-    if (signal.aborted) throw streamingError
-    throw new APIConnectionTimeoutError({ message: 'Request timed out' })
+// cli/transports/SerialBatchEventUploader.ts:21-32
+/**
+ * 抛出此错误表示这一批应该按 retryAfterMs 重试。
+ * 其他错误视为不可恢复，丢弃这一批。
+ */
+export class RetryableError extends Error {
+  constructor(message: string, public retryAfterMs?: number) {
+    super(message)
   }
+}
+```
 
-  didFallBackToNonStreaming = true
-  if (options.onStreamingFallback) {
-    options.onStreamingFallback()  // 通知 UI 已降级
+调用方传入的 `sendBatch` 函数判断业务错误，然后选择"抛 `RetryableError` 重试" 还是"抛普通 `Error` 丢弃"。退避策略统一在上传器内部实现，并对服务端的 `retryAfterMs` 做夹紧：
+
+```typescript
+// SerialBatchEventUploader.ts:240-250（节选）
+// 服务端给的 retry-after 必须在 [baseDelayMs, maxDelayMs] 之间
+// 防止恶意/出错的服务端通过 retryAfterMs=1ms 把客户端打死
+const clamped = Math.max(
+  this.config.baseDelayMs,
+  Math.min(retryAfterMs, this.config.maxDelayMs),
+)
+```
+
+`takeBatch()` 还有一个 `maxBatchBytes` 字段控制单批字节数 —— 序列化阶段如果某个事件抛异常（循环引用、`BigInt` 等无法 JSON 化），那一条会被**单独丢弃**而不是阻塞整批，并将 `droppedBatchCount` 单调递增。这是一个"局部失败不传染"的隔离设计。
+
+### 5.5 WorkerStateUploader：双槽合并 + RFC 7396 元数据 merge
+
+`PUT /worker` 端点上传的是会话整体状态而不是事件流。它的访问模式完全不同：**调用方可能在 1ms 内连续发起 100 次状态更新**（用户敲一个字符就改一次 cursor 位置），而服务端只关心"最终是什么"，不在乎中间过程。
+
+`WorkerStateUploader` 把这个模式优化到极致 —— **永远只保留一个在飞 + 一个 pending**：
+
+```typescript
+// cli/transports/WorkerStateUploader.ts:40-65（简化）
+enqueue(patch: Record<string, unknown>): void {
+  // 新 patch 直接合并到 pending（永不超过 1 个槽）
+  this.pending = this.pending ? coalescePatches(this.pending, patch) : patch
+  this.maybeSend()
+}
+
+private maybeSend(): void {
+  if (this.inflight || this.closed || !this.pending) return
+  const payload = this.pending
+  this.pending = null
+  this.inflight = this.sendWithRetry(payload).then(() => {
+    this.inflight = null
+    if (this.pending && !this.closed) this.maybeSend()  // 链式触发
+  })
+}
+```
+
+合并函数 `coalescePatches` 对顶层 key 是"last-write-wins"，但对两个特殊 key `external_metadata`、`internal_metadata` 走 **RFC 7396 JSON Merge Patch**：
+
+```typescript
+// cli/transports/WorkerStateUploader.ts:106-130（节选）
+if ((key === 'external_metadata' || key === 'internal_metadata') &&
+    merged[key] && typeof merged[key] === 'object') {
+  merged[key] = {
+    ...(merged[key] as Record<string, unknown>),
+    ...(value as Record<string, unknown>),
   }
-
-  // 如果流式的 529 就是触发点，将其计入 consecutive529 预算
-  const result = yield* executeNonStreamingRequest(
-    { model: options.model, source: options.querySource },
-    {
-      model: options.model,
-      fallbackModel: options.fallbackModel,
-      thinkingConfig,
-      signal,
-      initialConsecutive529Errors: is529Error(streamingError) ? 1 : 0,
-      querySource: options.querySource,
-    },
-    paramsFromContext,
-    ...
-  )
-  // 构造 AssistantMessage 并 yield
 }
 ```
 
-`executeNonStreamingRequest` 内部又包装了一层 `withRetry`（`claude.ts:843-906`），有自己独立的重试预算。关键细节：`initialConsecutive529Errors` 参数将流式阶段的 529 计数传递到非流式阶段，确保**总 529 次数一致**，不会因为模式切换而多重试。
+为什么 metadata 要 merge 而其他字段直接覆盖？因为 metadata 是多模块共享的命名空间 —— UI 模块写 `cursor_position`，工具模块写 `last_tool_use_id`，如果用 last-write-wins，两个模块的合法写入会互相覆盖。RFC 7396 让它们各自独立。
 
-非流式 fallback 还有一个专门的超时配置：
+`sendWithRetry` 内部有一个微妙的"重试时吸收 pending"机制：每次重试前如果发现 `this.pending` 不为空，就把它合并到当前正在重试的 payload 里再发，确保**最终一致性**。如果重试期间用户改了 5 次状态，这 5 次会全部合并进同一个请求，而不是排成队列等。
+
+### 5.6 sessionIngress：JSONL 追加 + 乐观并发控制
+
+最后一块拼图是 `services/api/sessionIngress.ts`，对应 `PUT /session_ingress/.../entry` —— 把每条 transcript 消息以 JSONL 追加方式持久化到服务端。
+
+它有两个独特设计。一是**每个 session 一个 `sequential` 串行器**：
 
 ```typescript
-// services/api/claude.ts:807-811
-function getNonstreamingFallbackTimeoutMs(): number {
-  const override = parseInt(process.env.API_TIMEOUT_MS || '', 10)
-  if (override) return override
-  // 远程会话 120 秒（避免超过容器 idle-kill 限制）
-  // 本地 300 秒
-  return isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) ? 120_000 : 300_000
+// services/api/sessionIngress.ts:42-55
+function getOrCreateSequentialAppend(sessionId: string) {
+  let sequentialAppend = sequentialAppendBySession.get(sessionId)
+  if (!sequentialAppend) {
+    sequentialAppend = sequential(
+      async (entry, url, headers) =>
+        await appendSessionLogImpl(sessionId, entry, url, headers),
+    )
+    sequentialAppendBySession.set(sessionId, sequentialAppend)
+  }
+  return sequentialAppend
 }
 ```
 
-远程容器（CCR）的超时更短（120 秒），因为这些容器通常有 ~5 分钟的空闲终止策略，留出余量确保超时错误能正常返回而不是被直接 SIGKILL。
+为什么需要串行？因为追加 JSONL 用了**乐观并发控制** —— 每次 PUT 带 `Last-Uuid` 头声明"我看到的上一条是这个 UUID"，服务端验证后才接受。两个并发请求会让其中一个失败。`sequential` 包装确保每个 session 同一时刻最多一个 PUT 在飞。
 
-### 4.5 404 Streaming Endpoint Fallback
-
-某些网关/代理不支持 SSE 流式端点，返回 404。这种情况在 `withRetry` 耗尽所有重试后才会被检测到（因为 404 发生在流创建阶段，被 `withRetry` 的 `CannotRetryError` 包装）：
+二是 **409 冲突的智能恢复**：
 
 ```typescript
-// services/api/claude.ts:2612-2616
-const is404StreamCreationError =
-  !didFallBackToNonStreaming &&
-  errorFromRetry instanceof CannotRetryError &&
-  errorFromRetry.originalError instanceof APIError &&
-  errorFromRetry.originalError.status === 404
+// services/api/sessionIngress.ts:90-141（简化）
+if (response.status === 409) {
+  const serverLastUuid = response.headers['x-last-uuid']
+  if (serverLastUuid === entry.uuid) {
+    // 我的 entry 已经是服务端最新条目 —— 之前 PUT 成功了，只是响应迷路
+    lastUuidMap.set(sessionId, entry.uuid)
+    return true
+  }
+  if (serverLastUuid) {
+    // 服务端给了它的最新 UUID，采用并重试
+    lastUuidMap.set(sessionId, serverLastUuid as UUID)
+  } else {
+    // 旧端点不返回 x-last-uuid，回头去查整个 session 找最末尾
+    const logs = await fetchSessionLogsFromUrl(sessionId, url, headers)
+    const adoptedUuid = findLastUuid(logs)
+    if (adoptedUuid) lastUuidMap.set(sessionId, adoptedUuid)
+    else return false
+  }
+  continue
+}
 ```
 
-检测到 404 后，系统同样降级到 `executeNonStreamingRequest`。这个处理是后来新增的 —— 注释提到在 v2.1.8 之前，BetaMessageStream 的 404 出现在迭代阶段，而切换到原始流后 404 出现在创建阶段，需要不同的捕获点。
+第一个 if 处理的是经典分布式幽灵场景：进程 A 发了 PUT，服务端写入成功，响应在网络上丢了；进程 A 被杀，新进程接管同一个 session，从 `lastUuidMap` 读到的还是旧 UUID；新 entry 用旧 `Last-Uuid` 发出去，服务端报 409。但服务端响应里的 `x-last-uuid` 就是新 entry 自己的 UUID —— 这证明 entry 实际已经写入，只是响应丢了。这种情况认为成功，不重发。
+
+第二个 if/else 处理"真冲突"：服务端给出真正的最新 UUID 就直接采用；旧端点不返回这个头时，回头 GET 一次整个 session 找出最末尾再重试。
+
+`getTeleportEvents` 是 CCR 新一代会话端点的替代品，分页拉取（默认 1000/页、最多 100 页 = 10 万事件），同时保留 `getSessionLogsViaOAuth` 作为旧端点的兼容路径，在 migration 期间两者并存。
 
 ---
 
 ## 五、连接错误分类与用户友好提示
 
-### 5.1 错误因果链遍历
+模型 API 重试层和传输层共享同一套底层错误工具，集中在 `services/api/errorUtils.ts`。
+
+### 6.1 错误因果链遍历
 
 Anthropic SDK 将底层连接错误包装在 `cause` 属性链中。`extractConnectionErrorDetails` 通过遍历这条链来找到根因：
 
 ```typescript
 // services/api/errorUtils.ts:42-83
-export function extractConnectionErrorDetails(
-  error: unknown,
-): ConnectionErrorDetails | null {
+export function extractConnectionErrorDetails(error: unknown): ConnectionErrorDetails | null {
   let current: unknown = error
-  const maxDepth = 5  // 防止无限循环
-
+  const maxDepth = 5
   while (current && depth < maxDepth) {
-    if (current instanceof Error &&
-        'code' in current &&
-        typeof current.code === 'string') {
+    if (current instanceof Error && 'code' in current && typeof current.code === 'string') {
       const code = current.code
       const isSSLError = SSL_ERROR_CODES.has(code)
       return { code, message: current.message, isSSLError }
     }
-    // 沿 cause 链向下
-    if (current instanceof Error && 'cause' in current &&
-        current.cause !== current) {
+    if (current instanceof Error && 'cause' in current && current.cause !== current) {
       current = current.cause
       depth++
     } else {
@@ -657,7 +730,7 @@ export function extractConnectionErrorDetails(
 
 `maxDepth = 5` 的防护很重要 —— 某些异常情况下 `cause` 链可能形成循环引用，`current.cause !== current` 检查和深度限制双重防护。
 
-### 5.2 SSL 错误的专门处理
+### 6.2 SSL 错误的专门处理
 
 企业用户经常遇到 SSL 错误 —— TLS 拦截代理（如 Zscaler）、过期的企业证书、自签名证书等。源码维护了一个 SSL 错误码集合并提供针对性提示：
 
@@ -670,29 +743,15 @@ const SSL_ERROR_CODES = new Set([
   'ERR_TLS_CERT_ALTNAME_INVALID',
   // ... 共 16 种
 ])
-
-// services/api/errorUtils.ts:200-235
-export function formatAPIError(error: APIError): string {
-  const connectionDetails = extractConnectionErrorDetails(error)
-  if (connectionDetails?.isSSLError) {
-    switch (code) {
-      case 'UNABLE_TO_VERIFY_LEAF_SIGNATURE':
-        return 'Unable to connect to API: SSL certificate verification failed. ' +
-               'Check your proxy or corporate SSL certificates'
-      case 'DEPTH_ZERO_SELF_SIGNED_CERT':
-        return 'Unable to connect to API: Self-signed certificate detected. ' +
-               'Check your proxy or corporate SSL certificates'
-      // ...
-    }
-  }
-}
 ```
 
 这些消息比底层的 OpenSSL 错误码有用得多。注释提到：
 
 > "enterprise users behind TLS-intercepting proxies see OAuth complete in-browser but the CLI's token exchange silently fails with a raw SSL code. Surfacing the likely fix saves a support round-trip."
 
-### 5.3 HTML 错误页面清洗
+`getSSLErrorHint` 还专门为 OAuth token exchange 等模型 API 之外的场景提供独立的提示字符串，建议用户设置 `NODE_EXTRA_CA_CERTS` 或让 IT 把 `*.anthropic.com` 加入允许列表。这条提示在 `/doctor` 命令的预检查中也会出现，避免企业用户卡在"OAuth 浏览器流程通过、CLI 拿不到 token"的死胡同。
+
+### 6.3 HTML 错误页面清洗
 
 有时 API 网关（如 Cloudflare）返回的不是 JSON 而是 HTML 错误页面。直接展示 HTML 给用户是灾难性的：
 
@@ -702,7 +761,7 @@ function sanitizeMessageHTML(message: string): string {
   if (message.includes('<!DOCTYPE html') || message.includes('<html')) {
     const titleMatch = message.match(/<title>([^<]+)<\/title>/)
     if (titleMatch && titleMatch[1]) {
-      return titleMatch[1].trim()  // 只取 <title> 内容
+      return titleMatch[1].trim()
     }
     return ''
   }
@@ -710,9 +769,24 @@ function sanitizeMessageHTML(message: string): string {
 }
 ```
 
-从 HTML 中提取 `<title>` 标签内容作为错误消息 —— 大多数 Cloudflare 错误页面的 title 是 `"Error 524: A timeout occurred"` 这样的格式，比完整 HTML 有用得多。
+从 HTML 中提取 `<title>` 标签内容作为错误消息 —— Cloudflare 错误页面的 title 多是 `"Error 524: A timeout occurred"` 这样的格式，比完整 HTML 有用得多。
 
-### 5.4 429 限流的精细化处理
+### 6.4 反序列化错误的嵌套提取
+
+resume 时从 JSONL 加载历史 transcript，APIError 经 JSON 序列化-反序列化后**会丢掉 `.message` 属性** —— 真正的消息文本根据 provider 落在不同的嵌套层级：
+
+```typescript
+// services/api/errorUtils.ts:144-198（节选）
+// Bedrock/proxy 形态：{ error: { message: "..." } }
+// Anthropic 标准形态：{ error: { error: { message: "..." } } }
+type NestedAPIError = {
+  error?: { message?: string; error?: { message?: string } }
+}
+```
+
+`extractNestedErrorMessage` 优先看更深的 `error.error.message`（Anthropic 标准形态），再回落到 `error.message`（Bedrock 形态），最后再叠加 HTML 清洗。`formatAPIError` 在原始 `.message` 缺失时调用它，避免下游 `.length` 访问崩溃。这种"按 provider 形态嵌套展开"的小工具是多后端架构的隐形税。
+
+### 6.5 429 限流的精细化处理
 
 `getAssistantMessageFromError` 对 429 错误有极其精细的处理（`errors.ts:465-558`），区分了多种子场景：
 
@@ -724,7 +798,7 @@ function sanitizeMessageHTML(message: string): string {
 
 ## 六、资源泄漏防护
 
-### 6.1 流资源释放
+### 7.1 流资源释放
 
 SSE 流持有原生的 TLS/socket 缓冲区，这些内存在 V8 堆之外，GC 无法自动回收。源码通过 `releaseStreamResources` 确保在所有退出路径上释放：
 
@@ -734,20 +808,15 @@ function releaseStreamResources(): void {
   cleanupStream(stream)
   stream = undefined
   if (streamResponse) {
-    streamResponse.body?.cancel().catch(() => {})  // 取消响应体读取
+    streamResponse.body?.cancel().catch(() => {})
     streamResponse = undefined
   }
 }
 ```
 
-这个函数在三个地方调用：
-1. `finally` 块（`claude.ts:2808-2815`）—— 正常退出和异常退出都执行
-2. 看门狗超时时（`claude.ts:1926`）—— 主动中断流
-3. 正常完成后（`claude.ts:2891`）—— 防御性调用，确保没有遗漏
+这个函数在三个地方调用：`finally` 块（正常退出和异常退出都执行）、看门狗超时时主动中断流、正常完成后做防御性兜底。注释引用了 GitHub issue #32920，说明这是一个真实遇到过的内存泄漏问题。
 
-注释引用了 GitHub issue #32920，说明这是一个真实遇到过的内存泄漏问题。
-
-### 6.2 Client Request ID
+### 7.2 Client Request ID
 
 为了在超时场景下仍能关联客户端和服务端日志，**第一方 API 请求**会携带一个客户端生成的 UUID。这个 ID 只在满足两个条件时注入：使用第一方 Anthropic API（非 Bedrock/Vertex/Foundry），且调用方没有预先设置过该 header：
 
@@ -757,7 +826,6 @@ const injectClientRequestId =
   getAPIProvider() === 'firstParty' && isFirstPartyAnthropicBaseUrl()
 return (input, init) => {
   const headers = new Headers(init?.headers)
-  // 仅 1P API + 调用方未预设时注入
   if (injectClientRequestId && !headers.has(CLIENT_REQUEST_ID_HEADER)) {
     headers.set(CLIENT_REQUEST_ID_HEADER, randomUUID())
   }
@@ -765,15 +833,19 @@ return (input, init) => {
 }
 ```
 
-此外，streaming 主路径在 `claude.ts:1810-1829` 还会显式生成 `clientRequestId` 并通过请求 header 传入，以便在本地跟踪关联。两处生成的 ID 独立 —— `buildFetch` 层是通用保底，`queryModel` 层是面向流式请求的精确追踪。
+第三方 Provider（Bedrock/Vertex）不接收这个头 —— 它们不记录它，且未知 header 可能被严格代理拒绝（源码引用了 inc-4029 class 事件）。
 
-通过 `x-client-request-id` 头传递，当请求超时（没有服务端返回的 request ID）时，支持团队可以用这个客户端 ID 在服务端日志中查找对应请求。第三方 Provider（Bedrock/Vertex）不接收这个头 —— 它们不记录它，且未知 header 可能被严格代理拒绝（源码引用了 inc-4029 class 事件）。
+### 7.3 传输层的资源对账
+
+传输层有自己的资源回收要点。`WebSocketTransport.close()` 会同时清掉 ping 定时器、keep-alive 定时器、重连定时器、`CircularBuffer`，否则在长跑的 Bridge 会话里会泄漏闭包引用。`HybridTransport` 关 WS 前还要等 `SerialBatchEventUploader` 把队列 flush 干净（`CLOSE_GRACE_MS = 3000` 即此目的），否则会丢最后一批事件。`SSETransport` 的 `livenessTimer` 在 `close()` 时通过 `clearTimeout` 取消，且 `AbortController.abort()` 会中断挂起的 `fetch()` 流。
+
+`sessionIngress` 的 `clearSession(sessionId)` 与 `clearAllSessions()` 是另一个干净的接管点 —— 用户 `/clear` 时清空所有 sub-agent 的 `lastUuidMap` 与 `sequentialAppendBySession`，避免下次同名 session 复用旧的 `Last-Uuid` 出现伪冲突。
 
 ---
 
 ## 七、完整的 API 调用生命周期
 
-综合上述所有机制，一次完整的 API 调用经历以下生命周期：
+把模型 API 重试链与传输层放在同一张图里，可以看到 Claude Code 完整的对外通信形态：
 
 ```mermaid
 sequenceDiagram
@@ -781,61 +853,52 @@ sequenceDiagram
     participant C as claude.ts<br/>queryModel
     participant R as withRetry
     participant SDK as Anthropic SDK
-    participant API as API Server
+    participant API as model API
+    participant T as Transport<br/>(WS/SSE/Hybrid)
+    participant S as Session<br/>Service
 
     Q->>C: queryModelWithStreaming()
     C->>R: withRetry(getClient, createStream, options)
 
-    loop 最多 11 次（1 + 10 retries）
-        R->>SDK: getClient() [首次/认证失败后]
-        SDK-->>R: Anthropic client
-        R->>SDK: create stream + withResponse()
-        SDK->>API: POST /messages (stream=true)
-
-        alt 成功
-            API-->>SDK: 200 + SSE stream
-            SDK-->>R: Stream<RawEvent>
-            R-->>C: return Stream
-
-            loop for await (event of stream)
-                C->>C: resetStreamIdleTimer()
-                C->>C: accumulate content blocks
-                C-->>Q: yield StreamEvent / AssistantMessage
-            end
-
-        else 429/529
-            API-->>SDK: 429/529
-            SDK-->>R: APIError
-            R->>R: shouldRetry529? fastMode fallback?
-            R-->>Q: yield SystemAPIErrorMessage
-            R->>R: sleep(getRetryDelay())
-            Note right of R: continue → 下一次尝试
-
-        else 连续 529 >= 3
-            R-->>Q: throw FallbackTriggeredError
-            Q->>Q: 切换到 fallbackModel
-            Q->>C: 重新调用 queryModelWithStreaming
-
-        else 流中断
-            SDK-->>C: Error during streaming
-            C->>C: executeNonStreamingRequest
-            C->>R: withRetry(getClient, create, options)
-            R->>SDK: messages.create (非流式)
+    par 模型 API 调用
+        loop 最多 11 次（1 + 10 retries）
+            R->>SDK: getClient() [首次/认证失败后]
+            R->>SDK: messages.create(stream=true)
             SDK->>API: POST /messages
-            API-->>SDK: BetaMessage
-            SDK-->>R: return message
-            R-->>C: return message
-            C-->>Q: yield AssistantMessage
-
-        else 401 认证失败
-            API-->>SDK: 401
-            SDK-->>R: APIError(401)
-            R->>R: handleOAuth401Error()
-            R->>SDK: getClient() [重新创建]
-            Note right of R: continue → 下一次尝试
+            alt 成功
+                API-->>SDK: 200 + SSE stream
+                SDK-->>R: Stream<RawEvent>
+                R-->>C: return Stream
+                C-->>Q: yield AssistantMessage
+            else 429/529
+                API-->>SDK: 429/529
+                R->>R: shouldRetry? fastMode? consecutive529?
+                R-->>Q: yield SystemAPIErrorMessage
+                R->>R: sleep(getRetryDelay()) → continue
+            else 401
+                API-->>SDK: 401
+                R->>R: handleOAuth401Error() → getClient() → continue
+            else 连续 529 >= 3
+                R-->>Q: throw FallbackTriggeredError
+                Q->>Q: 切换 fallbackModel 重新调用
+            end
         end
+    and 会话服务长连接
+        T->>S: connect (WS / SSE)
+        loop 长连接生命周期
+            S-->>T: event (sequence_num=N)
+            T->>T: dedup + reset livenessTimer
+            T->>Q: enqueueIncoming(event)
+            Q->>T: enqueueOutgoing(event)
+            T->>T: batch 100ms
+            T->>S: POST batch (HybridTransport)
+            Note over T,S: 断线 → 退避重连<br/>4003 → refreshHeaders() 拿新 token<br/>sleep 检测 → 跳过退避<br/>Last-Event-ID / x-last-request-id 续传
+        end
+        T->>S: close (3s grace flush)
     end
 ```
+
+两条主线并行运行：左边是面向 `messages.create` 的重试链，右边是面向会话服务的长连接。它们共享同一个 `signal`（用户 Ctrl-C 时同时中断）、共享同一套错误工具（SSL 检测、HTML 清洗、`extractConnectionErrorDetails`）、共享同一个 OAuth token 刷新链（`handleOAuth401Error` 与 `refreshHeaders` 都从 `OAuthTokenManager` 取）。
 
 ---
 
@@ -853,19 +916,37 @@ sequenceDiagram
 
 **适用场景**：任何同时发起多种优先级请求的系统 —— 混合了用户交互请求和后台任务的 Web 应用、微服务系统等。
 
-### 模式 3：流式 + 非流式双模式降级
+### 模式 3：协议分级 + dispatcher 灰度
 
-默认使用流式模式以获得更好的用户体验（实时显示），但在流式失败时自动降级到非流式。两个模式共享相同的参数构造逻辑（`paramsFromContext`），确保降级对用户透明。
+`getTransportForUrl` 用环境变量做三段灰度（WebSocket → Hybrid → SSE），同一个 `Transport` 接口下三种实现共存。这让运维可以分阶段把企业用户从 WS 迁到 POST、再从 POST 迁到 SSE，每一步出问题都能立刻回退，而业务代码完全无感。
 
-**适用场景**：任何使用 SSE/WebSocket 的应用 —— 实时聊天、数据推送、协作编辑等。某些代理/防火墙不支持长连接，双模式降级是必须的。
+**适用场景**：任何需要从老协议平滑迁移到新协议的长生命周期系统 —— 从 REST 迁 gRPC、从 polling 迁 SSE、从 WebSocket 迁 WebTransport 等。
+
+### 模式 4：客户端缓冲 + 服务端确认游标
+
+`WebSocketTransport` 的 `CircularBuffer` + `x-last-request-id` 让重连不会丢消息也不会重复处理，把网络层的 at-least-once 提升到业务层的 exactly-once。`SSETransport` 的 `sequence_num` + `Last-Event-ID` 是同一模式的另一种实现。
+
+**适用场景**：所有"断线必须续传"的双向通信场景 —— 协作编辑、IM、实时游戏状态同步、CDC 数据管道等。
+
+### 模式 5：双槽合并 vs. 队列累积
+
+`WorkerStateUploader` 的 1-inflight + 1-pending + RFC 7396 merge 是状态类上传的最优解：调用方再频繁也只产生 O(1) 的内存与 O(1) 的网络。`SerialBatchEventUploader` 则是事件类上传的最优解：事件不能合并，但可以批量与背压。**状态用合并、事件用批量**是这两个类划清的边界，值得抄进自己的工具库。
+
+**适用场景**：游标位置、在线状态等"只关心最终值"的场景用 WorkerStateUploader 模式；操作日志、消息流等"每条都不能丢"的场景用 SerialBatchEventUploader 模式。
+
+### 模式 6：跨层 Error 类型传播
+
+`withRetry` 不直接切换模型（它没有这个上下文），而是抛出 `FallbackTriggeredError` 让 `query.ts` 做决策。`WebSocketTransport` 不直接刷新 OAuth token（它没有 OAuth manager），而是回调 `refreshHeaders()`。把"我能做什么"与"我能决策什么"分开，是抽象层稳定的关键。
+
+**适用场景**：任何分层架构里下层需要请求上层做策略决策的场景 —— 数据库连接池请求应用层切租户、传输层请求上层换 endpoint 等。
 
 ---
 
 ## 下一篇预告
 
-[第 21 篇：Ink 框架深度定制 — 在终端中运行 React](./21-Ink框架深度定制.md)
+[第 24 篇：Bridge IPC 与远程会话 — 浏览器 / 容器 / CLI 三端协同](./29-Bridge-IPC-与远程会话.md)
 
-我们将离开网络层，进入 Claude Code 最独特的技术亮点之一 —— 一个完整的 React 运行时在终端中运行。你会看到 fork 的 Ink 框架如何通过自定义 reconciler、Yoga 布局引擎和 ANSI 渲染优化，实现了终端中的"浏览器级" UI 体验。
+我们将沿着本篇构建的传输层继续向上走，看一个本地 CLI 进程如何通过 `WebSocketTransport` / `SSETransport` 与浏览器端 Multi-Agent UI 互通，又如何在远程容器场景下接管整套会话生命周期。Teleport、Bridge、CCR 新一代会话端点这些散落在不同 commit 的概念会在那一篇被拼成同一张图。
 
 ---
 

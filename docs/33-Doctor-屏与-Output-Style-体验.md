@@ -135,7 +135,7 @@ Doctor 把这四类警告各自渲染成顶部带 `figures.warning` 的小节（
 
 ### 2.1 Output Style 到底改的是哪一段？
 
-要讲清楚"换装"的范围，先得回到 system prompt 的拼装逻辑。`constants/prompts.ts` 里 `getSystemPrompt()`（粗略在 `prompts.ts:457` 周围）会并行做三件事：拿 skill tool 命令、拿当前 output style、拿 env info；然后把它们拼成一份多段的 system prompt。Output style 在其中的位置由这个小函数决定：
+要讲清楚"换装"的范围，先得回到 system prompt 的拼装逻辑。`constants/prompts.ts` 里 `getSystemPrompt(constants/prompts.ts:444-577)` 会并行做三件事：拿 skill tool 命令、拿当前 output style、拿 env info；然后把它们拼成一份多段的 system prompt。Output style 在其中的位置由这个小函数决定：
 
 ```typescript
 // constants/prompts.ts:151-157
@@ -159,7 +159,7 @@ You are an interactive agent that helps users ${outputStyleConfig !== null
 
 这就是 Output Style 的真正作用域 —— **它换的是"模型的人格开场白"以及"具体回话风格"，但不会替你换掉工具列表、不会换掉权限提示词、不会换掉 BashTool 的安全规约**。后面这些都在 prompts.ts 里另外几段被无条件拼上。Output Style 是一个**风格层的旁路**，它不让用户能扩权，只让用户能换 tone。
 
-`getSimpleIntroSection(outputStyleConfig)` 与那个 `outputStyleConfig === null || outputStyleConfig.keepCodingInstructions === true` 的分支（`prompts.ts:562-565`）补上了第二个细节：默认 output style（包括内置的 Explanatory / Learning）会带上 `keepCodingInstructions: true` 让 coding 指令照旧注入；只有用户自己写的、且没开这个开关的 output style，coding 指令才会被整段拿掉。这一刀切得很谨慎 —— 默认情况下用户换风格不会丢失 Claude Code 作为 coding agent 的硬约束。
+`getSimpleIntroSection(outputStyleConfig)` 与那个 `outputStyleConfig === null || outputStyleConfig.keepCodingInstructions === true` 的分支（`prompts.ts:564-566`）补上了第二个细节：default 这一档在 `constants/outputStyles.ts:41-43` 直接被映射成 `null`，靠 `=== null` 的左半边保留 coding instructions；内置 Explanatory / Learning 不是 `null`，而是各自在 `constants/outputStyles.ts:48` 与 `:61` 标了 `keepCodingInstructions: true`，靠右半边保留；只有用户自己写的、且没开这个开关的 output style，coding 指令才会被整段拿掉。这一刀切得很谨慎 —— 默认情况下用户换风格不会丢失 Claude Code 作为 coding agent 的硬约束。
 
 ### 2.2 内置 Explanatory / Learning：把 prompt 当代码写
 

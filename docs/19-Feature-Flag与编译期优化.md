@@ -67,7 +67,7 @@ if (feature('DAEMON') && args[0] === '--daemon-worker') {
 这种模式在 `tools.ts` 中最为密集，因为工具注册是 feature flag 使用最集中的地方：
 
 ```typescript
-// tools.ts:29-42 — 连续的条件注册
+// tools.ts:29-41 — 连续的条件注册
 const cronTools = feature('AGENT_TRIGGERS')
   ? [
       require('./tools/ScheduleCronTool/CronCreateTool.js').CronCreateTool,
@@ -349,12 +349,14 @@ if (args.length === 1 && (args[0] === '--version' || args[0] === '-v' || args[0]
 两者可以组合使用：
 
 ```typescript
-// constants/system.ts:82,91
+// constants/system.ts:78,82,91
+const version = `${MACRO.VERSION}.${fingerprint}`
+// ...
 const cch = feature('NATIVE_CLIENT_ATTESTATION') ? ' cch=00000;' : ''
 const header = `x-anthropic-billing-header: cc_version=${version}; cc_entrypoint=${entrypoint};${cch}${workloadPair}`
 ```
 
-这行代码同时使用了 `feature()` 决定是否包含客户端认证标记，和 `MACRO.VERSION` 注入版本号。
+这段代码同时使用了 `feature()` 决定是否包含客户端认证标记，和 `MACRO.VERSION`（:78）注入版本号。
 
 ---
 

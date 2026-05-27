@@ -74,7 +74,8 @@ const NEW_CHAPTER_FILES = new Set<string>([
   "docs/28-Coordinator-Cron-与定时调度.md",
   "docs/29-Bridge-IPC-与远程会话.md",
   "docs/30-DirectConnect-与上游代理.md",
-  // 其余 3 篇（C28/C29/C30）在各自 issue 启动时追加。
+  "docs/31-Keybindings-Vim-与-Voice-输入.md",
+  // 其余 2 篇（C29/C30）在各自 issue 启动时追加。
 ]);
 
 const SOURCE_LANGS = new Set([

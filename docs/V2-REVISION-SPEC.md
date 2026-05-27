@@ -581,7 +581,7 @@ OC-PM 据本文档为每个 v2 章节产出 1 个 parent issue，包含三件套
 | C17 | Coordinator、Cron 与定时调度 | `docs/28-Coordinator-Cron-与定时调度.md` | YAO-135 仲裁，YAO-137 追加（NN=28，承接 26/27 落地，准 YAO-117 启动） |
 | C24 | Bridge IPC 与远程会话 | `docs/29-Bridge-IPC-与远程会话.md` | YAO-138 追加（NN=29，承接 26/27/28 落地，准 YAO-123 启动） |
 | C25 | DirectConnect 与上游代理 | `docs/30-DirectConnect-与上游代理.md` | YAO-139 仲裁，YAO-124 落地（NN=30，承接 26/27/28/29，准 YAO-124 启动） |
-| C28 | Keybindings、Vim 与 Voice 输入 | _（待 issue 启动时由 OC-Dev 追加）_ | |
+| C28 | Keybindings、Vim 与 Voice 输入 | `docs/31-Keybindings-Vim-与-Voice-输入.md` | YAO-140 追加（NN=31，承接 26/27/28/29/30 落地，准 YAO-127 启动） |
 | C29 | Buddy 人格 | _（待 issue 启动时由 OC-Dev 追加）_ | |
 | C30 | Doctor 屏与 Output Style 体验 | _（待 issue 启动时由 OC-Dev 追加）_ | |
 

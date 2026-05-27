@@ -1,0 +1,15 @@
+# Allowlist for check-heading-preservation.ts (C-2)
+#
+# Each non-comment line豁免一条 v1 标题缺失。格式：
+#   path :: ## 旧标题        — 二级标题
+#   path :: # 旧标题         — 一级标题
+# 注释以 // 开头。
+#
+# 用于"事实勘误必须改写标题"的窄场景：v1 标题里的数字／事实与源码不符，
+# 改写正文自洽时绕不开标题数字。与 §0.1 no-frontmatter 闸冲突时优先这里
+# 单行豁免，不要被迫给章节加 frontmatter。每条豁免必须附原因。
+
+// C34（YAO-132）：v1 把模式数定在 7 个；v2 经源码复算后实际为 11 个
+// （Bridge IPC / Coordinator-Agent / Migration-as-Code / Output-Style-as-Plugin
+// 四条新增）。标题数字与正文/源码事实冲突，改为 "## 11 个模式的全景关系"。
+docs/25-架构模式总结.md :: ## 7 个模式的全景关系

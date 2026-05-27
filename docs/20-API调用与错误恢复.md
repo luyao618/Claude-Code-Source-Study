@@ -508,7 +508,7 @@ for (const message of messagesToReplay) {
 
 这种"客户端缓冲 + 服务端确认游标"的模式让重连不会丢消息也不会重复处理 —— 经典的 at-least-once 转 exactly-once 实现，比单纯的"重连后重发所有未确认消息"更安全。
 
-### 5.2 SSETransport：单向流 + Sequence Dedup + Last-Event-ID
+### 5.2 SSETransport：单向流 + Sequence Tracking + Last-Event-ID
 
 SSE（Server-Sent Events）是 HTTP 上的单向推送，比 WebSocket 简单：用 `EventSource` 风格的 `text/event-stream` 接收事件，用普通 `POST` 写出。但 SSE 没有应用层 ping，也没有 close code —— 一切异常都要自己识别。
 
@@ -520,7 +520,7 @@ const PERMANENT_HTTP_CODES = new Set([401, 403, 404])
 
 `LIVENESS_TIMEOUT_MS = 45s` 是 SSE 的"心跳超时"。CCR 服务端每隔几秒会推送一条空的 `:keepalive` 注释，客户端只要收到任何字节就重置定时器；连续 45 秒没字节就主动断开重连。`PERMANENT_HTTP_CODES = {401, 403, 404}` 在握手阶段直接判定为永久错误，跳过重连。
 
-**序号去重**是 SSE 转重连场景下最重要的不变量。`readStream()`（`SSETransport.ts:339-415`）从每个 SSE frame 的 `id` 字段解析出 `seqNum`，用 `seenSequenceNums: Set<number>` 去重并更新 `lastSequenceNum`；重连时通过 `from_sequence_num` 查询参数或 `Last-Event-ID` 头告诉服务端"我处理到哪了"：
+**序号跟踪**是 SSE 转重连场景下最重要的不变量。`readStream()`（`SSETransport.ts:339-415`）从每个 SSE frame 的 `id` 字段解析出 `seqNum`，用 `seenSequenceNums: Set<number>` 记录已见序号并更新 `lastSequenceNum`；重连时通过 `from_sequence_num` 查询参数或 `Last-Event-ID` 头告诉服务端"我处理到哪了"，由服务端来避免重复推送。注意：客户端在遇到重复 `seqNum` 时只记录诊断信息并继续处理该 frame，并不会跳过 —— 真正的去重责任在服务端的 `from_sequence_num` 游标上。
 
 ```typescript
 // cli/transports/SSETransport.ts:246-265（节选）
@@ -531,12 +531,14 @@ if (this.lastSequenceNum > 0) {
 ```
 
 ```typescript
-// cli/transports/SSETransport.ts:357-383（节选）
+// cli/transports/SSETransport.ts:357-387（节选）
 if (frame.id) {
   const seqNum = parseInt(frame.id, 10)
   if (!isNaN(seqNum)) {
     if (this.seenSequenceNums.has(seqNum)) {
-      continue  // 服务端可能从更早点重发，去重
+      // 仅记录重复序号诊断，不 continue —— 后续仍会
+      // 执行 handleSSEFrame，真正的去重靠服务端游标
+      logEvent('sse_duplicate_seq', { seqNum })
     }
     this.seenSequenceNums.add(seqNum)
     // 超 1000 条时清理 < lastSequenceNum - 200 的旧序号

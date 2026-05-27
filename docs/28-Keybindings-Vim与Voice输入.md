@@ -276,6 +276,22 @@ export type VimState =
 
 INSERT 里没有任何状态机，就是普通的文本输入；NORMAL 里挂着上面那个 11 变体的子状态机。模式之间靠 `Escape` 与 `i` / `a` / `o` 等键切换。
 
+下面把 11 个变体一一对到一个最小输入序列，方便边读边复现：
+
+| # | 变体 | 触发序列 | 含义 |
+|---|------|--------|------|
+| 1 | `idle` | （初始） | NORMAL 下未按任何键 |
+| 2 | `count` | `3` | 已输入计数前缀，等下一个动作 |
+| 3 | `operator` | `d` | 已输入算子，等 motion |
+| 4 | `operatorCount` | `d3` | 算子之后再输入计数（最终如 `d3w`） |
+| 5 | `operatorFind` | `df` | 算子 + `f`/`F`/`t`/`T`，等下一个字符（如 `df,`） |
+| 6 | `operatorTextObj` | `di` | 算子 + `i`/`a`，等 text object（如 `diw`、`ci"`） |
+| 7 | `find` | `f` | NORMAL 下 `f`/`F`/`t`/`T`，等目标字符 |
+| 8 | `g` | `g` | `g` 前缀，等下一个键（如 `gg`） |
+| 9 | `operatorG` | `dg` | 算子 + `g` 前缀（如 `dgg`） |
+| 10 | `replace` | `r` | `r` 前缀，等替换字符 |
+| 11 | `indent` | `>` 或 `<` | 缩进算子，等 motion（如 `>>`、`<j`） |
+
 ### 2.2 从 idle 走到一个完整命令
 
 `vim/transitions.ts` 是这台状态机的派发表。`transition` 函数是一个 switch，按当前状态名字分派到对应的 `fromXxx` 函数：

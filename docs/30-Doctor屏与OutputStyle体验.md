@@ -1,6 +1,6 @@
 # 第 30 章：screens/ 三屏 — Doctor、Output Style 与 ResumeConversation
 
-> 本章是《深入 Claude Code 源码》系列对终端 UI 一族的最后一篇。前面几章把 Ink 怎么把 React 搬进终端、设计系统如何收敛颜色与边距、键盘事件如何注入 React 树都讲透了。这一篇换一个角度：当 CLI 真的出问题时，用户怎么自己看清"问题在哪里"；当用户想换一种说话方式时，怎么用一份 markdown 把模型的开场白替换掉。
+> 本章是《深入 Claude Code 源码》系列对终端 UI 一族的最后一篇。前面几章已经讲清楚三件事：Ink 怎么把 React 搬进终端、设计系统怎么收敛颜色与边距、键盘事件怎么注入 React 树。这一篇换一个角度：当 CLI 真的出问题时，用户怎么自己看清"问题在哪里"；当用户想换一种说话方式时，怎么用一份 markdown 把模型的开场白替换掉。
 
 ## 为什么把这三屏放在同一章？
 
@@ -42,10 +42,10 @@ const doctor: Command = {
 3. **跑一遍 `checkContextWarnings()`**，把"CLAUDE.md 过大、agent 描述超 token 阈值、MCP 工具超 token 阈值、permission rule 被遮蔽"这四类警告一次性算出来。
 4. **如果启用了 PID-based locking，跑一次 `cleanupStaleLocks` 并读出当前 `LockInfo[]`**——这是 native installer 的并发版本锁，Doctor 顺便替你扫尸。
 
-值得停一下的是第 1 步里那条预热 `Promise`：
+值得停一下的是第 1 步里那条预热 `Promise`。下面贴的不是源码本身，而是 **React Compiler 自动生成的 memoization 包装**——`$[2]` 是组件的 memo 缓存槽位（slot 2），`_temp6` 是被提到外部、跨次 render 复用的回调，整个 if 块的语义就是"如果这个槽位还没缓存，就调一次 `getDoctorDiagnostic()` 并把 promise 存进去"。原始代码作者只写了 `const distTagsPromise = useMemo(() => getDoctorDiagnostic().then(handler), [])`，编译器替它展开成下面这种显式槽位的形式：
 
 ```typescript
-// Doctor.tsx:124-131
+// Doctor.tsx:124-131（React Compiler 输出形态）
 let t2;
 if ($[2] === Symbol.for("react.memo_cache_sentinel")) {
   t2 = getDoctorDiagnostic().then(_temp6);
@@ -54,7 +54,7 @@ if ($[2] === Symbol.for("react.memo_cache_sentinel")) {
 const distTagsPromise = t2;
 ```
 
-`_temp6` 是 React Compiler 编译出来的稳定回调，做的事是根据 `diag.installationType` 决定调 `getGcsDistTags`（native 装法走 GCS）还是 `getNpmDistTags`（其余走 npm registry），失败时降级成 `{ latest: null, stable: null }`。这个 promise 在外层被 `<Suspense fallback={null}><DistTagsDisplay promise={distTagsPromise} /></Suspense>` 包住，走的是 React 18 的 `use(promise)` 通道。主屏不会因为它阻塞，但一旦它落地，"Latest version: ..." / "Stable version: ..." 两行就会无感地插进版面里。Doctor 把"诊断本体"和"对版本号"做了一次轻量的并发拆分，这是它写得最讨喜的细节之一。
+`_temp6` 这个被提升出去的回调做的事是根据 `diag.installationType` 决定调 `getGcsDistTags`（native 装法走 GCS）还是 `getNpmDistTags`（其余走 npm registry），失败时降级成 `{ latest: null, stable: null }`。这个 promise 在外层被 `<Suspense fallback={null}><DistTagsDisplay promise={distTagsPromise} /></Suspense>` 包住，走的是 React 18 的 `use(promise)` 通道。主屏不会因为它阻塞，但一旦它落地，"Latest version: ..." / "Stable version: ..." 两行就会无感地插进版面里。Doctor 把"诊断本体"和"对版本号"做了一次轻量的并发拆分，这是它写得最讨喜的细节之一。
 
 ### 1.3 `getDoctorDiagnostic()`：把"我是怎么被装上来的"翻一遍
 
@@ -66,7 +66,7 @@ const distTagsPromise = t2;
 
 **第三段是配置警告**——`detectConfigurationIssues()`（`doctorDiagnostic.ts:317-485`）。这一段是为"装好了但用不上"准备的：native 装了但 `~/.local/bin` 不在 PATH 里，于是根据用户的 shell 类型给出该改哪个 rc 文件的具体命令；npm-local 装了但 PATH 里既找不到 `claude` 也没有有效 alias；npm-global 装了但同时存在一个 local 安装；npm-global 没有写权限，提示用户要么重装 node 不用 sudo、要么换 native installer。最特别的是开头那段对 `managed-settings.json` 的 `strictPluginOnlyCustomization` 字段校验——managed settings 的 schema 用 `.catch(undefined)` 兜了一手未来才会有的枚举值，但 Doctor 不能让管理员对此一无所知，所以它直接读 raw JSON 自己做一遍差分，把"你写了 N 个我不认识的 surface 名"显式列出来。
 
-**第四段是 ripgrep 状态与 Linux glob warning**。ripgrep 在 Claude Code 里既可能是 system 路径上的，也可能是 vendor 进来的，还可能是 bundled 进二进制里的，Doctor 把这三种模式各自展示成 `bundled` / `vendor` / `system path` 三种字面量。Linux 上 sandbox 的 glob pattern 支持不全，这一块也会被翻译成一条用户能看懂的 fix 建议。
+**第四段是 ripgrep 状态与 Linux glob warning**。ripgrep 在 Claude Code 里有三种来源：和二进制一起打包的（bundled）、随安装包附带在邻近 vendor 目录里的（vendor），或是从系统 PATH 上找到的（system path）；这三种来源对应 `ripgrepStatus` 字段的三种字面量取值，下面字段表里写的"ripgrep 三态"指的就是这三种。Linux 上 sandbox 的 glob pattern 支持不全，这一块也会被翻译成一条用户能看懂的 fix 建议。
 
 把这四段事实揉合后，最后那个 `DiagnosticInfo` 对象（`doctorDiagnostic.ts:54-71`）就是 Doctor 主屏要消费的全部数据：
 
@@ -155,7 +155,7 @@ You are an interactive agent that helps users ${outputStyleConfig !== null
   : 'with software engineering tasks.'}
 ```
 
-这就是 Output Style 的真正作用域——**它换的是模型的"人格开场白"以及"具体回话风格"，但不会替你换掉工具列表、不会换掉权限提示词、不会换掉 BashTool 的安全规约**。后面这些都在 prompts.ts 里另外几段被无条件拼上。Output Style 是一个**风格层的旁路**：它让用户能换 tone，但不让用户能扩权。
+这就是 Output Style 的真正作用域——**它换的是模型的"人格开场白"以及"具体回话风格"，但不会替你换掉工具列表、不会换掉权限提示词、不会换掉 BashTool 的安全规约**。后面这些都在 prompts.ts 里另外几段被无条件拼上。Output Style 是一个**风格层的旁路**：它让用户能换"说话语气"，但不让用户能扩权。
 
 `getSimpleIntroSection(outputStyleConfig)` 和那个 `outputStyleConfig === null || outputStyleConfig.keepCodingInstructions === true` 的分支（`constants/prompts.ts:564-566`）补上了第二个细节。`default` 这一档在 `constants/outputStyles.ts:42` 直接被映射成 `null`，靠 `=== null` 的左半边保留 coding instructions；内置 Explanatory 和 Learning 不是 `null`，而是分别在 `constants/outputStyles.ts:48` 与 `:61` 标了 `keepCodingInstructions: true`，靠右半边保留；只有用户自己写的、且没开这个开关的 output style，coding 指令才会被整段拿掉。这一刀切得很谨慎——默认情况下用户换风格不会丢失 Claude Code 作为 coding agent 的硬约束。
 

@@ -14,7 +14,7 @@
 4. **没开 Buddy 的渠道，能不能让这一整摊代码彻底不进二进制？** 一个彩蛋功能要是占了 critical path，是说不过去的。
 5. **怎么让人发现这个隐藏功能、又不打扰那些不想要它的人？** 弹个明黄色公告会被骂，藏到 `--help` 里又没人看。
 
-Claude Code 的答案可以一句话概括：**把"骨"和"魂"切开存，把渲染、出现、声明、命令、入口五件事分别接进现成的子系统，再用两道编译期门加一道运行期门，把整个 Buddy 在大多数构建里藏到一字节都不剩**。`buddy/` 目录里六个文件加起来千余行，刚好对应这五个问题一一作答：
+Claude Code 的答案可以一句话概括：**把"骨"和"魂"切开存，把渲染、出现、声明、命令、入口五件事分别接进现成的子系统，再用两道编译期门加一道运行期门，把整个 Buddy 在大多数构建里藏到一字节都不剩**。`buddy/` 目录里六个文件加起来 1298 行（`companion.ts` 133、`prompt.ts` 36、`sprites.ts` 514、`types.ts` 148、`CompanionSprite.tsx` 370、`useBuddyNotification.tsx` 97），刚好对应这五个问题一一作答：
 
 - `companion.ts` 管"骨"和"魂"的拆分与生成
 - `types.ts` 管物种与稀有度的小词典
@@ -141,7 +141,7 @@ export type Species = (typeof SPECIES)[number];
 
 同文件还有两张配套表：`RARITY_WEIGHTS` 给五档稀有度分别赋 60/25/10/4/1，加起来正好 100；`RARITY_STARS` 给同样五档配上 1 到 5 个 `★`，渲染时直接拼在名字旁边。
 
-读到这里你会想问：直接写 `'duck'` 不香吗，为什么非要拿 `String.fromCharCode` 一个个字符码拼？答案在仓库根目录的字符串扫描脚本里。打包流水线里有一条 canary：扫描 bundle 产物，凡是出现一组预定义的"内部代号"明文（`legendary`、`Sproink` 之类）就 fail。Buddy 是个面向特定渠道发布的彩蛋，**绝大多数构建里它需要 dead code elimination 干净到不剩字符串残骸**。把名字写成字符码常量数组，编译期 TypeScript 不动它、运行期 V8 会把它拼起来、扫描器看到的只是一串数字字面量，完全认不出来。
+读到这里你会想问：直接写 `'duck'` 不香吗，为什么非要拿 `String.fromCharCode` 一个个字符码拼？答案在仓库根目录的字符串扫描脚本里。打包流水线里有一条 canary：扫描 bundle 产物，凡是出现一组预定义的"内部代号"明文（`legendary`、`Sproink` 之类）就 fail。Buddy 是个只在内部构建（`USER_TYPE === 'ant'`）里完整开放的彩蛋，对外发行版要么完全 dead-code-eliminate 掉、要么仅在 2026 年 4 月之后的时间窗内激活，**绝大多数对外构建里它需要 DCE 干净到不剩字符串残骸**。把名字写成字符码常量数组，编译期 TypeScript 不动它、运行期 V8 会把它拼起来、扫描器看到的只是一串数字字面量，完全认不出来。
 
 ### 2.1 五档稀有度的累积权重
 
@@ -187,7 +187,7 @@ const RARITY_FLOOR: Record<Rarity, number> = {
 
 `rollFrom(rng)` 在 `buddy/companion.ts:91-102` 把这一切串起来：先 `rollRarity` 决定稀有度档位，再从 `SPECIES`、`EYES` 各掷一个下标拿物种和眼神；帽子的有无完全由稀有度档位决定——`common` 永远是字符串 `'none'`，非 common 才在 `HATS` 里掷一个下标；接下来 `shiny = rng() < 0.01` 是一道独立的 1% 闪光判定；最后 `rollStats(rng, rarity)` 把五维填齐。
 
-帽子这一档是 hard branch（硬分支），不是概率门。注意 `HATS` 数组本身把 `'none'` 也算成一个枚举值，所以非 common 也有八分之一概率掷到 `'none'`——没有"18% 概率给戴帽子"这种事。`shiny` 是 1% 的独立概率，五维属性最后再掷一遍收尾。
+帽子这一档是 hard branch（硬分支），不是概率门。注意 `HATS` 数组本身把 `'none'` 也算成一个枚举值，所以非 common 也有八分之一概率掷到 `'none'`——没有"18% 概率给戴帽子"这种事。`shiny` 是一道**和稀有度无关**的独立 1% 概率：`buddy/companion.ts:98` 直接写 `shiny: rng() < 0.01`，common 到 legendary 五档都同一概率，没有"只有传说级才能闪光"这种额外门。五维属性最后再掷一遍收尾。
 
 帽子表里包括 `tinyduck` 这种站在主体头顶上的小附庸。它在渲染时需要避开主体本身就有的纹理，所以帽子和物种像素画是要做空间互让的——这件事 §三 会接着看。
 
@@ -354,6 +354,8 @@ case 'companion_intro':
 两个判断都走 **本地日期**——`getFullYear() / getMonth() / getDate()`，不是 `getUTC*`。源码注释（`buddy/useBuddyNotification.tsx:9-10`）里把理由写明白了：
 
 > Local date, not UTC — 24h rolling wave across timezones. Sustained Twitter buzz instead of a single UTC-midnight spike, gentler on soul-gen load.
+
+（译：用本地日期而不是 UTC——24 小时跨时区滚动波。让 Twitter 上的讨论像滚雪球一样持续，而不是在 UTC 午夜出现一个集中尖峰，对后端"灵魂生成"的负载也更温和。）"Twitter buzz" 在原注释里就是字面上的"推上讨论度"——把"发现彩蛋"这件事铺到 24 个时区里慢慢发酵，比所有人在同一秒挤上去更有传播效果。
 
 用本地时区铺开 24 小时滚动波，能让东亚和美西错峰孵化，避开一个 UTC 午夜的集中尖峰。`isBuddyTeaserWindow` 决定"要不要弹那个发现公告"：2026 年 4 月 1 日到 7 日（`getDate() <= 7`）这一周对所有人开，或者对特定渠道（`'external' === 'ant'`）持续开。`isBuddyLive` 决定"`/buddy` 命令本身能不能用"：2026 年 4 月以后一直能用。
 

@@ -22,23 +22,22 @@ Claude Code 的答案是：**把"骨"和"魂"切开存，把渲染、出现、�
 
 ## 一、骨与魂：一半算出来，一半存下来
 
-`Companion` 这个类型在 `buddy/types.ts` 里被切成了两半。`Bones` 包五个字段——`species`、`rarity`、`eyes`、`hat: Hat | null`、`stats: Record<StatName, number>`；`Soul` 只包两个——`name: string` 和 `bornAt: number`。对外用的 `Companion = Bones & Soul & { hatchedAt: number }`，而落盘的 `StoredCompanion` 只是 `Soul & { hatchedAt }`——骨头一个字节都不存。
+`Companion` 这个类型在 `buddy/types.ts:100-124` 里被切成了两半。`CompanionBones` 包六个字段——`rarity`、`species`、`eye`、`hat: Hat`、`shiny: boolean`、`stats: Record<StatName, number>`；`CompanionSoul` 只包两个——`name: string` 和 `personality: string`。对外用的 `Companion = CompanionBones & CompanionSoul & { hatchedAt: number }`——`hatchedAt` 是外层字段，不在 Soul 里；而落盘的 `StoredCompanion = CompanionSoul & { hatchedAt: number }`——骨头一个字节都不存。
 
-`Bones` 是"骨"——物种、稀有度、眼神、帽子、五维属性，全部是可以从一个种子算回来的派生数据。`Soul` 是"魂"——只有两样：你给它起的名字，和它孵化的时刻。
+`Bones` 是"骨"——稀有度、物种、眼神、帽子、是否闪光、五维属性，全部是可以从一个种子算回来的派生数据。`Soul` 是"魂"——只有两样：模型给它起的名字，和模型生成的人格描述。
 
 为什么这样切？看 `companion.ts` 里 `getCompanion()` 的最后一步就明白了（`buddy/companion.ts:127-133`）：
 
 ```typescript
 export function getCompanion(): Companion | undefined {
-  const cfg = getGlobalConfig();
-  const stored = cfg.companion;
+  const stored = getGlobalConfig().companion;
   if (!stored) return undefined;
-  const bones = roll(companionUserId());
+  const { bones } = roll(companionUserId());
   return { ...stored, ...bones };
 }
 ```
 
-`stored` 先铺，`bones` 后铺——意味着每次读出来的"骨"都是临时算出来的，不是反序列化出来的。这件事有两个直接好处：第一，配置文件无论怎么变都不会污染骨架；第二，假如哪天往 `Bones` 里加一个字段（比如新增一个 `aura: Color`），老用户不需要"迁移"，下次启动直接补上。
+`stored` 先铺，`bones` 后铺——意味着每次读出来的"骨"都是临时算出来的，不是反序列化出来的。这件事有两个直接好处：第一，配置文件无论怎么变都不会污染骨架，源码里那句注释说得很直白——"editing config.companion can't fake a rarity"，用户改不出一只 legendary 来；第二，假如哪天往 `Bones` 里加一个字段（比如新增一个 `aura: Color`），老用户不需要"迁移"，下次启动直接补上。
 
 骨架怎么算？关键在那一行 `roll(companionUserId())`。`companionUserId()` 在 `buddy/companion.ts:119-122` 里取 OAuth 账号 UUID，回退到本机 `userID`，再回退到字符串 `'anon'`——一个稳定且对同一台机器/账号同一只手指头可重现的标识。
 
@@ -64,9 +63,9 @@ const SALT = 'friend-2026-401';
 
 稀有度的权重表 60/25/10/4/1 加起来是 100，刚好不是巧合——`rollRarity` 就是按累积权重在 `[0,100)` 区间里掷一次随机数（`buddy/companion.ts:43-51`）：累积扫一遍 `RARITY_WEIGHTS`，命中第一个区间为止；兜底返回 `'common'` 防止浮点累积误差。
 
-紧挨着还有一层"地板"保护——`buddy/companion.ts:53-59` 的 `RARITY_FLOOR` 给五档稀有度分别定下 30 / 40 / 55 / 70 / 85 的基线下限。它的用途在 `rollStats`（`buddy/companion.ts:62-82`）里：五维属性是 `DEBUGGING / PATIENCE / CHAOS / WISDOM / SNARK`——一个很 self-aware 的清单。算法是：先给五项都打一个"地板 + 随机"的基线（`floor + random*(100-floor)`），再挑一个"高峰"项加 10、挑一个不同的"低谷"项减 20，最后用 `Math.min(99,…)`、`Math.max(1,…)` 夹紧。地板随稀有度递增，传说级最低也是 85，所以 legendary 那只看一眼属性条就跟普通一只一望可辨；高峰/低谷的取法用 `(peakIdx + 1 + …) % len` 保证两个不会撞，省了一道 retry 循环。
+紧挨着还有一层"地板"保护——`buddy/companion.ts:53-59` 的 `RARITY_FLOOR` 给五档稀有度分别定下 5 / 15 / 25 / 35 / 50 的基线下限。它的用途在 `rollStats`（`buddy/companion.ts:62-82`）里：五维属性是 `DEBUGGING / PATIENCE / CHAOS / WISDOM / SNARK`——一个很 self-aware 的清单。算法走的是三分支：先掷一个 `peak`、再掷一个 `dump`，用 `while (dump === peak)` 重掷直到两者不撞；然后遍历五项，落到 `peak` 的算 `Math.min(100, floor + 50 + Math.floor(rng()*30))`、落到 `dump` 的算 `Math.max(1, floor - 10 + Math.floor(rng()*15))`、其余项算 `floor + Math.floor(rng()*40)`。地板随稀有度递增，传说级最低 50，所以 legendary 那只看一眼属性条就跟普通一只一望可辨；high/low 用 `while` 重掷撞 peak 的方式避撞，没有用偏移取模的小技巧。
 
-帽子是稀有度的一个伴生物。`rollFrom(seed)`（`buddy/companion.ts:91-102`）的工作流程是：先 `mulberry32(hashString(seed + SALT))` 拿到一个确定性的 `rand()` 函数，再依次掷出 `rarity`、`species`（在 `SPECIES` 里取下标）、`eyes`（在 `EYES` 里取下标），然后 `rand() < 0.18` 决定要不要带帽子——如果要，再在 `HATS` 里掷一个下标；最后掷一遍 `stats` 收尾。18% 概率给一顶帽子——略低于五分之一，让"戴帽子"成为一个值得截图分享的小事件，又不至于人均一顶。帽子表里包括 `tinyduck` 这种站在主体头顶上的小附庸，渲染时需要避开主体本身就有的纹理，所以它和物种像素画是要做空间互让的，这件事会在 §三 看到。
+帽子是稀有度的一个伴生物。`rollFrom(rng)`（`buddy/companion.ts:91-102`）的工作流程是：先 `mulberry32(hashString(seed + SALT))` 拿到一个确定性的 `rand()` 函数，再依次掷出 `rarity`、`species`（在 `SPECIES` 里取下标）、`eye`（在 `EYES` 里取下标），然后帽子按一条 hard rule 走——`rarity === 'common' ? 'none' : pick(rng, HATS)`，common 永远 `'none'`，非 common 直接在 `HATS` 里掷一个下标（注意 `HATS` 数组本身把 `'none'` 也算成一个枚举值，所以非 common 也有八分之一概率掷到 `'none'`）；接着 `rng() < 0.01` 决定 `shiny` 是否为真；最后掷一遍 `stats` 收尾。没有 18% 概率给帽子这种事——帽子的有无完全由稀有度档位决定，"common 不戴 / 非 common 大概率戴一顶"是 hard branch 而非概率门。帽子表里包括 `tinyduck` 这种站在主体头顶上的小附庸，渲染时需要避开主体本身就有的纹理，所以它和物种像素画是要做空间互让的，这件事会在 §三 看到。
 
 ---
 
@@ -74,7 +73,7 @@ const SALT = 'friend-2026-401';
 
 `sprites.ts` 是一个把 18 个物种 × 3 帧 × 5 行 × 12 列全部硬编码的字典表。每个物种是一个 `string[][]`，外层 3 帧、内层 5 行字符串，每行宽 12 列，眼睛位置统一用 `{E}` 这个占位符标出来——因为眼睛是骨架字段，不能硬编进像素表，要在渲染时按 `Bones.eyes` 替换成对应字符（圆点、星号、闭眼弧线之类）。
 
-`renderSprite(bones, frame)` 在 `buddy/sprites.ts:454-469` 做这一步替换 + 帽子布置：先 `map(line => line.replaceAll('{E}', eye))`；如果 `bones.hat` 非空，就尝试占用主体第 0 行——只有当第 0 行本来全空时才直接覆盖，否则在最前面 `unshift` 一行让小动物变高 1 行；反过来如果没戴帽子且第 0 行本来空，就把那行 `shift()` 掉，省一行空间。这些细节决定了每帧渲出来的 ASCII 在垂直方向能不能精确占用预期格子数，而正确的格子数对接下来 PromptInput 那段宽度结算（§六）至关重要。
+`renderSprite(bones, frame)` 在 `buddy/sprites.ts:454-468` 做这一步替换 + 帽子布置：先 `map(line => line.replaceAll('{E}', bones.eye))`；如果 `bones.hat !== 'none'`，**只在第 0 行本来全空（`trim()` 为空）时**才把 `HAT_LINES[bones.hat]` 写进 `lines[0]` 替换掉那一行——第 0 行被 smoke / antenna 之类的纹理占用时，源码直接放弃戴帽子，不会 unshift 一行把动物拔高；反过来如果最终 `lines[0]` 仍是空白、且**该物种的每一帧 `frames.every(f => !f[0]!.trim())` 都是空白**，就把那行 `shift()` 掉，省一行空间——`every` 这个判断写在源码注释里说得很清楚（"Only safe when ALL frames have blank line 0; otherwise heights oscillate"），是为了避免不同帧之间高度抖动。这些细节决定了每帧渲出来的 ASCII 在垂直方向能不能精确占用预期格子数，而正确的格子数对接下来 PromptInput 那段宽度结算（§六）至关重要。
 
 帧动画的节奏由 `CompanionSprite.tsx` 顶部一组常量定义（`buddy/CompanionSprite.tsx` 节选）：
 
@@ -158,20 +157,21 @@ REPL 还做了一件细节：滚动列表往上滚时立刻把 `companionReactio
 
 ## 五、第三人称介绍：不让模型代入这只小动物
 
-把 Buddy 接进 prompt 这件事最容易翻车的环节是：你给系统提示加一段"You are a frog named Sproink"，模型立刻开始 `*ribbit*` 全文，把整段对话毁掉。`buddy/prompt.ts` 里这段刻意写成第三人称（`buddy/prompt.ts:7-13`）：
+把 Buddy 接进 prompt 这件事最容易翻车的环节是：你给系统提示加一段"You are a frog named Sproink"，模型立刻开始 `*ribbit*` 全文，把整段对话毁掉。`buddy/prompt.ts:7-13` 里这段刻意写成第三人称：
 
 ```typescript
 export function companionIntroText(name: string, species: string): string {
-  return [
-    `A small ${species} named ${name} sits beside you on the user's screen.`,
-    `${name} is a tiny background companion — not an active participant.`,
-    `You're not ${name} — it's a separate watcher. Continue to respond as yourself.`,
-    `Do not roleplay as ${name}, and do not speak on its behalf.`,
-  ].join(' ');
+  return `# Companion
+
+A small ${species} named ${name} sits beside the user's input box and occasionally comments in a speech bubble. You're not ${name} — it's a separate watcher.
+
+When the user addresses ${name} directly (by name), its bubble will answer. Your job in that moment is to stay out of the way: respond in ONE line or less, or just answer any part of the message meant for you. Don't explain that you're not ${name} — they know. Don't narrate what ${name} might say — the bubble handles that.`;
 }
 ```
 
-四句话都在不停按住"你不是它"这个键：第一句声明它存在并占据屏幕；第二句明确它是被动背景；第三句直接划界"你是你，它是它"；第四句把可能的两种漂移（扮演它、代它说话）都点名禁止。这段文本只接一次，由 `getCompanionIntroAttachment(messages)`（`buddy/prompt.ts:15-36`）包成一个 system attachment 注入消息流：函数体先依次过 `feature('BUDDY')`、`cfg.companionMuted`、`getCompanion()` 是否存在、消息流里是否已有 `companion_intro` 附件四道前置闸——任何一道命中就返回 `null`——通过则返回一个 `{ type: 'companion_intro', name, species }` 字面量。
+第一段反复按住"你不是它"这个键——`${name}` 坐在用户的输入框旁边、偶尔出气泡、你是观察者、它是另外一个观察者。第二段是这段 prompt 真正难写的部分：用户直接 by-name 点名 companion 时，模型不能装没看见、也不能抢答——要让出一行以内的响应空间，让气泡接话；不要解释"我不是 X"（用户知道），也不要替 X 编台词（气泡会处理）。这两段加起来同时圈住了两种最常见的漂移：扮演 companion、和无视 companion 抢话。
+
+这段文本通过 `getCompanionIntroAttachment(messages)`（`buddy/prompt.ts:15-36`）包成一个 attachment 注入消息流。注意函数签名：**返回的是 `Attachment[]`，不是 `Attachment | null`**——四道前置闸（`!feature('BUDDY')`、`!getCompanion()`、`getGlobalConfig().companionMuted`、消息流里已有同名 `companion_intro`）任意一道命中时返回空数组 `[]`，全过则返回一个 `[{ type: 'companion_intro', name, species }]`。去重那一步不是按 attachment 类型粗筛，而是逐条扫消息流：遇到 `type === 'attachment'` 且 `attachment.type === 'companion_intro'` 且 `attachment.name === companion.name` 时才认作"已经介绍过"——这意味着如果用户换了一只 companion（name 不同），旧的 intro 不算数，新的 intro 还是会注入一次。
 
 调度由 `utils/attachments.ts` 一并处理：`maybe('companion_intro', getCompanionIntroAttachment(messages))` 和其他多个"按情况附加"的 attachment 走同一条 schedule（`utils/attachments.ts:866-867` 一带）。最终渲成模型可见的字符串靠 `utils/messages.ts:4232-4235`：
 
@@ -190,24 +190,24 @@ case 'companion_intro':
 
 ```typescript
 export function isBuddyTeaserWindow(): boolean {
-  const now = new Date();
-  const inApril2026 = now.getUTCFullYear() === 2026 && now.getUTCMonth() === 3
-    && now.getUTCDate() >= 1 && now.getUTCDate() <= 7;
-  return inApril2026 || ('external' === 'ant');
+  if ('external' === 'ant') return true;
+  const d = new Date();
+  return d.getFullYear() === 2026 && d.getMonth() === 3 && d.getDate() <= 7;
 }
 
 export function isBuddyLive(): boolean {
-  const now = new Date();
-  return now.getUTCFullYear() > 2026
-    || (now.getUTCFullYear() === 2026 && now.getUTCMonth() >= 3);
+  if ('external' === 'ant') return true;
+  const d = new Date();
+  return d.getFullYear() > 2026
+    || (d.getFullYear() === 2026 && d.getMonth() >= 3);
 }
 ```
 
-`isBuddyTeaserWindow` 决定"要不要弹那个发现公告"——2026 年 4 月 1 日到 7 日这一周对所有人开，或者对特定渠道（`'external' === 'ant'`）持续开。`isBuddyLive` 决定"`/buddy` 命令本身能不能用"——2026 年 4 月以后一直能用。两条线分开，使得"先 teaser 一周让大家发现、之后一直保留命令"这种节奏可以纯靠时间函数表达，不依赖任何外部 flag 服务。
+两个判断都走**本地日期**——`getFullYear() / getMonth() / getDate()`，不是 `getUTC*`。这件事注释里也写明白了："Local date, not UTC — 24h rolling wave across timezones. Sustained Twitter buzz instead of a single UTC-midnight spike, gentler on soul-gen load." 用本地时区铺开 24 小时滚动波，能让东亚和美西错峰孵化，避开一个 UTC 午夜的集中尖峰。`isBuddyTeaserWindow` 决定"要不要弹那个发现公告"——2026 年 4 月 1 日到 7 日（`getDate() <= 7`）这一周对所有人开，或者对特定渠道（`'external' === 'ant'`）持续开。`isBuddyLive` 决定"`/buddy` 命令本身能不能用"——2026 年 4 月以后一直能用。两条线分开，使得"先 teaser 一周让大家发现、之后一直保留命令"这种节奏可以纯靠时间函数表达，不依赖任何外部 flag 服务。
 
-teaser 通知用 Claude Code 的通用 notification 系统（`buddy/useBuddyNotification.tsx:43-78`）。组件里挂一个空依赖的 `useEffect`，函数体先后过四道 early-return 闸：`!feature('BUDDY')`、`!isBuddyTeaserWindow()`、`getCompanion()` 已经存在、`getGlobalConfig().companionMuted` 为真——任何一道命中就 return。全过则 `addNotification({ priority: 'immediate', timeoutMs: 15000, render: () => renderRainbowText('Try /buddy to hatch a companion') })`。
+teaser 通知用 Claude Code 的通用 notification 系统（`buddy/useBuddyNotification.tsx:43-66`）。组件里挂一个 `useEffect`，函数体顺序过三道 early-return 闸：`!feature('BUDDY')`、`config.companion` 已存在或 `!isBuddyTeaserWindow()`。注意源码这里**只查 `config.companion` 是否已经孵化、不查 `companionMuted`**——发现入口的弹出条件是"还没养过"，而不是"用户没把它静音"，毕竟没养过就没什么可静音的。三道闸全过则 `addNotification({ key: 'buddy-teaser', jsx: <RainbowText text="/buddy" />, priority: 'immediate', timeoutMs: 15000 })`——通知主体就是彩虹色四字 `/buddy`，是按字符逐个 `getRainbowColor(i)` 染色再拼成一段 `<Text>`，没有更长的文案。整段 effect 返回一个 cleanup 函数 `removeNotification('buddy-teaser')`，依赖项是 `[addNotification, removeNotification]`。
 
-四道闸顺序很关键——`feature('BUDDY')` 在最前，构建时它返回常量 `false` 时整段 `useEffect` 在产物里被整体擦掉；窗口与已孵化状态过滤运行期人群；最后 `companionMuted` 留给用户的撤销权。彩虹色用 `renderRainbowText` 把字符串逐字符按色环上色，是 Claude Code 内已经用在新版本公告里的同一组工具。
+三道闸顺序很关键——`feature('BUDDY')` 在最前，构建时它返回常量 `false` 时整段 `useEffect` 在产物里被整体擦掉；窗口与已孵化状态过滤运行期人群。彩虹色用 `getRainbowColor` 把字符串逐字符按色环上色，是 Claude Code 内已经用在新版本公告里的同一组工具。
 
 footer 集成在 `PromptInput.tsx` 的可见性表达式里（`components/PromptInput/PromptInput.tsx:310-316` 一带）：
 

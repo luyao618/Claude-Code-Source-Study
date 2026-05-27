@@ -2,7 +2,16 @@
 
 > 本篇是《深入 Claude Code 源码》系列的第 30 篇。前一章我们看的是 Bridge IPC：本地 CLI 怎么被手机和浏览器接管。这一章把视角再切一次——这次本地 CLI 不是被接管者，而是接管者。我们看两段乍看八竿子打不着、实际上对称得很的代码：`server/` 和 `upstreamproxy/`。
 >
-> 本章因涉及企业内网拓扑、未公开的上游服务端契约（包括 CCR 控制面的 endpoint 与认证协议、MITM 注入策略），对 wire 帧布局、签发流程、密钥派生与审计字段仅作接口层叙述，省略具体协议层细节与企业安全配置项。出现的 URL 路径请按「一类端点」理解，不要当作公开稳定契约。
+> **风格说明**：本章对齐第 1 篇《项目全景》与第 2 篇《启动优化》的写法——以「问题先行 → 源码佐证 → 设计推演」三段式推进，结尾以「可迁移的设计模式 + 实战示例」收束。
+>
+> **法律边界**：本章涉及企业内网拓扑、未公开的上游服务端契约、CCR 控制面 endpoint 与认证协议、MITM 注入策略。对 wire 帧布局、签发流程、密钥派生与审计字段仅作接口层叙述，省略具体协议层细节与企业安全配置项。出现的 URL 路径请按「一类端点」理解，不要当作公开稳定契约。
+
+本篇将回答四个核心问题：
+
+1. **DirectConnect 是什么？** — 一条让本地 REPL 变成远端会话客户端的薄通道
+2. **Upstream Proxy 是什么？** — 一条把容器内所有出网流量劫持到企业代理的暗线
+3. **这两条线为什么放在一章？** — 它们在工程范式上是一对镜像
+4. **能从中学到哪些可复用模式？** — 握手与长连分离、单 WS 双向 RPC、fail open、贴近 surface 的状态注入
 
 ## 一、两条「直连」线，一个 CLI
 
@@ -73,11 +82,13 @@ export const connectResponseSchema = lazySchema(() =>
 
 服务端只回三样：一个会话 ID、一条 WebSocket URL、可选的实际工作目录。前两者是后续所有通信的两根钥匙——`session_id` 是逻辑句柄，`ws_url` 是物理通道。`work_dir` 是给客户端 UI 用的「告诉用户你现在被放到哪个目录了」。
 
-值得注意的是这个函数的错误处理。`createDirectConnectSession` 把所有失败都收敛成一个 `DirectConnectError`（`server/createDirectConnectSession.ts:11-16` 定义了这个专有错误类），分三档：
+值得注意的是这个函数的错误处理。`createDirectConnectSession` 把所有失败都收敛成一个专有错误类 `DirectConnectError`（定义在 `server/createDirectConnectSession.ts:11-16`），分成三档：
 
-三段（`server/createDirectConnectSession.ts:59-76`）依次是「fetch 抛异常」「resp.ok 为 false」「Zod 校验失败」，全部包成 `throw new DirectConnectError(...)` 重新抛出。
+- **fetch 抛异常** — 网络层断了；
+- **resp.ok 为 false** — HTTP 状态不 OK；
+- **Zod 校验失败** — 响应不符 schema。
 
-三个分支分别对应「网络层断了」「HTTP 不 OK」「响应不合 schema」。统一抛 `DirectConnectError` 而不是让 `fetch` 原生异常或者 `ZodError` 直接外漏，这一处看起来不起眼，但它把上层的兜底逻辑收敛到了一个 `catch (e instanceof DirectConnectError)`——`main.tsx` 那两个调用点（`main.tsx:3160` 与 `main.tsx:4072`）能拿这同一个错误类型在屏幕上打出统一的「连不上服务端，请检查 URL / Token / 网络」提示，不用对三种底层错误各写一遍话术。
+三段处理写在 `server/createDirectConnectSession.ts:59-76`，全部包成 `throw new DirectConnectError(...)` 重新抛出。统一一个错误类型有个朴素的好处：上层只需要一行 `catch (e instanceof DirectConnectError)`，就能把三种底层错误折叠成同一句「连不上服务端，请检查 URL / Token / 网络」的提示。`main.tsx:3160` 与 `main.tsx:4072` 两个调用点正是这样用的。
 
 到此为止，一次同步的 HTTP 握手就结束了。返回的 `DirectConnectConfig` 长这样（`server/directConnectManager.ts:13-18`）：
 
@@ -135,11 +146,26 @@ if (parsed.type === 'control_request') {
 }
 ```
 
-碰到 `control_request` 走权限分支；其他类型则走消息分支，但消息分支有一张明确的「不要往上扔」白名单（`directConnectManager.ts:102-112`）：
+碰到 `control_request` 走权限分支；其他类型则走消息分支。消息分支挡着一张「不要往上扔」白名单（`directConnectManager.ts:102-112`），里面六条规则分别对应：握手响应、心跳、取消、给服务端 UI 用的精简文本、给服务端 UI 用的工具调用摘要、post-turn 自动总结。这六类消息对上层 React 组件没意义，分流器内部就消化掉，省得每个组件再写一遍过滤。
 
-六条「不要扔」分别对应「这是给握手循环用的响应」「这是心跳」「这是取消」「这是给服务端 UI 用的精简文本」「这是给服务端 UI 用的工具调用摘要」「这是 post-turn 自动总结」——`directConnectManager.ts:102-112` 把它们写成一个 `!=` 链白名单，挡在分流器内部，上层 React 组件就不必再写一遍过滤。
+更细一点的现实考虑藏在 unsupported subtype 那个分支：如果服务端发了一条 `control_request`、但 subtype 不是 `can_use_tool`，本地不会装作没看见——它会**主动回一条 `subtype: 'error'` 的 control_response**。这一段在 `directConnectManager.ts:188-201` 的 `sendErrorResponse` 里：
 
-更细一点的现实考虑藏在 unsupported subtype 那个分支：如果服务端发了一条 `control_request` 但 subtype 不是 `can_use_tool`，本地不会装作没看见，而是**主动回一条 `subtype: 'error'` 的 control_response**（`directConnectManager.ts:188-201` 的 `sendErrorResponse`）。为什么必须主动回？因为服务端在等待——它发出的每一条 `control_request` 都挂着一个 `request_id`，没收到响应它会一直挂着，下一轮会话被堵住。这种「未来可能新增的 control 类型，旧客户端如何不让对方死锁」的处理，是 wire 兼容性写作里最容易漏掉的点，这里写在最显眼的位置。
+```typescript
+// server/directConnectManager.ts:188-201（节选）
+private sendErrorResponse(requestId: string, error: string): void {
+  const response = jsonStringify({
+    type: 'control_response',
+    response: {
+      subtype: 'error',
+      request_id: requestId,
+      error,
+    },
+  })
+  this.ws?.send(response)
+}
+```
+
+为什么必须主动回？因为服务端在等待——它发出的每一条 `control_request` 都挂着一个 `request_id`，没收到响应就会一直挂着，下一轮会话被堵住。这种「未来新增 control 类型时，旧客户端如何不让对方死锁」的处理，是 wire 兼容性写作里最容易漏的点，这里写在最显眼的位置。
 
 `sendMessage` 是另一边——本地往服务端推用户输入。它把内容包成 SDK 期望的形态（`directConnectManager.ts:131-139`）：
 
@@ -174,7 +200,7 @@ useEffect(() => {
 }, [tools])
 ```
 
-为什么不直接在 onPermissionRequest 闭包里读 `tools`？因为 `onPermissionRequest` 是绑死在 WebSocket 上的回调，闭包捕获的是**初次绑定时**的 tools 引用。如果用户在远程会话中途加载了新工具（比如 MCP server 接入了新 tool），不更新的话权限弹窗里就会找不到这条 tool 的元数据，只能 fallback 到 `createToolStub`。`toolsRef` 这一手是 React 工具箱里非常套路化的「让长生命周期的回调读到最新值」的写法，但放在 DirectConnect 这种「连接一旦建立就活一整轮」的场景里特别关键。
+为什么不直接在 onPermissionRequest 闭包里读 `tools`？因为 `onPermissionRequest` 是绑死在 WebSocket 上的回调，闭包捕获的是**初次绑定时**的 tools 引用。如果用户在远程会话中途加载了新工具，比如 MCP server 接入了新 tool，不更新的话权限弹窗里就找不到这条 tool 的元数据，只能 fallback 到 `createToolStub`。`toolsRef` 这一手是 React 工具箱里非常套路化的「让长生命周期的回调读到最新值」的写法，但放在 DirectConnect 这种「连接一旦建立就活一整轮」的场景里特别关键。
 
 第二个是 `hasReceivedInitRef` 这个去重（`hooks/useDirectConnect.ts:73-78`）：
 
@@ -207,7 +233,9 @@ onDisconnected: () => {
 },
 ```
 
-WebSocket 的 `close` 事件不区分「从来没连上」和「连上后掉线」，但用户看到的提示必须区分——前者是配置错误，后者是网络抖动。`isConnectedRef` 这个 ref 在 `onConnected` 里被翻成 true，在 `onDisconnected` 里被读，靠这一个布尔位把两种状态分开。然后无论哪种情况都触发 `gracefulShutdown(1)`——一旦掉线，整个 CLI 进程退出，不试图重连。这是有意的设计：DirectConnect 是「我把命交给远端」的模式，对端不在就没有继续在本地兜底的必要。Bridge 那条线相反——它会反复 register-poll 直到拿到环境，因为本地才是主体。
+WebSocket 的 `close` 事件不区分「从来没连上」和「连上后掉线」，但用户看到的提示必须区分——前者是配置错误，后者是网络抖动。`isConnectedRef` 这个 ref 在 `onConnected` 里被翻成 true，在 `onDisconnected` 里被读，靠这一个布尔位把两种状态分开。
+
+然后无论哪种情况都触发 `gracefulShutdown(1)`——一旦掉线，整个 CLI 进程退出，不试图重连。这是有意的设计：DirectConnect 是「我把命交给远端」的模式，对端不在就没有继续在本地兜底的必要。Bridge 那条线相反——它会反复 register-poll 直到拿到环境，因为本地才是主体。
 
 第四个是 onPermissionRequest 里那个 `toolUseContext: {} as ToolUseConfirm['toolUseContext']`（`hooks/useDirectConnect.ts:115`）：
 
@@ -224,7 +252,7 @@ const toolUseConfirm: ToolUseConfirm = {
 }
 ```
 
-注意那个空对象的强制 cast。本地权限弹窗的类型签名要求一个完整的 `toolUseContext`，里面有 reading lists、追踪指针等一堆本地执行才用得到的字段。但 DirectConnect 场景下，工具实际在远端跑，本地的 context 是个空概念。手动构造一个空对象再 cast 过去，比另起一个分支的 union 类型更省事——本地这套逻辑里已经有几十个地方读 toolUseContext，重新拆 union 会传染。这是「类型完美 vs. 代码量」的一处取舍，作者选了后者。
+注意那个空对象的强制 cast。本地权限弹窗的类型签名要求一个完整的 `toolUseContext`，里面有 reading lists、追踪指针等一堆本地执行才用得到的字段。但 DirectConnect 场景下工具实际在远端跑，本地的 context 是个空概念。手动构造一个空对象再 cast 过去，比另起一个分支的 union 类型更省事——本地这套逻辑里已经有几十个地方读 `toolUseContext`，重新拆 union 会传染到每一处。这是「类型完美 vs. 代码量」的一处取舍，作者选了后者。
 
 `useMemo` 在最后把四个引用收成稳定结果（`hooks/useDirectConnect.ts:225-228`）：
 
@@ -245,7 +273,7 @@ return useMemo(
 2. **消息渲染**：把收到的 SDK 消息塞进 React 状态树，让 Ink 画在终端里；
 3. **权限审批**：把远端发起的 `can_use_tool` 弹成本地的权限弹窗，把用户的允许/拒绝/反馈作为 `control_response` 推回去。
 
-模型推理、Bash 执行、文件读写——全部在 `wsUrl` 那一端的进程里。这是 Claude Code 「把同一份 CLI 同时塑造成 native 和 thin client」这件事的最干脆实现：thin client 的代码量比 native CLI 小一个数量级，但用户感知到的体验几乎一致。
+模型推理、Bash 执行、文件读写——全部在 `wsUrl` 那一端的进程里。这是 Claude Code「把同一份 CLI 同时塑造成 native 和 thin client」这件事的最干脆实现：thin client 的代码量比 native CLI 小一个数量级，但终端里呈现给用户的体验和 native 模式没有可见差别。
 
 ---
 
@@ -304,9 +332,20 @@ try {
 
 注释把理由写在了原地（`upstreamproxy/upstreamproxy.ts:138-139`）：「Only unlink after the listener is up: if CA download or listen() fails, a supervisor restart can retry with the token still on disk.」如果在 listener 起来之前就把 token 删了，CA 下载或者监听端口失败、supervisor 拉起新进程，新进程就再也读不到 token——会话彻底瘫掉。先保住能恢复，再消除可见的 secret，这是这种「敏感凭据初始化」类代码的标准动作顺序。
 
-而在内存里把 token 收紧的那一手，是 `setNonDumpable`（`upstreamproxy/upstreamproxy.ts:225-252`）：
+而在内存里把 token 收紧的那一手，是 `setNonDumpable`（`upstreamproxy/upstreamproxy.ts:225-252`）。它通过 Bun FFI 直接调 libc 的 `prctl(PR_SET_DUMPABLE, 0)`：
 
-用 Bun FFI 直接调 libc 的 `prctl(PR_SET_DUMPABLE, 0)`（`upstreamproxy/upstreamproxy.ts:225-252`，通过 `bun:ffi` 的 `dlopen('libc.so.6', { prctl: ... })` 拿到符号，再 `lib.symbols.prctl(PR_SET_DUMPABLE, 0n, 0n, 0n, 0n)`）。这一手意图很硬核——它告诉内核「我这个进程不可被 dump」，于是同 UID 的进程没法 `gdb -p $PPID` 去扒堆里的 token。注释里直接给了威胁模型：「a prompt-injected `gdb -p $PPID` can't scrape the token from the heap」。在 CCR 这种「同一个容器里跑用户代码 + 我们自己代码」的场景里，prompt injection 让大模型生成一段 `gdb` 命令并不是天方夜谭，所以这条防线是有明确目标的。但要注意它**实际生效的范围非常窄**：`upstreamproxy/upstreamproxy.ts:225-227` 的守卫是 `if (process.platform !== 'linux' || typeof Bun === 'undefined') return`——只有 Linux 且 Bun runtime 才会真去调 `prctl`。CCR 容器里 CLI 是用 Node 跑的（见 §3.4 对 `upstreamproxy/relay.ts:152-154` 的引用），所以 CCR 路径上这一行其实**不会执行**，本地开发态的 macOS / Windows 上自然也跑不到。这一段更像是「写好备用、等 Bun 能跑 CCR 时自动激活」的占位防线，而不是当前 CCR 部署中真正在挡 `gdb` 的那条防线。
+```typescript
+// upstreamproxy/upstreamproxy.ts:225-252（节选）
+function setNonDumpable(): void {
+  if (process.platform !== 'linux' || typeof Bun === 'undefined') return
+  const lib = dlopen('libc.so.6', { prctl: { args: ['i32', 'u64', 'u64', 'u64', 'u64'], returns: 'i32' } })
+  lib.symbols.prctl(PR_SET_DUMPABLE, 0n, 0n, 0n, 0n)
+}
+```
+
+这一手意图很硬核——它告诉内核「我这个进程不可被 dump」，于是同 UID 的进程没法 `gdb -p $PPID` 去扒堆里的 token。注释里直接给了威胁模型：「a prompt-injected `gdb -p $PPID` can't scrape the token from the heap」。在 CCR 这种「同一个容器里跑用户代码 + 我们自己代码」的场景里，让大模型生成一段 `gdb` 命令并不是天方夜谭，所以这条防线是有明确目标的。
+
+但要注意它**实际生效的范围非常窄**。文件顶部那道守卫 `if (process.platform !== 'linux' || typeof Bun === 'undefined') return` 把这段 FFI 限定在「Linux 且 Bun runtime」两条同时为真才执行。CCR 容器里 CLI 是用 Node 跑的（见 §3.4 对 `upstreamproxy/relay.ts:152-154` 的引用），所以 CCR 路径上这段代码其实**不会执行**；本地开发态的 macOS / Windows 上同样不会触发。换句话说，它更像是「写好备用、等 Bun 能跑 CCR 时自动激活」的占位防线，而不是当前 CCR 部署中真正在挡 `gdb` 的那道防线。
 
 ### 3.3 NO_PROXY 列表
 
@@ -495,7 +534,9 @@ registerUpstreamProxyEnvFn(getUpstreamProxyEnv)
 await initUpstreamProxy()
 ```
 
-这里要把 lazy import 的闸门口径说精确：`entrypoints/init.ts:167-176` 只检查 `CLAUDE_CODE_REMOTE` 这一个 env var——只要进程认为自己跑在 CCR 容器里，就会 dynamic import 这个模块并 `registerUpstreamProxyEnvFn`，**不**会顺带读 `CCR_UPSTREAM_PROXY_ENABLED`。第二道功能闸 `CCR_UPSTREAM_PROXY_ENABLED` 是在 `initUpstreamProxy()` 内部 `upstreamproxy/upstreamproxy.ts:85-94` 才 return early 的——也就是说，CCR 模式下模块一定会被 load / register，但 init 可能立刻 no-op 退出。所以这套「依赖反转 + 懒加载」省的是「非 CCR 启动」那一类进程的 load 成本，并不能让 CCR 容器里禁用了 upstream proxy 的会话也跳过模块加载。即便如此第二层好处仍然成立：让 `utils/subprocessEnv.ts` 这个被几十处 import 的低层工具，不去依赖 `upstreamproxy/` 这个上层特性模块，反向防止依赖循环。
+这里要把 lazy import 的闸门口径说精确。`entrypoints/init.ts:167-176` 只检查 `CLAUDE_CODE_REMOTE` 这一个 env var：进程只要认为自己跑在 CCR 容器里，就会 dynamic import 这个模块并 `registerUpstreamProxyEnvFn`，**不**会顺带读 `CCR_UPSTREAM_PROXY_ENABLED`。第二道功能闸 `CCR_UPSTREAM_PROXY_ENABLED` 是在 `initUpstreamProxy()` 内部、`upstreamproxy/upstreamproxy.ts:85-94` 才 return early 的——CCR 模式下模块一定会被 load / register，但 init 可能立刻 no-op 退出。
+
+所以这套「依赖反转 + 懒加载」省的是「非 CCR 启动」那一类进程的 load 成本，并不能让 CCR 容器里禁用了 upstream proxy 的会话也跳过模块加载。即便如此，第二层好处仍然成立：让 `utils/subprocessEnv.ts` 这个被几十处 import 的低层工具，不去依赖 `upstreamproxy/` 这个上层特性模块，反向防止依赖循环。
 
 `getUpstreamProxyEnv` 还有一个继承分支（`upstreamproxy/upstreamproxy.ts:160-183`）：当本进程没启用 proxy，但环境里已经有 `HTTPS_PROXY` 和 `SSL_CERT_FILE`，就把父进程的代理设定原样传下去。意图很清楚：CCR 容器里第一层 `claude` 进程把 token 文件 unlink 了，第二层 `claude` 子进程没办法再 init 一遍，但父进程的 relay 还在跑、端口还活着——子进程只要继承同一份 env，就能用上父亲那条代理。
 
@@ -540,6 +581,32 @@ await initUpstreamProxy()
 **模式五：手写 wire 比 runtime lib 更适合 hot path**。如果你只有一条单字段的 protobuf 消息要在每个 TCP segment 上 encode/decode，10 行手写比一个 50KB 的 runtime 解析器更值得。判据是「这条路径有多热」——一条会话只走一次的握手包，用 lib；每段 TLS 字节都要过的隧道帧，手写。
 
 **模式六：跨 runtime 写共用核心 + 平台适配壳**。`relay.ts` 里 Bun 和 Node 共用一个 `ConnState`、一个 `handleData`，但 `startBunRelay` 和 `startNodeRelay` 各自处理 write 的语义差异。要在多 runtime 上跑同一份代码，最大的陷阱永远是「同名 API 的语义不同」，把这些差异收敛在最贴近边界的两个函数里，核心逻辑就不必反复写 typeof Bun 的分支。
+
+---
+
+## 六、实战示例：把这些模式套到你自己的项目上
+
+光列模式没用，下面给两个能直接对照着写的小场景。它们不是 Claude Code 的代码，是你哪天要做类似事情时可以拿来比对的最小骨架。
+
+### 6.1 场景一：给自己的 CLI 加一个「远端会话」模式
+
+假设你也有一个本地 CLI，现在想让它能 `--connect ws://server/sessions/xxx`，把会话挂到云端。最小可用的实现就是模式一 + 模式二的组合：先用一次 HTTP POST 拿到 `ws_url`、`session_id` 和（可选的）`auth_token`，再用拿到的 `ws_url` 升一条 WebSocket。HTTP 那一段一定要包成一个专有 `SessionError`：把「网络断了」「HTTP 不 OK」「Zod 校验失败」三种底层错误折成一个错误类型，上层只需要一行 `catch` 就能给出统一的「连不上服务端」提示。
+
+WebSocket 升上去之后，按 `type` 字段做一级分流：`control_request` 类的消息有 `request_id`，必须有响应往回送；其余的 SDK 消息直接转给业务层处理。这里有个最容易漏的点：碰到 subtype 不认识的 `control_request` 时，**不要装聋作哑**。服务端在等响应，你不回它就在那挂着，下一轮会话被堵死。正确的做法是主动回一条 `subtype: 'error'` 的 `control_response`，让对面知道「我收到了，但我处理不了」。
+
+照着这个骨架走，你立刻就能避开 Claude Code 走过的两个最常见的坑：一是握手错误五花八门时上层得写五种 catch；二是服务端发新 control 类型时旧客户端把会话挂死。骨架本身用 TypeScript 写不到 40 行（接近 Claude Code 的 `createDirectConnectSession.ts` 88 行 + `directConnectManager.ts` 213 行的精简版），但能撑住一条远端会话的全部必需语义。
+
+### 6.2 场景二：给自己的容器进程加一个「劫持出网」开关
+
+假设你也跑在一个受控容器里，想让所有从容器里发出去的 HTTP / HTTPS 请求都走一个本地 relay。最小骨架是模式三 + 模式四的组合。
+
+第一步是入口处的**双闸开关**。第一道 env var 用来判断「我是不是真在那个受控容器里跑」（比如 `MY_CONTAINER_RUNTIME`），第二道 env var 用来判断「这次会话要不要启用代理」（比如 `MY_PROXY_ENABLED`）。两道都为真才往下走。这种拆法看起来啰嗦，但它解释了为什么 Claude Code 不能在容器里现场调 GrowthBook：冷容器没有 GB 缓存，灰度只能在签发容器时算好、通过 env var 透传进来。你自己写灰度时如果碰到同样的「冷启动 SDK 拿不到值」情况，也就只能走 env var 透传这条路。
+
+第二步是 init 函数体本身的**fail open**。所有可能失败的操作——下载 CA、起 relay、监听端口——全部包在一个 try/catch 里，catch 里只打 warning、不 rethrow，让 `state` 留在 `{ enabled: false }`。这个 `state` 是后续所有查询函数的唯一信源：导出一个 `getProxyEnv()`，按 `state.enabled` 切分支，启用时返回八条 env var（`HTTPS_PROXY` / `https_proxy` 给 Node 和 curl，`SSL_CERT_FILE` / `NODE_EXTRA_CA_CERTS` / `REQUESTS_CA_BUNDLE` / `CURL_CA_BUNDLE` 给各家 TLS 实现），禁用时返回空对象。
+
+第三步是**状态注入**。让 `subprocess` 拉起子进程的那个工具函数从 `getProxyEnv()` 拿到这八条 env，合并进子进程的环境。所有从这个进程 fork 出去的 Bash / curl / npm / pip 命令都会自动用上代理，业务层一行代码都不用改。这就是模式四的核心：env var 是 subprocess 树的自然传播机制，不要为了「优雅」绕开它。
+
+两个骨架加起来不到 60 行代码，但它们覆盖了本章三千多字论述出来的核心结论：**握手与长连分离、单 WS 双向 RPC、fail-open 状态位、状态注入贴近 surface**。剩下的高级问题——hot-path 手写 protobuf、Bun/Node 双 relay、`setNonDumpable` 的硬核防线——都是在这套骨架长大到一定规模之后才需要操心的。
 
 ---
 

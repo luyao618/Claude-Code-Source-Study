@@ -119,17 +119,18 @@ const PET_HEARTS = [
 终端宽度是这套渲染最大的不可控变量。一台 80 列宽的窗口，左边光是 PromptInput 自己就要 60 多列；如果再硬塞一只 12 列宽的小动物加一个 36 列的气泡，等于直接把输入框挤崩。`CompanionSprite.tsx` 用一个对外暴露的函数告诉 PromptInput "我要占多少列"（`buddy/CompanionSprite.tsx:167-175`）：
 
 ```typescript
-export function companionReservedColumns(cols: number, speaking: boolean): number {
-  const cfg = getGlobalConfig();
-  if (cfg.companionMuted) return 0;
-  if (cols < 100) return 0;
-  const sprite = 12 + 2;            // 12 列像素画 + 2 列内边距
-  const bubble = speaking ? 36 : 0; // 36 列气泡，只在说话时算
-  return sprite + bubble;
+export function companionReservedColumns(terminalColumns: number, speaking: boolean): number {
+  if (!feature('BUDDY')) return 0;
+  const companion = getCompanion();
+  if (!companion || getGlobalConfig().companionMuted) return 0;
+  if (terminalColumns < MIN_COLS_FOR_FULL_SPRITE) return 0;
+  const nameWidth = stringWidth(companion.name);
+  const bubble = speaking && !isFullscreenActive() ? BUBBLE_WIDTH : 0;
+  return spriteColWidth(nameWidth) + SPRITE_PADDING_X + bubble;
 }
 ```
 
-100 列是分水岭。低于 100，小动物自己缩成一行 ASCII 写在 footer 那条状态栏边上，不再占任何列宽；超过 100，按"基础 14 列、说话时 +36 列"算给 PromptInput 让出去。值得注意的是它读取了 `cfg.companionMuted`——这个字段在 `utils/config.ts:269-271` 里和 `companion` 并列：
+四道闸顺序很关键。`feature('BUDDY')` 在最前——构建期把整支 Buddy 整体擦掉时，`companionReservedColumns` 也直接 return 0，PromptInput 那边算宽度不会引入对 `getCompanion` / `getGlobalConfig` 的运行期调用。第二道是 `getCompanion()`——没孵化过就没东西可占列；第三道 `companionMuted` 是用户的静音开关；第四道 `MIN_COLS_FOR_FULL_SPRITE = 100` 是窄屏退化阈值。过完四道才进入真正的宽度结算：`spriteColWidth(stringWidth(companion.name))` 把 companion 名字的视觉宽度算进去（名字长的 sprite 列宽要相应撑宽），再加 `SPRITE_PADDING_X = 2` 的内边距，最后只有在 `speaking && !isFullscreenActive()` 时才再加 `BUBBLE_WIDTH = 36`——全屏视图下气泡走 `CompanionFloatingBubble` 浮在 scrollback 之上、不再吃 PromptInput 的列宽，所以这里要把它扣掉。`companionMuted` 这个字段在 `utils/config.ts:269-271` 里和 `companion` 并列：
 
 ```typescript
 companion?: import('../buddy/types.js').StoredCompanion;
@@ -209,15 +210,20 @@ teaser 通知用 Claude Code 的通用 notification 系统（`buddy/useBuddyNoti
 
 三道闸顺序很关键——`feature('BUDDY')` 在最前，构建时它返回常量 `false` 时整段 `useEffect` 在产物里被整体擦掉；窗口与已孵化状态过滤运行期人群。彩虹色用 `getRainbowColor` 把字符串逐字符按色环上色，是 Claude Code 内已经用在新版本公告里的同一组工具。
 
-footer 集成在 `PromptInput.tsx` 的可见性表达式里（`components/PromptInput/PromptInput.tsx:310-316` 一带）：
+footer 集成在 `PromptInput.tsx` 的可见性表达式里（`components/PromptInput/PromptInput.tsx:309-316`）：
 
 ```typescript
-const _companion = getCompanion();
-const footerItems: FooterItem[] = [
-  /* 其他 footer 项 */
-  ...(!!_companion && !cfg.companionMuted ? ['companion' as const] : []),
-];
+const {
+  companion: _companion,
+  companionMuted
+} = feature('BUDDY') ? getGlobalConfig() : {
+  companion: undefined,
+  companionMuted: undefined
+};
+const companionFooterVisible = !!_companion && !companionMuted;
 ```
+
+这里读的是 `getGlobalConfig()` 里已经存好的 `companion`，不是再调一次 `getCompanion()` 去重算——footer 的可见性只关心配置层面"这只 companion 有没有被孵化过 + 用户没把它静音"，不需要再走一遍 `companion.ts` 那个带缓存的随机滚算。同样地，整个解构表达式被 `feature('BUDDY') ?` 包住：构建期 Buddy 被擦掉时，右侧的占位对象让 `_companion` 和 `companionMuted` 都解构成 `undefined`，`companionFooterVisible` 恒为 `false`，footer 那一项在编译产物里直接消失。
 
 `'companion'` 这个 footer 变体在 `AppStateStore.ts:87` 一带被加进 `FooterItem` 联合类型。它的"焦点态 + Enter"行为映射到 `onSubmit('/buddy')`——把焦点停在 companion footer 项上按回车，等价于打 `/buddy` 命令；这件事不仅是发现入口，也是"鼠标用户/触控板用户在不打字的状态下也能摸到这只小动物"的入口。
 

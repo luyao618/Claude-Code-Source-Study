@@ -135,7 +135,7 @@ isConcurrencySafe(): boolean {
 
 ### 3.2 jitter：永远不要在整点触发
 
-读 cron 系统最容易忽略的一段是 `utils/cronTasks.ts` 里那份默认 jitter 配置：
+读 cron 系统最容易忽略的一段是 jitter 配置 -- 这一份配置可以通过 GrowthBook 在线下发：`utils/cronJitterConfig.ts:24` 定义的 `getCronJitterConfig()` 用 Zod 校验 `tengu_kairos_cron_config` 这条 feature payload，校验失败就回退到 `utils/cronTasks.ts` 里那份硬编码默认（同文件 `JITTER_CONFIG_REFRESH_MS = 60 * 1000` 控制 1 分钟刷新，`utils/cronJitterConfig.ts:67` 做了 defense-in-depth 边界收敛）：
 
 ```typescript
 // utils/cronTasks.ts (DEFAULT_CRON_JITTER_CONFIG 摘)
@@ -302,7 +302,7 @@ if (task.agentId) {
 
 注意 teammate cron 在创建端就被禁止 durable（`CronCreateTool.ts:105-113`），`agentId` 也被显式标注为 runtime-only、never written to disk（`utils/cronTasks.ts:64-69`）。所以这一手清理实际操作的是 session store 而不是磁盘上的 `.claude/scheduled_tasks.json`。这跟前面 §三·1 提到的「teammate-no-durable」规则是搭档：在创建端禁止落盘，在执行端清理 session store，两头堵死「孤儿 cron 跨会话残留」这种状态。
 
-**WORKLOAD_CRON 标签**。`workload: WORKLOAD_CRON` 这个字段会出现在通知插队进 query loop 的 metadata 里，最终通过 HTTP header 传到 Anthropic 后端，用作 QoS 分类 -- cron 触发的请求会被打上「这是后台任务，不是 user-facing」的标签，在系统繁忙时可以被优先 deprioritize。这是一种端到端的 attribution：从 hook 注入开始，metadata 一路跟着这条消息走到 API 调用，让后端知道这一刻这个会话的「忙」不是真的有人在等回复。
+**WORKLOAD_CRON 标签**。`workload: WORKLOAD_CRON` 这个字段会出现在通知插队进 query loop 的 metadata 里，最终通过 HTTP header 传到 Anthropic 后端。可以在源码里把这条链路从头追到尾：`utils/workloadContext.ts:26` 把常量定义成 `WORKLOAD_CRON: Workload = 'cron'`，并用 `AsyncLocalStorage` 包出 `runWithWorkload()`；`utils/handlePromptSubmit.ts:457-472` 用 `runWithWorkload(turnWorkload, …)` 把整个 turn 套进 ALS 边界；最后 `constants/system.ts:83-91` 在拼 `x-anthropic-billing-header` 时读 `getCurrentWorkload()` 并附加 `cc_workload=${workload}`。也就是说「cron 触发的请求会被打上后台任务标签」并不是约定俗成的说法，而是有这条三步链作为源码依据 -- 至于 Anthropic 后端拿到 `cc_workload=cron` 之后真的会做哪些 QoS 处理（deprioritize、限流、计费分桶），属于服务端的私有策略，源码侧只能确认「这个标签被发出去了」。
 
 **isMeta: true**。这条标记让通知在 UI 上以「系统消息」的方式呈现，而不是伪装成用户消息。如果不打这条标记，用户回到 REPL 时会看到对话历史里多了几条「自己没说过的话」 -- 非常困惑的体验。
 

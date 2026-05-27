@@ -297,7 +297,7 @@ companion?: import('../buddy/types.js').StoredCompanion;
 companionMuted?: boolean;
 ```
 
-`companionMuted: true` 是用户的"我知道有这个东西，但请你不要再占我屏幕"开关。它不删除 companion 本身——孵化记录、名字都还在——只是渲染期把 reserved columns 整条算零。任何相关 UI——PromptInput 那边的 footer 项可见性、气泡显隐、彩虹高亮——都要先过这个静默开关。
+`companionMuted: true` 是用户的"我知道有这个东西，但请你不要再占我屏幕"开关。它不删除 companion 本身——孵化记录、名字都还在——只是渲染期把 reserved columns 整条算零。**已孵化 companion 的渲染路径**——sprite 占位、PromptInput 那边的 footer 项可见性、气泡显隐——都要先过这个静默开关。但**发现入口和 `/buddy` 输入高亮不以 muted 为门**：`useBuddyNotification` 的 teaser 通知（`buddy/useBuddyNotification.tsx:43-66`）只看是否已经孵化和时间窗口，不查 `companionMuted`；`/buddy` 字面的彩虹高亮 `findBuddyTriggerPositions`（`buddy/useBuddyNotification.tsx:79-96`）也只过 `feature('BUDDY')` 这一道闸——muted 用户依然能在输入框里看到 `/buddy` 高亮，因为这是一个**命令名提示**而非 companion 渲染。
 
 ### 4.2 全屏视图的浮动气泡
 
@@ -489,7 +489,13 @@ Buddy 在它之上叠了一层 `'external' === 'ant'` 字面量比较——同�
 4. **全屏分支**：如果你的装饰有"可能被 fullscreen 裁掉"的浮动元素（比如气泡、tooltip），仿 `CompanionFloatingBubble` 拆成两个组件，挂到 `FullscreenLayout.bottomFloat` 插槽。
 5. **prompt 侧**（可选）：如果你想让大模型知道这个装饰的存在，仿 `getCompanionIntroAttachment` 写一个 `attachment` 返回器，走 `maybe()` 调度、新增一个 attachment 类型枚举值。第三人称写法、防扮演的 prompt 模板照抄 §五。
 6. **入口侧**：仿 `useBuddyNotification.tsx` 写一个 `useEffect`，三道闸 `feature('YOUR_FLAG')` + 状态检查 + 时间窗口；通知用现成的 `addNotification` + 彩虹色 `<RainbowText>`。
-7. **编译门**：在 `commands.ts` 里 `const {feature} = feature('YOUR_FLAG') && require('./commands/{feature}/index.js').default`，spread 进 `allCommands`。同时在所有 hot path（PromptInput 解构、`reservedColumns` 第一行）都用 `feature('YOUR_FLAG') ? … : …` 包住，确保未开启时编译产物里物理消失。
+7. **编译门**：在 `commands.ts` 里照 `commands.ts:118-122` 的形态接入：
+   ```typescript
+   const yourFeat = feature('YOUR_FLAG')
+     ? (require('./commands/your-feat/index.js') as typeof import('./commands/your-feat/index.js')).default
+     : null
+   ```
+   再在命令数组里条件 spread（`...(yourFeat ? [yourFeat] : [])`）。同时在所有 hot path（PromptInput 解构、`reservedColumns` 第一行）都用 `feature('YOUR_FLAG') ? … : …` 包住，确保未开启时 dead-code 折叠掉，编译产物里物理消失。
 
 整套下来你应该不需要新建任何"框架文件"——所有接入点都是 Claude Code 已有的扩展槽。如果你发现自己在写"通用装饰系统抽象类"，多半是接错了路：回头照着 `buddy/` 的 6 个文件再描一遍。
 

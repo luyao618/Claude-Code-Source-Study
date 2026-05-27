@@ -429,36 +429,3 @@ export function PluginsSection() {
 这就是 Doctor 屏的核心价值——它不解决问题，它把所有子系统的问题集中摆给用户看，并且对未来要加的子系统**保持开放**。Output Style 把同样的思路推到了另一边：它不解决"用户要什么风格"，它把风格的定义权交给用户，并对滥用保持克制。
 
 一本讲源码的书写到这里，应该顺手把这两条"对外接口"的实现路径都交代清楚，再合上书。
-
----
-
-## 想自己翻一遍代码？从这些位置入手
-
-| 引用 | 文件:行 |
-|---|---|
-| `/doctor` 命令定义 | `commands/doctor/index.ts:4-10` |
-| `/output-style` 命令定义 | `commands/output-style/index.ts:3-9` |
-| `Doctor` 主组件首屏副作用 | `screens/Doctor.tsx:164-220` |
-| `distTagsPromise` 并发预热 | `screens/Doctor.tsx:124-131` |
-| 远端版本号选择回调 | `screens/Doctor.tsx:553-556` |
-| Diagnostics 区块渲染 | `screens/Doctor.tsx:266-373` |
-| 上下文警告渲染 | `screens/Doctor.tsx:464-479` |
-| `getDoctorDiagnostic` | `utils/doctorDiagnostic.ts:54-71` |
-| 安装类型识别 | `utils/doctorDiagnostic.ts:86-148` |
-| 多安装冲突检测 | `utils/doctorDiagnostic.ts:205-315` |
-| 配置警告 | `utils/doctorDiagnostic.ts:317-485` |
-| `checkContextWarnings` | `utils/doctorContextWarnings.ts:246-265` |
-| `getSystemPrompt` | `constants/prompts.ts:444-577` |
-| Output Style 段拼接 | `constants/prompts.ts:151-157` |
-| Intro 行切换 | `constants/prompts.ts:180` |
-| `keepCodingInstructions` 分支 | `constants/prompts.ts:564-566` |
-| 内置 `OUTPUT_STYLE_CONFIG` | `constants/outputStyles.ts:41-135` |
-| 来源合并优先级 | `constants/outputStyles.ts:137-175` |
-| `getOutputStyleConfig` | `constants/outputStyles.ts:181-211` |
-| 用户/项目级加载与 frontmatter 解析 | `outputStyles/loadOutputStylesDir.ts:26-92` |
-| `force-for-plugin` 忽略告警 | `outputStyles/loadOutputStylesDir.ts:65-70` |
-| `ResumeConversation` 渐进加载 | `screens/ResumeConversation.tsx:126-155` |
-| 跨项目恢复检查 | `screens/ResumeConversation.tsx:181-189` |
-| Session 切换链路 | `screens/ResumeConversation.tsx:220-250` |
-
-> 源码版本：`290fdc9481a70612bc5823aa4ed225c52c52aad3`（与 `docs/V2-REVISION-SPEC.md` `source_commit` 对齐）。

@@ -10,7 +10,7 @@
 
 1. **同一个人每次启动看到的是不是同一只？** 如果每次都重新随机，那就是个噱头；如果存满了配置文件，那一旦清掉 `~/.claude.json` 就再也找不回原来那只
 2. **它在终端窄到 80 列时怎么办？** 把一只 12 列宽的小动物硬塞到一个本来就在挤滚动条的窗口里，是体验灾难
-3. **大模型会不会以为自己就是这只小动物？** 系统提示里突然出现"你叫 Sproink，是只 frog"——模型很可能下一句就开始扮演青蛙
+3. **大模型会不会以为自己就是这只小动物？** 系统提示里突然出现"你叫 Sproink，是只 duck"——模型很可能下一句就开始扮演鸭子
 4. **没开 Buddy 的人，构建出来的二进制里能不能完全没有它的代码？** 一个"宠物"功能进了 critical path 是说不过去的
 5. **怎么让人发现这个隐藏功能而不打扰那些不想要它的人？** 弹一个明黄色公告会被骂；藏到 `--help` 里又没人看
 
@@ -57,9 +57,9 @@ const SALT = 'friend-2026-401';
 
 ## 二、十八种小动物：藏在 `String.fromCharCode` 后面
 
-`types.ts` 里 `SPECIES` 是一个长 18 的 `as const` 数组，每个槽位都写成 `String.fromCharCode(0x66, 0x72, 0x6f, 0x67)` 这种形式（这一个就是 `'frog'`），下面紧跟一行 `// 'frog'` 注释告诉人类它是什么。同文件还有两张表：`RARITY_WEIGHTS` 给五档稀有度分别赋 60/25/10/4/1，加起来正好 100；`RARITY_STARS` 给同样五档配上 1 到 5 个 `★` 字符，渲染时直接拼在名字旁边。
+`types.ts` 里先有 18 个具名常量导出——`duck` / `goose` / `blob` / `cat` / `dragon` / `octopus` / `owl` / `penguin` / `turtle` / `snail` / `ghost` / `axolotl` / `capybara` / `cactus` / `robot` / `rabbit` / `mushroom` / `chonk`（`buddy/types.ts:17-52`），每个都用 `String.fromCharCode(...)` 把名字一个字节一个字节拼出来再 `as 'duck'` 这样的类型断言钉住字面量类型；下面 `SPECIES` 数组（`buddy/types.ts:54-73`）按这 18 个常量名一字排开 `as const`，对外暴露 `Species = (typeof SPECIES)[number]` 联合类型。同文件还有两张表：`RARITY_WEIGHTS` 给五档稀有度分别赋 60/25/10/4/1，加起来正好 100；`RARITY_STARS` 给同样五档配上 1 到 5 个 `★` 字符，渲染时直接拼在名字旁边。
 
-这种"把一行字符串名拆成 `String.fromCharCode(…)` 数列"的写法看起来很怪——直接写 `'frog'` 不香吗？看一眼仓库根目录的字符串扫描脚本就明白了。打包流水线里有一条 canary：扫描 bundle 产物，凡是出现一组预定义的"内部代号"明文（`frog`/`legendary`/`Sproink` 之类）就 fail。Buddy 是个面向特定渠道发布的彩蛋特性，绝大多数构建里它需要 dead code elimination 干净到不剩字符串残骸。把名字写成字符码常量数组，编译期 TypeScript 不动它，运行期 V8 会把它拼起来，扫描器看到的只是一串数字字面量，认不出来。
+这种"先用 `String.fromCharCode(…)` 把名字拼出来再放进数组"的写法看起来很怪——直接写 `'duck'` 不香吗？看一眼仓库根目录的字符串扫描脚本就明白了。打包流水线里有一条 canary：扫描 bundle 产物，凡是出现一组预定义的"内部代号"明文（`legendary` / `Sproink` 之类）就 fail。Buddy 是个面向特定渠道发布的彩蛋特性，绝大多数构建里它需要 dead code elimination 干净到不剩字符串残骸。把名字写成字符码常量数组，编译期 TypeScript 不动它，运行期 V8 会把它拼起来，扫描器看到的只是一串数字字面量，认不出来。
 
 稀有度的权重表 60/25/10/4/1 加起来是 100，刚好不是巧合——`rollRarity` 就是按累积权重在 `[0,100)` 区间里掷一次随机数（`buddy/companion.ts:43-51`）：累积扫一遍 `RARITY_WEIGHTS`，命中第一个区间为止；兜底返回 `'common'` 防止浮点累积误差。
 
@@ -71,7 +71,7 @@ const SALT = 'friend-2026-401';
 
 ## 三、像素画、500 ms 一拍、眨眼与摸头
 
-`sprites.ts` 是一个把 18 个物种 × 3 帧 × 5 行 × 12 列全部硬编码的字典表。每个物种是一个 `string[][]`，外层 3 帧、内层 5 行字符串，每行宽 12 列，眼睛位置统一用 `{E}` 这个占位符标出来——因为眼睛是骨架字段，不能硬编进像素表，要在渲染时按 `Bones.eyes` 替换成对应字符（圆点、星号、闭眼弧线之类）。
+`sprites.ts` 是一个把 18 个物种 × 3 帧 × 5 行 × 12 列全部硬编码的字典表。每个物种是一个 `string[][]`，外层 3 帧、内层 5 行字符串，每行宽 12 列，眼睛位置统一用 `{E}` 这个占位符标出来——因为眼睛是骨架字段，不能硬编进像素表，要在渲染时按 `Bones.eye` 替换成对应字符（圆点、星号、闭眼弧线之类）。
 
 `renderSprite(bones, frame)` 在 `buddy/sprites.ts:454-468` 做这一步替换 + 帽子布置：先 `map(line => line.replaceAll('{E}', bones.eye))`；如果 `bones.hat !== 'none'`，**只在第 0 行本来全空（`trim()` 为空）时**才把 `HAT_LINES[bones.hat]` 写进 `lines[0]` 替换掉那一行——第 0 行被 smoke / antenna 之类的纹理占用时，源码直接放弃戴帽子，不会 unshift 一行把动物拔高；反过来如果最终 `lines[0]` 仍是空白、且**该物种的每一帧 `frames.every(f => !f[0]!.trim())` 都是空白**，就把那行 `shift()` 掉，省一行空间——`every` 这个判断写在源码注释里说得很清楚（"Only safe when ALL frames have blank line 0; otherwise heights oscillate"），是为了避免不同帧之间高度抖动。这些细节决定了每帧渲出来的 ASCII 在垂直方向能不能精确占用预期格子数，而正确的格子数对接下来 PromptInput 那段宽度结算（§六）至关重要。
 
@@ -157,7 +157,7 @@ REPL 还做了一件细节：滚动列表往上滚时立刻把 `companionReactio
 
 ## 五、第三人称介绍：不让模型代入这只小动物
 
-把 Buddy 接进 prompt 这件事最容易翻车的环节是：你给系统提示加一段"You are a frog named Sproink"，模型立刻开始 `*ribbit*` 全文，把整段对话毁掉。`buddy/prompt.ts:7-13` 里这段刻意写成第三人称：
+把 Buddy 接进 prompt 这件事最容易翻车的环节是：你给系统提示加一段"You are a duck named Sproink"，模型立刻开始 `*quack*` 全文，把整段对话毁掉。`buddy/prompt.ts:7-13` 里这段刻意写成第三人称：
 
 ```typescript
 export function companionIntroText(name: string, species: string): string {
@@ -224,18 +224,21 @@ const footerItems: FooterItem[] = [
 `/buddy` 在输入框里被键入时，PromptInput 用一段 `findBuddyTriggerPositions` 把所有 `/buddy\b` 的位置找出来，叠一层彩虹色高亮（`buddy/useBuddyNotification.tsx:79-97`）：
 
 ```typescript
-export function findBuddyTriggerPositions(text: string): Array<[number, number]> {
-  const out: Array<[number, number]> = [];
-  const re = /\/buddy\b/g;
-  let m: RegExpExecArray | null;
+export function findBuddyTriggerPositions(
+  text: string,
+): Array<{ start: number; end: number }> {
+  if (!feature('BUDDY')) return []
+  const triggers: Array<{ start: number; end: number }> = []
+  const re = /\/buddy\b/g
+  let m: RegExpExecArray | null
   while ((m = re.exec(text)) !== null) {
-    out.push([m.index, m.index + m[0].length]);
+    triggers.push({ start: m.index, end: m.index + m[0].length })
   }
-  return out;
+  return triggers
 }
 ```
 
-这一层视觉提示纯靠 PromptInput 自己的彩色字符渲染管线接进去，是个一行函数式的"返回区间数组"，没有内部状态，便于单测。
+这一层视觉提示纯靠 PromptInput 自己的彩色字符渲染管线接进去，返回的是一组 `{ start, end }` 区间对象（不是 `[number, number]` 元组），函数本身先过一道 `feature('BUDDY')` 闸再扫正则，没有内部状态，便于单测。
 
 最外层的总开关有两道，是编译期门（`commands.ts:118-120` 与同文件下方一带）：
 

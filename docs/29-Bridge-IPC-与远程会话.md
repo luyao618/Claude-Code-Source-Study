@@ -108,7 +108,7 @@ const DEFAULT_BACKOFF = {
 //     use_code_sessions }
 ```
 
-这一份小小的 JSON 是 Bridge 的「分单据」：服务端用它告诉本地「这次会话该连哪个 ingress、用哪个临时 token 自报家门、要不要走 v2 通道」。`use_code_sessions` 这个布尔字段会在第六节再出现，它决定本地是走传统的「session_ingress」HTTP 协议还是 v2 的 `code/sessions/{id}` 链路。
+这一份小小的 JSON 是 Bridge 的「分单据」：服务端用它告诉本地「这次会话该连哪个 ingress、用哪个临时 token 自报家门、要不要走 envless 通道」。`use_code_sessions` 这个布尔字段会在第六节再出现，它决定本地是走传统的「session_ingress」HTTP 协议还是新一代的 `code/sessions/{id}` 链路。
 
 `session_ingress_token` 是一个有效期半小时量级的 JWT，本地把它存下来、所有后续向服务端发出的对话流量都用它做 Authorization。这个 token 的过期处理由 `bridge/jwtUtils.ts` 的 `createTokenRefreshScheduler` 接管——下面第八节会详细讲。
 
@@ -140,7 +140,7 @@ const TOOL_VERBS: Record<string, string> = {
 
 ## 五、env-less 通道：当 /bridge 端点取代 register
 
-写到这里你也许会想：为什么 v2 会话还要先注册一个环境再申请会话，而不能一步到位？答案是「正在转型，但还没全部转完」。
+写到这里你也许会想：为什么 envless 会话还要先注册一个环境再申请会话，而不能一步到位？答案是「正在转型，但还没全部转完」。
 
 `bridge/remoteBridgeCore.ts`（千行量级）是这条转型路径上的产物。它走的是另一组端点：直接 POST `/v1/code/sessions` 拿到会话 id，然后 POST `/v1/code/sessions/{id}/bridge` 拿到一份精简版的「分单据」——里面只有 `worker_jwt`、`expires_in`、`api_base_url`、`worker_epoch` 四样东西。整个流程**没有 environment 这一层**，所以代码里它被叫做「env-less」核心。
 
@@ -317,6 +317,27 @@ const TRUSTED_DEVICE_GATE = 'tengu_sessions_elevated_auth_enforcement'
 这个设计的味道是「**信任在一段连续的人类动作里建立**」——你刚登录，键盘还在你手里、人脸还在屏幕前，这十分钟内服务端愿意把这台机器记入白名单；之后任何时刻冒出来一个「请把我也加入信任」的请求都会被服务端的另一道门拦下。`tengu_sessions_elevated_auth_enforcement` 这个 GrowthBook gate 决定这条门到底拉不拉起，是企业部署里能由管理员调的开关。
 
 token 一旦在 keychain 里，所有 Bridge 请求都会在头部带一个 `X-Trusted-Device-Token`。服务端拿这个去和签发记录对账：如果设备指纹对上、token 未过期，就允许这次请求执行高敏感动作（比如批准一次远端权限请求）；对不上就降级到普通 token 才允许的能力上。
+
+---
+
+## 十一、三个命令入口：用户从哪一句话打开这条线
+
+到这里源码侧的所有齿轮都看完了。但 Bridge 这一摞代码对终端用户来说，其实只有三个能打出来的口令：`/remote-control`、`/remote-setup`、`/remote-env`。`commands/bridge/`、`commands/remote-setup/`、`commands/remote-env/` 这三个目录分别承载这三条命令的注册与 UI。它们的体量小到读者很容易当作纯样板代码跳过——`commands/bridge/index.ts` 26 行、`commands/remote-env/index.ts` 15 行——但每一条里都嵌着一道与前面这一摞工程肌理咬合的开关，值得逐条看一遍。
+
+`commands/bridge/` 是这三条里最厚的一块。`index.ts` 把 `/remote-control`（别名 `rc`）注册成一个 `local-jsx` 命令，`isEnabled` 同时要求 `bundledMode` 的 `BRIDGE_MODE` 编译期 feature 打开 + 运行期 `isBridgeEnabled()` 返回真。这一对「编译期 + 运行期」双闸读起来有点啰嗦，但它是为了让企业版能用同一份二进制裁掉远程控制能力——`BRIDGE_MODE=false` 的编译产物里这条命令连出现在 `/help` 列表里都不会。
+
+`bridge.tsx` 才是 `/remote-control` 的真正主体。它做的事可以分成两条岔路：
+
+- **首次打开**：调用 `checkBridgePrerequisites()` 跑一次预检——`waitForPolicyLimitsToLoad()` 等 GrowthBook 拉完远端策略、`isPolicyAllowed('allow_remote_control')` 看组织是否禁用、`getBridgeDisabledReason()` 拉本机门，再按 `isEnvLessBridgeEnabled()` 与 `feature('KAIROS') && isAssistantMode()` 决定走 envless 链路还是带 environment 注册的旧链路（这一段是前文五、六节的「双轨并跑」在命令层的镜像），最后用 `checkEnvLessBridgeMinVersion()` 或 `checkBridgeMinVersion()` 校 CLI 最低版本、`getBridgeAccessToken()` 看本机有没有登录态。预检任何一关失败就把人类可读的错误打回 REPL；通过了，就把 `replBridgeEnabled` 写进 AppState，由 `REPL.tsx` 的 `useReplBridge` Hook 接管，前文一节里 `runBridgeLoop` 的那条主线就是从这一步开始转的。
+- **二次打开**：当 `replBridgeConnected || replBridgeEnabled` 已经是真且不是 `replBridgeOutboundOnly` 这种「只镜像不交互」的 CCR 模式时，弹 `BridgeDisconnectDialog`，展示当前会话 URL，给用户三个选项：「断开」「显示二维码」「继续」。「显示二维码」走 `qrcode` 模块的 `toString` 把会话 URL 编成 UTF-8 文本块直接打在终端里——这是 Bridge 链路里唯一一处 UI 把 session URL「降级」成可以离开屏幕的载体（你手机扫一下就能接上同一条会话），实现却小到只占十几行 React。
+
+`commands/remote-setup/` 走的是另一条路。它解决的是「我想直接在 claude.ai/code 网页里跑 Claude，而不是在本地终端跑 Bridge」这种用户场景。`remote-setup.tsx` 的 `Web` 组件按一段状态机推进：先 `isSignedIn()` 看本机有没有 Claude OAuth 凭证，再 `getGhAuthStatus()` 看本机的 `gh` CLI 是不是已经登录了 GitHub。两个都满足，就 `execa('gh', ['auth', 'token'])` 拉出 GitHub token，用 `RedactedGithubToken` 包一层——这个包装类把 `toString` / `toJSON` / Node 的 inspect 协议全部改写成 `[REDACTED:gh-token]`，只有调 `.reveal()` 一次拿明文塞进 HTTP body，其余路径都拿不出原始 token。这是 Bridge 这一摞代码里少数几个「为了不写错日志而单独引一个类」的地方，背后假定的失败模式很直白：error logger 把这个 token 不小心序列化进 Sentry 一次就够把一个用户的 GitHub 权限漏给攻击者。
+
+拿到 token 之后，`api.ts` 的 `importGithubToken` 把它 POST 到 `/v1/code/github/import-token`，带 `anthropic-beta: ccr-byoc-2025-07-29` 这条 beta 头。服务端在自己的 sync_user_tokens 表里 Fernet 加密存住，之后 claude.ai/code 网页里跑出来的会话就能用这份 token 直接克隆 / 推送你的 repo。`createDefaultEnvironment()` 紧跟着是一次 best-effort 的默认环境创建：先 `fetchEnvironments()` 看一下有没有现成环境，没有就 POST `/v1/environment_providers/cloud/create` 建一个跑 `python 3.11` + `node 20` 的 anthropic_cloud 环境。这步失败不致命——前端落地页会自动路由到 env-setup 让用户手动建一个，多一次点击但不至于把用户卡死。失败分类共四种：`not_signed_in` / `invalid_token` / `server` / `network`，对应文案在 `errorMessage` 里一一映射，和前文 SessionsWebSocket 那张「失败档位表」是同一种气质。
+
+`commands/remote-env/` 是最薄的一条——`remote-env.tsx` 只有六行，整段命令直接把 `RemoteEnvironmentDialog` 这个组件 render 出来。`index.ts` 里的 `isEnabled` 双门也很有意思：`isClaudeAISubscriber()` && `isPolicyAllowed('allow_remote_sessions')`，前者按 OAuth 凭证里的订阅档位判，后者再过一道企业策略闸——两道门用同一条短路逻辑串起来，没订阅的免费用户和被组织禁用了远程会话的企业用户在 UI 上都看不到这条命令。它的目的是让用户能在 REPL 里直接编辑「我的默认远程环境」的脚本和环境变量，不必跳到网页——但这一层 UI 实际上把所有重活都委托给了 `RemoteEnvironmentDialog` 这个共享组件，所以命令文件本身只剩一层 1 行的转发。
+
+三条命令并起来看，能读到 Bridge 模式对外暴露的「三道形态」：`/remote-control` 把当前本地会话**让出去**给远端控制；`/remote-setup` 把当前账号的本地 GitHub 凭证**送上去**让网页端能代你跑命令；`/remote-env` 让远端会话的**环境定义**留在本地编辑。三道形态共用同一条 ingress token + trusted device token 的凭证层，但走的是完全不同的服务端端点。命令层的克制（`/remote-env` 6 行、`/remote-control` 大部分行数花在 React 状态机上）也再次印证一件事：Bridge 这一摞代码的工程取舍偏向「让命令层薄到没有业务逻辑、把所有失败分类压在更下面一层」。这种偏好的副作用是 `bridgeMain.ts` 那种近 3000 行的核心文件，但好处是命令层下线 / 改名 / 灰度上线一个新口令时，不需要重写底下任何一段链路。
 
 ---
 

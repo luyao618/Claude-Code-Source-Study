@@ -496,7 +496,7 @@ export function createSubagentContext(
 | `abortController` | 新建子级（关联父级） | 父级 abort 传播到子级，但子级 abort 不影响父级 |
 | `contentReplacementState` | 克隆 | Fork 子 Agent 需要做一致的替换决策以命中 prompt cache |
 | `pushApiMetricsEntry` | 与 `setResponseLength` 联动 | 共享度量的子 Agent 需要向父级汇报 API 指标 |
-| `updateAttributionState` | 总是共享 | 函数式回调，并发安全，不受 setAppState 影响 |
+| `updateAttributionState` | 总是共享 | 函数式回调，并发安全，不受 setAppState 影响（attribution 指 token 用量、API 计数等指标的"归属"——子 Agent 的消耗回填到发起它的根会话用于计费统计） |
 | `queryTracking` | 新建（depth+1） | 每个子 Agent 有独立的调用链追踪 |
 | UI 回调（5 个） | undefined | 子 Agent 不能操作父级 UI |
 
@@ -713,7 +713,7 @@ export function getBuiltInAgents(): AgentDefinition[] {
 
 注意两个重要细节：
 - **Coordinator Mode 短路**：开启 Coordinator Mode 时，`getBuiltInAgents()` 直接返回 coordinator 专用的 Agent 集合，完全替换正常的内置 Agent。这里用了懒 `require` 避免 `coordinatorMode → tools → AgentTool → builtInAgents` 的循环依赖。
-- **Claude Code Guide Agent**：这是唯一一个在 `getSystemPrompt()` 中使用 `toolUseContext` 参数的内置 Agent——它动态注入用户当前配置的 skills、agents、MCP servers 和 settings，使得对 "How do I..." 类问题的回答能结合用户的实际环境。使用 `haiku` 模型 + `dontAsk` 权限模式（自动拒绝需要确认的操作），确保快速且安全。
+- **入口与 feature flag 门控**：`CLAUDE_CODE_GUIDE_AGENT` 只在非 SDK 入口（即真正的 CLI 会话）下注册；`VERIFICATION_AGENT` 受 feature flag 与 GrowthBook 双重门控。下文 §4.2–§4.6 会逐个展开这些 Agent 的设计取舍。
 
 ### 4.2 Explore Agent：只读搜索专家
 
@@ -792,6 +792,10 @@ export const GENERAL_PURPOSE_AGENT: BuiltInAgentDefinition = {
 ```
 
 General-purpose Agent 是通用的全工具 Agent。在传统模式下，当用户不指定 `subagent_type` 时默认使用它。但需要注意：**当 Fork Subagent 实验开启时**（`isForkSubagentEnabled()` 返回 `true`），省略 `subagent_type` 会走隐式 Fork 路径（继承父级上下文），而不是创建一个 fresh 的 general-purpose Agent。此时只有显式指定 `subagent_type: "general-purpose"` 才会使用它。
+
+### 4.6 Claude Code Guide Agent：用户自助答疑
+
+`CLAUDE_CODE_GUIDE_AGENT` 是 §4.1 注册逻辑里那条「非 SDK 入口才注册」的 Agent。它的特殊之处在于：它是唯一一个在 `getSystemPrompt()` 中使用 `toolUseContext` 参数的内置 Agent——可以动态注入用户当前配置的 skills、agents、MCP servers 和 settings，使得对 "How do I..." 类问题的回答能结合用户的实际环境。配置上用 `haiku` 模型 + `dontAsk` 权限模式（自动拒绝需要确认的操作），确保快速且安全。这条 Agent 只对真正的 CLI 用户开放——SDK 嵌入场景里宿主应用通常有自己的帮助通道。
 
 ---
 
@@ -920,7 +924,7 @@ export async function runAsyncAgentLifecycle({
 
 > Mark task completed FIRST so TaskOutput(block=true) unblocks immediately. classifyHandoffIfNeeded (API call) and getWorktreeResult (git exec) are notification embellishments that can hang.
 
-这避免了 API 调用或 git 操作导致的死锁——即使通知丰富化失败，任务状态也已经正确转换。
+这避免了 API 调用或 git 操作导致的死锁——即使通知丰富化失败，任务状态也已经正确转换。注释里 `TaskOutput(block=true)` 指的是 `TaskOutput` 工具以阻塞模式等待异步任务结束（详见第 13 章），`classifyHandoffIfNeeded` 是一个会发起额外 API 调用的"是否需要交接给下一位 Agent"分类器；这两个调用都可能因外部依赖卡住，所以必须放在状态转换之后。
 
 ---
 
@@ -953,7 +957,7 @@ export function loadAgentMemoryPrompt(agentType, scope) {
 
 ---
 
-## 七.5、AgentSummary：后台进度摘要
+## 八、AgentSummary：后台进度摘要
 
 异步 Agent 跑起来之后，UI 上"in progress"的一行字会让用户失去耐心。Claude Code 给出的解法不是改 UI，而是再开一个 Agent ——`services/AgentSummary/agentSummary.ts` 实现了一个 30 秒一拍的后台摘要器，定时 fork 当前对话，让模型自己用 3-5 个英文单词描述"我此刻正在做什么"，再把这句话写回 `AgentProgress` 供前端显示。
 
@@ -1001,7 +1005,7 @@ const canUseTool = async () => ({
 
 ---
 
-## 八、可迁移的设计模式
+## 九、可迁移的设计模式
 
 ### 模式 1：默认隔离、显式共享的 Context Clone
 

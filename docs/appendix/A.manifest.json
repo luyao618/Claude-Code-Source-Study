@@ -48,33 +48,33 @@
     },
     {
       "name": "CronCreateTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:31-31"
+        "tools.ts:29-35"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
     {
       "name": "CronDeleteTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:32-32"
+        "tools.ts:29-35"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
     {
       "name": "CronListTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:33-33"
+        "tools.ts:29-35"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
     {
       "name": "CtxInspectTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:110-110"
+        "tools.ts:110-112"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -177,9 +177,9 @@
     },
     {
       "name": "ListPeersTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:126-126"
+        "tools.ts:126-128"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -210,9 +210,9 @@
     },
     {
       "name": "MonitorTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:39-39"
+        "tools.ts:39-41"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -227,9 +227,9 @@
     },
     {
       "name": "OverflowTestTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:107-107"
+        "tools.ts:107-109"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -243,9 +243,9 @@
     },
     {
       "name": "PushNotificationTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:45-45"
+        "tools.ts:45-49"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -260,19 +260,21 @@
     },
     {
       "name": "RemoteTriggerTool",
-      "category": "family",
+      "category": "feature-gated",
       "source_files": [
-        "tools/RemoteTriggerTool/RemoteTriggerTool.ts:1-162"
+        "tools/RemoteTriggerTool/RemoteTriggerTool.ts:1-162",
+        "tools.ts:36-38"
       ],
-      "notes": "tools/ 目录存在；运行期是否装载受 tools.ts 中 feature/coordinator/SDK 条件影响"
+      "notes": "tools.ts 中按 feature flag / 环境变量条件装载"
     },
     {
       "name": "REPLTool",
-      "category": "family",
+      "category": "feature-gated",
       "source_files": [
-        "tools/REPLTool/constants.ts:1-47"
+        "tools/REPLTool/constants.ts:1-47",
+        "tools.ts:16-19"
       ],
-      "notes": "tools/ 目录存在；运行期是否装载受 tools.ts 中 feature/coordinator/SDK 条件影响"
+      "notes": "tools.ts 中按 feature flag / 环境变量条件装载"
     },
     {
       "name": "ScheduleCronTool",
@@ -292,9 +294,9 @@
     },
     {
       "name": "SendUserFileTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:42-42"
+        "tools.ts:42-44"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -309,33 +311,34 @@
     },
     {
       "name": "SleepTool",
-      "category": "family",
+      "category": "feature-gated",
       "source_files": [
-        "tools/SleepTool/prompt.ts:1-18"
+        "tools/SleepTool/prompt.ts:1-18",
+        "tools.ts:25-28"
       ],
-      "notes": "tools/ 目录存在；运行期是否装载受 tools.ts 中 feature/coordinator/SDK 条件影响"
+      "notes": "tools.ts 中按 feature flag / 环境变量条件装载"
     },
     {
       "name": "SnipTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:123-123"
+        "tools.ts:123-125"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
     {
       "name": "SubscribePRTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:50-50"
+        "tools.ts:50-62"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
     {
       "name": "SuggestBackgroundPRTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:20-20"
+        "tools.ts:20-24"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -419,9 +422,9 @@
     },
     {
       "name": "TerminalCaptureTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:113-113"
+        "tools.ts:113-116"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -461,17 +464,17 @@
     },
     {
       "name": "VerifyPlanExecutionTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:91-91"
+        "tools.ts:91-106"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
     {
       "name": "WebBrowserTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:117-117"
+        "tools.ts:117-119"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     },
@@ -495,9 +498,9 @@
     },
     {
       "name": "WorkflowTool",
-      "category": "leaf",
+      "category": "feature-gated",
       "source_files": [
-        "tools.ts:129-129"
+        "tools.ts:129-149"
       ],
       "notes": "由 tools.ts 引用、未独占 tools/ 顶层目录"
     }

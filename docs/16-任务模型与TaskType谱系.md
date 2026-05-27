@@ -1,6 +1,8 @@
 # 第 16 章：任务模型与 TaskType 谱系 — Agent 的并发执行引擎
 
 > 本章是《深入 Claude Code 源码》系列第 16 章。我们将深入分析 Claude Code 如何通过一套统一的任务系统，管理从后台 Shell 命令到多 Agent 并行协作的所有异步工作。
+>
+> 速查表：见 [附录 E · TaskType 谱系](appendix/E.md)（wire 字面量 / feature flag / 注册路径一表对照）。
 
 ## 为什么需要任务系统？
 

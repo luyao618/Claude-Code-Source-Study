@@ -179,14 +179,43 @@ for (const f of promptFiles) {
   // 该 export 名在 builtInAgents.ts 出现的行号，用于副表回链
   const indexLine = lineOf(exportName);
 
-  // displayName：源码里没有独立字段；取 prompt 文件首句作为可读名兜底，
-  // 优先使用 whenToUse 的首小句；最后退到 agentType。
-  let displayName = agentType;
-  const whenToUseMatch = src.match(/whenToUse\s*:\s*['"`]([^'"`]+)['"`]/);
-  if (whenToUseMatch) {
-    // 截取第一个中英文句号 / 感叹号 / 问号前
-    const s = whenToUseMatch[1].split(/[.。!?！？]/)[0].trim();
-    if (s) displayName = s.slice(0, 80);
+  // whenToUse 节选：源码 `BuiltInAgentDefinition` 没有独立 displayName 字段；
+  // 用 whenToUse 的首句作为速查表的可读描述。优先匹配字面量；若是常量引用
+  // （如 `whenToUse: EXPLORE_WHEN_TO_USE`），同文件 / 同目录 ../constants.ts 回查。
+  let whenToUseSummary = "";
+  let whenToUseRaw: string | undefined;
+  const literalM = src.match(/whenToUse\s*:\s*['"`]([\s\S]*?)['"`]/);
+  if (literalM) {
+    whenToUseRaw = literalM[1];
+  } else {
+    const refM = src.match(/whenToUse\s*:\s*([A-Z_][A-Z0-9_]*)\b/);
+    if (refM) {
+      const constName = refM[1];
+      const constDefRe = new RegExp(
+        `\\b(?:export\\s+)?const\\s+${constName}\\s*(?::\\s*[^=]+)?=\\s*['"\`]([\\s\\S]*?)['"\`]`,
+      );
+      const here = src.match(constDefRe);
+      if (here) {
+        whenToUseRaw = here[1];
+      } else {
+        // 在 built-in/ 目录其它文件里找
+        for (const sibling of promptFiles) {
+          if (sibling === f) continue;
+          const siblingSrc = readFileSync(join(builtInDir, sibling), "utf8");
+          const sm = siblingSrc.match(constDefRe);
+          if (sm) {
+            whenToUseRaw = sm[1];
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (whenToUseRaw) {
+    whenToUseSummary = whenToUseRaw
+      .replace(/\s+/g, " ")
+      .split(/[.。!?！？]/)[0]
+      .trim();
   }
 
   const sourceFiles = [
@@ -200,9 +229,10 @@ for (const f of promptFiles) {
     name: agentType,
     category: "built-in-agent",
     source_files: sourceFiles,
-    // §7.5 正表四字段
+    // §7.5 正表四字段（注意：源码 `BuiltInAgentDefinition` 没有 displayName 字段，
+    // 这里用 whenToUse 首句节选作为可读描述列）
     id: agentType,
-    displayName,
+    whenToUseSummary,
     modelHint,
     defaultEnabled: effects.defaultEnabled,
     // §7.5 副表
@@ -244,11 +274,11 @@ const md = [
   ``,
   `**正表**：源码定义 ${items.length} 个内置 agent（位于 \`${builtInRel}/\`）。`,
   ``,
-  `| id | displayName | modelHint | defaultEnabled | 来源 |`,
+  `| id | whenToUse（首句节选，详见源码） | modelHint | defaultEnabled | 来源 |`,
   `|---|---|---|---|---|`,
   ...items.map(
     (i) =>
-      `| \`${i.id}\` | ${(i as ManifestItem & { displayName?: string }).displayName ?? ""} | \`${(i as ManifestItem & { modelHint?: string }).modelHint ?? ""}\` | ${(i as ManifestItem & { defaultEnabled?: boolean }).defaultEnabled} | ${(i.source_files ?? []).map((s) => `\`${s}\``).join(", ")} |`,
+      `| \`${i.id}\` | ${(i as ManifestItem & { whenToUseSummary?: string }).whenToUseSummary ?? ""} | \`${(i as ManifestItem & { modelHint?: string }).modelHint ?? ""}\` | ${(i as ManifestItem & { defaultEnabled?: boolean }).defaultEnabled} | ${(i.source_files ?? []).map((s) => `\`${s}\``).join(", ")} |`,
   ),
   ``,
   `**副表**（运行时可用集合受三类变量影响，见 \`${indexRel}\`）：`,

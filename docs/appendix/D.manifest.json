@@ -9,7 +9,7 @@
         "tools/AgentTool/builtInAgents.ts:5-5"
       ],
       "id": "claude-code-guide",
-      "displayName": "Use this agent when the user asks questions (",
+      "whenToUseSummary": "Use this agent when the user asks questions (",
       "modelHint": "'haiku'",
       "defaultEnabled": false,
       "entrypoint_gated": [
@@ -26,7 +26,7 @@
         "tools/AgentTool/builtInAgents.ts:6-6"
       ],
       "id": "Explore",
-      "displayName": "Explore",
+      "whenToUseSummary": "Fast agent specialized for exploring codebases",
       "modelHint": "process.env.USER_TYPE === 'ant' ? 'inherit' : 'haiku'",
       "defaultEnabled": false,
       "feature_flags": [
@@ -44,7 +44,7 @@
         "tools/AgentTool/builtInAgents.ts:7-7"
       ],
       "id": "general-purpose",
-      "displayName": "General-purpose agent for researching complex questions, searching for code, and",
+      "whenToUseSummary": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks",
       "modelHint": "inherit-default",
       "defaultEnabled": true,
       "coordinator_required": false,
@@ -58,7 +58,7 @@
         "tools/AgentTool/builtInAgents.ts:8-8"
       ],
       "id": "Plan",
-      "displayName": "Software architect agent for designing implementation plans",
+      "whenToUseSummary": "Software architect agent for designing implementation plans",
       "modelHint": "'inherit'",
       "defaultEnabled": false,
       "feature_flags": [
@@ -76,7 +76,7 @@
         "tools/AgentTool/builtInAgents.ts:9-9"
       ],
       "id": "statusline-setup",
-      "displayName": "Use this agent to configure the user",
+      "whenToUseSummary": "Use this agent to configure the user",
       "modelHint": "'sonnet'",
       "defaultEnabled": true,
       "coordinator_required": false,
@@ -90,7 +90,7 @@
         "tools/AgentTool/builtInAgents.ts:10-10"
       ],
       "id": "verification",
-      "displayName": "verification",
+      "whenToUseSummary": "Use this agent to verify that implementation work is correct before reporting completion",
       "modelHint": "'inherit'",
       "defaultEnabled": false,
       "feature_flags": [

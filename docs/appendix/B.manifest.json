@@ -814,6 +814,26 @@
     "top_level_directories": 86,
     "top_level_files": 15,
     "total_top_level": 101,
-    "runtime_referenced_in_commands_ts": 3
+    "static_imported_in_commands_ts": 92,
+    "dynamically_required_in_commands_ts": 16,
+    "dynamically_required_only": [
+      "agents-platform",
+      "assistant",
+      "bridge",
+      "brief",
+      "buddy",
+      "force-snip",
+      "fork",
+      "peers",
+      "proactive",
+      "remote-setup",
+      "remoteControlServer",
+      "subscribe-pr",
+      "torch",
+      "ultraplan",
+      "voice",
+      "workflows"
+    ],
+    "dirs_not_referenced_in_commands_ts": []
   }
 }

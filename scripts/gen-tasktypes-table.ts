@@ -126,6 +126,8 @@ const md = [
   `# 附录 E · TaskType 谱系`,
   ``,
   `> 生成脚本：\`scripts/gen-tasktypes-table.ts\`；source_commit: \`${sourceCommit}\``,
+  `>`,
+  `> 详细叙事：见 [第 16 章 · 任务模型与 TaskType 谱系](../16-任务模型与TaskType谱系.md)。本附录是速查表，C16 是叙事。`,
   ``,
   `wire 字面量合计 ${wireTypes.length} 个 = ${manifest.counts.default_registered} 默认注册 + ${manifest.counts.feature_gated} feature-gated + ${manifest.counts.in_process} in-process 特例。`,
   ``,

@@ -52,37 +52,34 @@ const allToolMentions = new Set<string>();
 let m: RegExpExecArray | null;
 while ((m = toolNameRe.exec(toolsTs)) !== null) allToolMentions.add(m[1]);
 
-// 识别 feature-gated 工具：扫描 tools.ts 中的"条件 require"块。
-// 用按 `const NAME =` 起的语句切片，再判断该语句中是否同时含 (gate, require, ToolName)。
-// 同时记录该语句在 tools.ts 中的起止行号，用于生成 path:line-line。
+// 识别 feature-gated 工具：扫描 tools.ts 中所有 `require('./tools/<Dir>/<File>.js').XxxTool`，
+// 并判断该 require 的语句段内是否含 gate 关键字 (`feature(...)`、`process.env.*`、
+// `getFeatureValue_*`)。同时记录该语句在 tools.ts 中的起止行号。
 type GateInfo = { start: number; end: number };
 const featureGatedNames = new Map<string, GateInfo>();
 {
-  // 按 `^const NAME =` 切片，但保留每片在原文中的起始字符偏移以便算行号。
-  const splitRe = /^(?=const\s+[A-Za-z])/m;
-  // RegExp.split 丢偏移，所以手工扫一次。
+  // 切片：以行首 `const NAME =` 为段起点（覆盖 `const X = feature(...) ? require(...).Y : null`
+  // 及 `const xs = feature(...) ? [require(...).A, require(...).B] : []` 两种形态）。
   const heads: number[] = [];
   const lineHeadRe = /^const\s+[A-Za-z]/gm;
   let mm: RegExpExecArray | null;
   while ((mm = lineHeadRe.exec(toolsTs)) !== null) heads.push(mm.index);
   heads.push(toolsTs.length);
-  const gateRe = /feature\(|process\.env\.|getFeatureValue_/;
-  const reqToolRe = /([A-Z][A-Za-z0-9]+Tool)/g;
+  const gateRe = /\bfeature\(|\bprocess\.env\.|\bgetFeatureValue_/;
+  // require('./tools/<dir>/<file>.js').XxxTool —— 直接捕获工具名（属性访问位置）。
+  const reqToolRe =
+    /require\(\s*['"]\.\/tools\/[^'"]+['"]\s*\)\s*\.\s*([A-Z][A-Za-z0-9]+Tool)\b/g;
   for (let i = 0; i < heads.length - 1; i++) {
     const seg = toolsTs.slice(heads[i], heads[i + 1]);
     if (!gateRe.test(seg)) continue;
     const startLine = toolsTs.slice(0, heads[i]).split("\n").length;
-    // 段末（去掉尾随空行）
     const segTrim = seg.replace(/\s*$/, "");
     const endLine =
       toolsTs.slice(0, heads[i] + segTrim.length).split("\n").length;
     let tm: RegExpExecArray | null;
+    reqToolRe.lastIndex = 0;
     while ((tm = reqToolRe.exec(seg)) !== null) {
-      // 仅记录 require(...).XxxTool 形态；避免把变量名（const FooTool = ...）当工具。
-      const around = seg.slice(Math.max(0, tm.index - 30), tm.index);
-      if (/require\(['"][^'"]+['"]\)\.$/.test(around)) {
-        featureGatedNames.set(tm[1], { start: startLine, end: endLine });
-      }
+      featureGatedNames.set(tm[1], { start: startLine, end: endLine });
     }
   }
 }

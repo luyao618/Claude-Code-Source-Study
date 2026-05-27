@@ -205,11 +205,15 @@ const md = [
       `| \`${d}/\` | ${dirToChapters[d].length ? dirToChapters[d].join(", ") : "—（孤儿或入白名单）"} |`,
   ),
   ``,
-  `## 孤儿目录`,
+  `## 孤儿目录与白名单`,
   ``,
   orphans.length === 0
-    ? `当前 commit 下无孤儿目录（白名单：${allowlist.size} 项）。`
+    ? `当前 commit 下无未覆盖孤儿目录。`
     : `孤儿目录 ${orphans.length} 个：${orphans.map((d) => `\`${d}/\``).join(", ")}`,
+  ``,
+  `白名单（\`scripts/orphan-allowlist.txt\`）共 ${allowlist.size} 项：${Array.from(allowlist).sort().map((d) => `\`${d}/\``).join(", ")}。`,
+  ``,
+  `> 说明：白名单中的目录被显式声明为"不单独成章"，但其中部分（如 \`utils/\`、\`context/\`）仍会被多个章节的叙事覆盖——因此反查表里它们的"覆盖章节"列**不为空**、也**不显示** \`—\`。"—" 仅出现在既未被任何章节覆盖、且不在白名单内的目录上（当前为 0）。`,
   ``,
 ].join("\n");
 

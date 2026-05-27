@@ -1,6 +1,8 @@
 # 附录 E · TaskType 谱系
 
 > 生成脚本：`scripts/gen-tasktypes-table.ts`；source_commit: `290fdc9481a70612bc5823aa4ed225c52c52aad3`
+>
+> 详细叙事：见 [第 16 章 · 任务模型与 TaskType 谱系](../16-任务模型与TaskType谱系.md)。本附录是速查表，C16 是叙事。
 
 wire 字面量合计 7 个 = 4 默认注册 + 2 feature-gated + 1 in-process 特例。
 

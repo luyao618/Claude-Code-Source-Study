@@ -228,7 +228,7 @@ export const DIR_EXISTS_GUIDANCE =
 
 ### 2.6 Team Memory —— 把私有记忆同步给整支团队
 
-私有 Auto Memory 解决了"自己跨会话记住事情"，但团队协作还需要"全员共享同一套约定"。Claude Code 把这件事单独建在 `services/teamMemorySync/` 下（4 个文件：`index.ts` 1256 行 + `watcher.ts` 387 行 + `secretScanner.ts` 324 行 + `types.ts` 156 行），整体走 feature gate `tengu_herring_clock` + `feature('TEAMMEM')`。
+私有 Auto Memory 解决了"自己跨会话记住事情"，但团队协作还需要"全员共享同一套约定"。Claude Code 把这件事单独建在 `services/teamMemorySync/` 下（5 个文件：`index.ts` 1256 行 + `watcher.ts` 387 行 + `secretScanner.ts` 324 行 + `types.ts` 156 行 + `teamMemSecretGuard.ts` 44 行），整体走 feature gate `tengu_herring_clock` + `feature('TEAMMEM')`。
 
 team 目录是 auto 目录的子目录（`memdir/teamMemPaths.ts:84-86`）：
 
@@ -256,6 +256,8 @@ PUT  /api/claude_code/team_memory?repo={owner/repo}             → 增量 upser
 `watcher.ts` 用 `fs.watch` 监听 team 目录，写入触发 2 秒 debounce 后 push（`watcher.ts:35`）。它还维护一条 `pushSuppressedReason` 闸 —— 一旦遇到 `no_oauth` / `no_repo` 或 4xx 永久错误（409、429 不算）就熄火，避免另一个会话给共享目录写文件触发我这边的 watcher、然后我无限重试。注释里给出的事实是："Mar 14-16 一个 no_oauth 设备在 2.5 天内发了 167K 个 push event"（`watcher.ts:45-51`），这条闸就是那次事故复盘的产物。
 
 push 之前还要过一层秘密扫描（`secretScanner.ts` 324 行）—— OpenAI key、AWS key、GitHub PAT 等命中模式的文件会被跳过并以 `SkippedSecretFile` 形式返回。团队记忆里夹带的密钥比私有记忆里夹带的更危险，因为前者会被分发给每一位组织成员。
+
+但 push 阶段的扫描只是最后一道闸：等到 watcher 攒满 debounce 才发现密钥，文件已经落盘了，进程崩溃或重启都可能让那一份明文落到 git working tree 里。`teamMemSecretGuard.ts:15-44` 把这道防线前移到**写入前**——`checkTeamMemSecrets()` 由 FileWriteTool / FileEditTool 的 `validateInput` 同步调用，先用 `isTeamMemPath()` 判断目标路径，再跑 `scanForSecrets()`，命中则直接返回带 label 的错误字符串，工具调用根本不会执行。整层逻辑包在 `feature('TEAMMEM')` 之内，build flag 关闭时函数立即返回 `null`，调用方无需自己再加门控。
 
 ---
 
@@ -708,13 +710,13 @@ export type HistoryPage = {
 
 `fetchLatestEvents()` 用 `anchor_to_latest=true` 拿最新一页，`fetchOlderEvents()` 用 `before_id` 游标向更早翻页（`sessionHistory.ts:73-87`）。一页 100 条事件，所有请求带一个 15 秒超时和 `validateStatus: () => true`，把 HTTP 错误降级成"返回 null"而不是抛异常 —— 历史拉取失败不应该把 REPL 弄崩，最坏情况退化成"看不到更早的历史"。
 
-它还携带一个有趣的 beta header（`sessionHistory.ts:39`）：
+它还携带一个固定的 beta header（`sessionHistory.ts:39`）：
 
 ```typescript
 'anthropic-beta': 'ccr-byoc-2025-07-29',
 ```
 
-`ccr-byoc` 是 "Claude Code Resume — Bring Your Own Credentials" 的缩写：会话事件由用户自己的 OAuth token 持有，服务端不替企业账户保管。这条 header 是开关，没有它服务端不会返回事件 payload。
+同一个 `ccr-byoc-2025-07-29` 在 `utils/teleport/api.ts:19` 被提升为常量 `CCR_BYOC_BETA`，并在 `bridge/createSession.ts`、`bridge/remoteBridgeCore.ts`、`utils/teleport.tsx`、`commands/remote-setup/api.ts` 等所有走云端 session 的请求里被一致使用——可以把它理解成"这条请求属于远端 Resume 这一族 API"的标签。源码层面对这条 header 的具体语义没有额外注释，行为细节以服务端契约为准，本节不展开。
 
 这块模块和前几节的记忆系统不属于同一类 —— 前者是"AI 自主写、自主读"，后者是"对话事件流的服务端回放"。但它们共同回答了同一个问题："这场会话开始之前，AI 知道些什么？" memdir 给出的是跨会话的语义沉淀，sessionHistory 给出的是当前 session 续接前的逐条事件。在 Resume Conversation 屏里，两者会同时被拉起 —— memdir 走 `loadMemoryPrompt()` 进入 System Prompt，sessionHistory 分页把历史 SDK 消息塞回 messages 数组，然后 query loop 才开始第一轮。
 

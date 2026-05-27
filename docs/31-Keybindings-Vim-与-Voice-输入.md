@@ -24,14 +24,14 @@
 
 ### 18 个上下文与一张默认绑定表
 
-`keybindings/schema.ts` 顶部 `KEYBINDING_CONTEXTS` 定义了 18 个上下文名（`schema.ts:12-32`）：`Global`、`Chat`、`Vim`、`VimNormal`、`VimInsert`、`Voice`、`OutputStyleMenu`、`AgentMenu`、`ToolPanel`、`Bash`、`Memory`、`Diff`、`Mention`、`Help`、`PasteWarning`、`Permissions`、`Prompt`、`StatusBar`。每一个上下文都是聊天界面里一个"此刻你站在哪儿"的子状态：你站在聊天框输入文本，是 `Chat`；你打开了某个工具卡的折叠面板，是 `ToolPanel`；你切到了 Vim NORMAL，是 `VimNormal`。同一个键在两个上下文里同时被绑定时，谁赢？这一节后面会展开。
+`keybindings/schema.ts` 顶部 `KEYBINDING_CONTEXTS` 定义了 18 个上下文名（`schema.ts:12-32`）：`Global`、`Chat`、`Autocomplete`、`Confirmation`、`Help`、`Transcript`、`HistorySearch`、`Task`、`ThemePicker`、`Settings`、`Tabs`、`Attachments`、`Footer`、`MessageSelector`、`DiffDialog`、`ModelPicker`、`Select`、`Plugin`。每一个上下文都是聊天界面里一个"此刻你站在哪儿"的子状态：你站在聊天框输入文本，是 `Chat`；自动补全菜单弹出来，是 `Autocomplete`；某个权限确认弹窗站在最前面，是 `Confirmation`。同一个键在两个上下文里同时被绑定时，谁赢？这一节后面会展开。
 
-`KEYBINDING_ACTIONS` 在同一个文件里枚举了 70+ 个动作标识符（`schema.ts:64-172`），从最简单的 `quit:exit` / `chat:cancel`，到 `vim:enterNormal` / `vim:enterInsert`，再到 `voice:pushToTalk`、`memory:open`、`mention:trigger`。每一个动作 ID 都是一个字符串，配上 zod 校验的 `KeybindingBlockSchema` / `KeybindingsSchema`（`schema.ts:177-229`）。zod 是为了 user override 服务的——用户写在 settings 里的 JSON 进来之前必须先过这一道 schema，否则一个手滑的拼写就会让 REPL 抛出难以追踪的 runtime 错误。
+`KEYBINDING_ACTIONS` 在同一个文件里枚举了一长串动作标识符（`schema.ts:64-172`），从最简单的 `app:exit` / `chat:cancel`，到 `chat:cycleMode` / `chat:modelPicker`，再到 `voice:pushToTalk`、`history:search`、`autocomplete:accept`。每一个动作 ID 都是一个字符串，配上 zod 校验的 `KeybindingBlockSchema` / `KeybindingsSchema`（`schema.ts:177-229`）。zod 是为了 user override 服务的——用户写在 settings 里的 JSON 进来之前必须先过这一道 schema，否则一个手滑的拼写就会让 REPL 抛出难以追踪的 runtime 错误。
 
 默认绑定表在 `keybindings/defaultBindings.ts`。这个文件有意把"默认是什么键"和"动作是什么"放在一处，不像有些项目把默认散在十几个 `useInput(...)` 里。读起来你能很快把握住"Claude Code 想给你的按键体验"的全貌。几个跨平台细节值得点名：
 
 - `IMAGE_PASTE_KEY`（`defaultBindings.ts:15`）在 Windows 上是 `alt+v`，其他平台是 `ctrl+v`。理由是 Windows 终端会吃掉 Ctrl+V 的剪贴板粘贴，原生 `ctrl+v` 给不到 Ink 层；
-- `MODE_CYCLE_KEY`（`defaultBindings.ts:30`）在 macOS 上是 `meta+m`，其他平台是 `shift+tab`。理由是部分终端把 `shift+tab` 吃掉给 tmux / iTerm 自己用了，macOS 走 `meta+m` 更稳；
+- `MODE_CYCLE_KEY`（`defaultBindings.ts:27-30`）走 `shift+tab`，唯一例外是 Windows 上没有 VT 模式支持的运行时（旧版 Node / Bun）——这时退回到 `meta+m`，因为旧 Windows Terminal 在非 VT 模式下吃掉了 `shift+tab` 这类纯修饰键 chord；
 - Chat 上下文里两个 undo 键并列绑同一个动作（`ctrl+_` 和 `ctrl+shift+-`），原因是不同终端对"下划线"键的实际报码不一致；
 - 外部编辑器是一个真正的 chord：`ctrl+x ctrl+e`，必须先按 `Ctrl+X` 再按 `Ctrl+E`；
 - 推到说话键 `space`（Chat 上下文里）绑到 `voice:pushToTalk`，并且**只在 `feature('VOICE_MODE')` 为 true 时**生效——见 `defaultBindings.ts:63-98` 的 Chat 块结构。
@@ -77,14 +77,16 @@ if (key === 'escape' && inkMods.meta) {
 
 `keybindings/resolver.ts` 是真正负责"按下这一个键，匹配到哪个动作"的地方。这里同时维护两条路径。
 
-单按键的解析在 `resolveKey`（`resolver.ts:32-61`）：传入当前激活的上下文列表、用户合成绑定后的全表，输出当前这一下按键应该派给哪个动作（或者 unbound）。规则简单：按上下文优先级从高到低逐一查表，遇到第一个非 unbound 的就返回。`Global` 永远在最低优先级——也就是说在任何具体上下文里都可以"覆盖" Global 的绑定。
+单按键的解析在 `resolveKey`（`resolver.ts:32-61`）：传入当前激活的上下文列表、用户合成绑定后的全表，输出当前这一下按键应该派给哪个动作（或者 unbound）。规则简单：先用 `new Set(activeContexts)` 把激活上下文做成集合，按这个集合过滤 `bindings`，然后在过滤后的有序数组里按出现顺序找精确匹配——last-wins。也就是说\"谁排在后面谁赢\"，并不存在一个按上下文优先级排序的查表过程。`Global` 上下文的绑定永远出现在 `DEFAULT_BINDINGS` 的最前面，所以一旦后面有任何具体上下文绑定了同一个键，那条具体绑定就会盖过 `Global`。
 
-chord 的解析在 `resolveKeyWithChordState`（`resolver.ts:166-244`）。chord 之所以复杂，是因为它有一个中间态："已经按了 chord 的第一个键，正在等第二个键"。这个中间态被存在一个 `pendingChord` 里。解析步骤大致是：
+chord 的解析在 `resolveKeyWithChordState`（`resolver.ts:166-244`）。chord 之所以复杂，是因为它有一个中间态：\"已经按了 chord 的第一个键，正在等第二个键\"。这个中间态被存在一个 `pendingChord` 里。解析步骤大致是：
 
-1. 看当前按键是不是某个已知 chord 的第一个键。如果是，就把它存进 `pendingChord`，并返回一个 `chord_started` 状态——上层 UI 会借此显示一个"等待第二键"的提示；
-2. 如果当前已经有 `pendingChord`，就用 `pendingChord + 当前键` 组成一个完整 chord，去匹配；匹配上了就返回这个动作；匹配不上就把 `pendingChord` 清掉，再退回到单按键路径试一次。
+1. 先把当前 keystroke 拼到 `pending` 后面，得到 `testChord`；
+2. 在按激活上下文过滤后的 `bindings` 里收集所有以 `testChord` 为前缀的更长 chord，存进 `chordWinners` 这张 Map（`resolver.ts:196-208`）。这张 Map 按 chord 字符串去重，保留 last-wins 的结果——只是为了让用户在低优先级里 `null`-解绑一个 chord 后，高优先级里同名的更长 chord 不会再让前缀进入 \"等第二键\" 状态；
+3. 只要还有任何一条更长 chord（`action` 非 null）等着，就返回 `chord_started`；
+4. 否则在过滤后的 `bindings` 里找完整匹配，再走 last-wins 取胜者。匹配上了就返回这个动作，匹配不上就把 `pendingChord` 清掉。
 
-chord 的一个细节是优先级冲突。同一个键序列在两个上下文里都被 chord 绑定时，怎么决定哪个赢？这里靠的是 `chordWinners` 这张 Map（`resolver.ts:200-208`），它按上下文优先级把候选 chord 收集好，最后只挑优先级最高的那一个胜出。再加上 `keystrokesEqual`（`resolver.ts:107-118`）做按键比较时仍然走"alt 等同 meta"的折叠，整套 chord 体系对用户来说就只是"我先按这个再按那个"——背后那一坨歧义处理用户感知不到。
+chord 体系里并不存在一个\"按上下文优先级收集 chordWinners 的胜者\"的额外通路。所有优先级语义都已经折叠成同一件事：bindings 数组里靠后的条目盖过靠前的条目；高优先级上下文的绑定通过 last-wins 自然胜过低优先级上下文。
 
 ### 上下文叠加与回退：useKeybinding 的 false 协议
 
@@ -94,7 +96,7 @@ chord 的一个细节是优先级冲突。同一个键序列在两个上下文�
 
 第一个是上下文叠加（`useKeybinding.ts:54-60`）。任何时刻"激活上下文"不只是组件自己声明的那一个，而是 `[...activeContexts, this, 'Global']` 这一串。也就是说：你站在 `VimNormal` 里输入，激活的不只是 `VimNormal`，还有 `Vim`、`Chat`、`Global`——按优先级从高到低排好，按键到来时按这个顺序找第一个匹配。
 
-第二个是 handler 返回值的"false 协议"（`useKeybinding.ts:68-72`）。一个动作 handler 如果返回 `false`，框架不会把这次按键当成"已消费"，而是继续往下找别的 handler。这给了组件一个"我条件性地接管这次按键"的能力——比如某个面板只在自己有内容时才响应 `escape`，没内容就把 `escape` 让给下层面板处理。没有这条规则，上下文叠加只能"全有或全无"，没法做条件接管。
+第二个是 handler 返回值的"false 协议"（`useKeybinding.ts:68-71`）。`useKeybinding` 在匹配到自己注册的那条 action 之后，会先调一次 handler；如果 handler 返回 `false`，框架就**不会**调 `event.stopImmediatePropagation()`，于是这次 Ink 输入事件还会继续派发给后续注册的 useInput / useKeybinding，由它们再尝试匹配。注意这里 framework 并不会在 `resolve` 内部继续找下一条 binding——`false` 控制的是"事件传播"，不是"继续找下一条"。给到调用方的语义是"我条件性地接管这次按键"——比如某个面板只在自己有内容时才响应 `escape`，没内容就把 `escape` 让给下面继续注册的 handler。`useKeybindings`（多条 action 版本）走的是同一套约定，handler 返回 `false` 同样仅控制 propagation。
 
 匹配成功后，框架会主动调 `event.stopImmediatePropagation()`，避免同一次 Ink 事件被其他 useInput 重复处理。chord 进入"等待第二键"状态时也会 stop——这一点很关键，否则你按完第一个键，那个键还会被当成普通字符落到聊天框里。
 
@@ -135,7 +137,7 @@ chord 的一个细节是优先级冲突。同一个键序列在两个上下文�
 
 之所以全部用 ref 不用 state，是因为按键派发必须在**同一次 React 渲染帧内**就完成——如果走 state，你按下键、setState、下一帧才能响应，已经到了"按下回车都要等 16ms"的地步。
 
-`invokeAction` 函数还做了一件事：当一个动作被多个上下文同时挂了 handler 时，按 `activeContexts` 的优先级从高到低逐个调，遇到第一个不返回 `false` 的就停下。这与单按键解析阶段的优先级是同一套语义，但发生在"动作派发"层而不是"按键匹配"层——前者解决"按键匹配到哪个动作"，后者解决"这个动作此刻交给谁来处理"。
+`invokeAction`（`KeybindingContext.tsx:119-123`）按 `handlerRegistryRef` 里同一个 action 下的注册顺序遍历 handler，遇到第一个其 `context` 在当前 `activeContexts` 集合里的就调用它，然后立刻返回 `true`。它不消费 handler 的返回值，也不再继续往后看——\"falsy 时继续找下一条\"那一套是 `useKeybinding` 在 propagation 层面做的事，跟 `invokeAction` 无关。这条路径主要服务于通过 `ChordInterceptor` 直接派发 action ID（而不是从原始 keystroke 走 resolver）的场景。
 
 ## 二、Vim：把 11 种状态串成一台编辑器
 
@@ -176,7 +178,7 @@ vim 允许 `9999dd` 这种"一次性"操作，但不能让用户敲一长串 `9`
 
 `vim/types.ts:92-119` 定义了 `RecordedChange` 这个 discriminated union，列出了所有可重放的修改类型：`operator` / `operatorFind` / `operatorTextObj` / `x` / `replace` / `toggleCase` / `join` / `indent` / `openLine` 等。每一个具体的 operator 函数在结尾都会调一次 `ctx.recordChange({ ... })`（如 `operators.ts:53`、`operators.ts:74`、`operators.ts:96`），把刚执行完的这次操作压到一个 ref 里。
 
-按下 `.` 时，`fromIdle` 通过 `handleNormalInput` 走到 `'.'` 分支，调 `ctx.onDotRepeat?.()`（`transitions.ts:159-161`）。上层钩子 `hooks/useVimInput.ts:109-173` 的 `replayLastChange` 读出最近的 `RecordedChange`，按 type 派回对应的 execute 函数。除了纯文本输入（INSERT 模式里敲下的字符没有被记入 RecordedChange，因为重放它需要回放整段输入，这是另一种实现），所有 NORMAL 模式下的修改都能被 `.` 复现。
+按下 `.` 时，`fromIdle` 通过 `handleNormalInput` 走到 `'.'` 分支，调 `ctx.onDotRepeat?.()`（`transitions.ts:159-161`）。上层钩子 `hooks/useVimInput.ts:109-173` 的 `replayLastChange` 读出最近的 `RecordedChange`，按 type 派回对应的 execute 函数。INSERT 模式下敲入的字符并不是逐键写入 `RecordedChange`，而是在 `switchToNormalMode` 里整段提交一次：退出 INSERT 时把这段时间累积的 `insertedText` 打包成 `{ type: 'insert', text }`（`hooks/useVimInput.ts:61-68`），随后 `.` 重放时 `replayLastChange` 命中 `'insert'` 分支，再调用 `cursor.insert(change.text)` 把整段插入回放出来（`:117-122`）。所有 NORMAL 模式下的修改加上这一段 INSERT 序列，都能被 `.` 复现。
 
 ### Escape 没走 Keybindings？
 
@@ -244,7 +246,7 @@ WebSocket 走 `/api/ws/speech_to_text/voice_stream` 这个 path（`voiceStreamST
 - **心跳**：每 `KEEPALIVE_INTERVAL_MS = 8000` 毫秒（`voiceStreamSTT.ts:38`）发一条 ping，让中间件不要把空闲连接关掉；
 - **finalize 计时器**：分两条，第一条 `noData: 1500` 毫秒（`voiceStreamSTT.ts:44-47`）——如果连续 1.5 秒没有新的 PCM 进来，就主动发 finalize 让服务端把当前帧的识别结果收尾返回；第二条 `safety: 5000` 毫秒——用户按完松开后无论如何 5 秒兜底 finalize 一次，避免某些边界场景下 noData 没触发就把会话挂着。
 
-`FinalizeSource` 是个 union（`voiceStreamSTT.ts:60-65`），列出 finalize 的四种触发源：`user`（用户主动结束）、`silence`（静音超时）、`safety`（5 秒兜底）、`error`（错误兜底）。这个 union 主要是 telemetry 用——后端关心的是"这条会话是怎么收尾的"，三种正常 + 一种异常，分桶上报。
+`FinalizeSource` 是个 union（`voiceStreamSTT.ts:60-65`），列出 finalize 的五种结算源：`post_closestream_endpoint`（CloseStream 之后服务端给出了 endpoint 包，正常收尾）、`no_data_timeout`（CloseStream 后服务端零回包，silent-drop 兜底）、`safety_timeout`（兜底 5 秒兜底）、`ws_close`（WebSocket 主动关闭时落定）、`ws_already_closed`（finalize 调用时连接已经关掉）。这个 union 主要是 telemetry 用——后端关心的是\"这条会话是怎么收尾的\"，按这五种分桶上报，silent-drop 的指纹（`no_data_timeout`）单独成桶以便追踪。
 
 服务端的语言模型可以选。Deepgram 默认走 Nova 2，灰度阶段引入了 Nova 3——由 `tengu_cobalt_frost` 这个特性开关（`voiceStreamSTT.ts:157-165`）决定。同一段音频在两个模型上识别准确度可以差 5%，但 Nova 3 服务端成本更高，所以走 ramp。
 
@@ -272,9 +274,9 @@ UI 反馈侧还有一个细节：录音时 status bar 会显示一个音量电�
 
 ### 20 种语言与 fallback 到英文
 
-Voice 支持 20 种 BCP-47 语言代码（`useVoice.ts:93-114`）：英文有 `en-US` / `en-GB` / `en-AU` 等四档，中文有 `zh-CN` / `zh-TW` 两档，再加日韩法德西意葡俄等 14 档。
+Voice 支持 20 个语言 base code（`hooks/useVoice.ts:93-114`，`SUPPORTED_LANGUAGE_CODES`）：`en`、`es`、`fr`、`ja`、`de`、`pt`、`it`、`ko`、`hi`、`id`、`ru`、`pl`、`tr`、`nl`、`uk`、`el`、`cs`、`da`、`sv`、`no`。这一层是 GrowthBook `speech_to_text_voice_stream_config` 允许列表的子集——发送一个不在 allowlist 里的代码，服务端会直接关连接。注意这里**没有**区域变体（`en-US` / `en-GB`）也**没有**中文（`zh-CN` / `zh-TW`）；要识别的是 base code 这一层。
 
-`normalizeLanguageForSTT`（`useVoice.ts:121-134`）做的是把用户在系统里设置的语言代码映射到 STT 服务能理解的代码：完全匹配的直接走、只匹配前缀的（比如系统设了 `en-NZ` 但 STT 不支持）走前缀对应的"主要"变种、都不匹配的兜底到 `en`。兜底到英文不是傲慢，是 Deepgram 在英文上准确率最高、且英文 fallback 之后用户至少能知道"这里说了一段不识别的话"，不至于完全没有反馈。
+`normalizeLanguageForSTT`（`useVoice.ts:121-134`）做的是把用户在系统里设置的语言代码映射到 STT 服务能理解的代码：完全匹配的（lowercase + trim 之后）直接走、不在 allowlist 但 `LANGUAGE_NAME_TO_CODE` 里有名字映射的走那条、再不济按 `-` 切出 base 子串去查 allowlist（`en-NZ` → `en`），都不命中就兜底到 `DEFAULT_STT_LANGUAGE`，同时把原始输入挂在 `fellBackFrom` 上让上层提示用户。兜底到英文不是傲慢，是 Deepgram 在英文上准确率最高、且英文 fallback 之后用户至少能知道\"这里说了一段不识别的话\"，不至于完全没有反馈。
 
 ## 把三段串起来：为什么"输入层"值得作为一篇？
 
@@ -289,3 +291,83 @@ Voice 支持 20 种 BCP-47 语言代码（`useVoice.ts:93-114`）：英文有 `e
 也正是因为这层语义解释在三处分别独立实现，导致了一些有趣的协作问题：Voice 的 `space` 绑定走 Keybindings 注册；Vim 的 Escape 故意不走 Keybindings 而是写在 `useVimInput.ts` 里；Vim 状态机激活时整批按键被"吞"掉不进 Keybindings——这些都是子系统边界处的妥协。读懂这些妥协，比读懂任何单个状态机都更接近 Claude Code 输入层的真实形态。
 
 下一篇 C29 转到 Buddy 人格——一个走另一条路、也挂在 Ink 之上、但解决的问题完全不同的子系统：用户写的小角色文件如何被解析、加载、用进 system prompt。
+
+---
+
+## 附：本章源码引用清单
+
+以下是本章所触及的所有主入口锚点。正文里每一个目录 / 文件至少被引用一次；本清单按目录列出，供查阅时回链。
+
+### `keybindings/`（14 文件）
+
+- `keybindings/schema.ts:12-32` —— `KEYBINDING_CONTEXTS`，18 个上下文枚举
+- `keybindings/schema.ts:64-172` —— `KEYBINDING_ACTIONS`
+- `keybindings/schema.ts:177-229` —— `KeybindingBlockSchema` / `KeybindingsSchema`
+- `keybindings/defaultBindings.ts:15` —— `IMAGE_PASTE_KEY`
+- `keybindings/defaultBindings.ts:27-30` —— `MODE_CYCLE_KEY` 与 VT 模式判定
+- `keybindings/defaultBindings.ts:63-98` —— Chat 上下文默认绑定 + Voice 入口
+- `keybindings/parser.ts:25-46` —— 修饰键别名
+- `keybindings/parser.ts:80-84` —— chord 解析
+- `keybindings/parser.ts:157-176` —— `keystrokeToDisplayString`
+- `keybindings/match.ts:60-79` —— `modifiersMatch`（alt/meta 折叠）
+- `keybindings/match.ts:96-102` —— Escape 假 meta 清除
+- `keybindings/resolver.ts:32-61` —— `resolveKey` 单按键解析
+- `keybindings/resolver.ts:107-118` —— `keystrokesEqual`
+- `keybindings/resolver.ts:166-244` —— `resolveKeyWithChordState`
+- `keybindings/resolver.ts:192-228` —— active-context 过滤 + last-wins
+- `keybindings/useKeybinding.ts:54-60` —— 上下文叠加
+- `keybindings/useKeybinding.ts:68-71` —— `false` 仅控制 propagation
+- `keybindings/KeybindingContext.tsx:119-123` —— `invokeAction`
+- `keybindings/reservedShortcuts.ts` —— `NON_REBINDABLE` / `TERMINAL_RESERVED` / `MACOS_RESERVED` + `normalizeKeyForComparison`
+- `keybindings/loadUserBindings.ts:41-46` —— `isKeybindingCustomizationEnabled` 特性闸 + watcher / 节流
+
+### `vim/`
+
+- `vim/types.ts:49-51` —— `VimState`（INSERT / NORMAL）
+- `vim/types.ts:59-75` —— 11 个 `CommandState` 变体
+- `vim/types.ts:92-119` —— `RecordedChange`
+- `vim/types.ts:182` —— `MAX_VIM_COUNT`
+- `vim/transitions.ts:59-87` —— `transition` 派发表
+- `vim/transitions.ts:159-161` —— `.` 触发 `onDotRepeat`
+- `vim/transitions.ts:272` / `:322` —— count 截断
+- `vim/transitions.ts:289-291` —— `dd` / `cc` / `yy` 整行分支
+- `vim/transitions.ts:326-327` —— `count * motionCount`
+- `vim/transitions.ts:398-416` —— `g` / `5gg`
+- `vim/motions.ts` —— `SIMPLE_MOTIONS` / `FIND_KEYS` / `resolveMotion`
+- `vim/operators.ts:42-54` / `:53` / `:74` / `:96` —— `executeOperatorMotion` 与 `recordChange`
+- `vim/textObjects.ts` —— `findTextObject` / `TEXT_OBJ_TYPES`
+
+### `voice/` 与 `services/voice*`
+
+- `voice/voiceModeEnabled.ts:16-23` —— `isVoiceGrowthBookEnabled`
+- `voice/voiceModeEnabled.ts:32-44` —— `hasVoiceAuth`
+- `voice/voiceModeEnabled.ts:52-54` —— `isVoiceModeEnabled`
+- `services/voice.ts:24-36` —— `loadAudioNapi` lazy dlopen
+- `services/voice.ts:40-45` —— 采样率 / 通道 / 静音参数
+- `services/voice.ts:75-118` —— `probeArecord` 150ms race
+- `services/voice.ts:130-139` —— `linuxHasAlsaCards`
+- `services/voice.ts:335-396` —— `startRecording` 三档回落
+- `services/voiceStreamSTT.ts:36` —— `/api/ws/speech_to_text/voice_stream` 路径
+- `services/voiceStreamSTT.ts:38` —— `KEEPALIVE_INTERVAL_MS`
+- `services/voiceStreamSTT.ts:44-47` —— `noData` / `safety` finalize 计时器
+- `services/voiceStreamSTT.ts:60-65` —— `FinalizeSource` 五分支
+- `services/voiceStreamSTT.ts:157-165` —— `tengu_cobalt_frost` Nova3 ramp
+
+### `hooks/`
+
+- `hooks/useVoice.ts:93-114` —— 20 个 base code allowlist
+- `hooks/useVoice.ts:121-134` —— `normalizeLanguageForSTT`
+- `hooks/useVoice.ts:160` / `:171-172` / `:177` / `:180` / `:185-197` —— 四条计时器 + 音量电平
+- `hooks/useVoiceEnabled.ts` —— `userIntent && authed && isVoiceGrowthBookEnabled()`，把 settings、鉴权、kill switch 合并成一个布尔
+- `hooks/useVimInput.ts:61-68` —— INSERT 离开时把 `insertedText` 打包成 `{type:'insert', text}`
+- `hooks/useVimInput.ts:109-173` —— `replayLastChange`
+- `hooks/useVimInput.ts:117-122` —— `.` 重放 INSERT 序列
+- `hooks/useVimInput.ts:189-195` —— Escape 直接写死在 `useInput` 回调
+- `hooks/useVimInput.ts:265-268` —— 方向键映射到 hjkl
+- `hooks/useVimInput.ts:269` —— Backspace 仅在等 motion 时映射到 `h`
+
+### `commands/{vim,voice,keybindings}/`
+
+- `commands/keybindings/index.ts` + `commands/keybindings/keybindings.ts` —— `/keybindings` slash 命令入口，负责打印 / 重置用户绑定
+- `commands/vim/index.ts` + `commands/vim/vim.ts` —— `/vim` slash 命令入口，切换 vim 模式持久化设置
+- `commands/voice/index.ts` + `commands/voice/voice.ts` —— `/voice` slash 命令入口，切换 `settings.voiceEnabled`（与 `hooks/useVoiceEnabled.ts` 配合生效）

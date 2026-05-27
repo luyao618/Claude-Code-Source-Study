@@ -35,7 +35,7 @@ import { feature } from 'bun:bundle';
 
 `feature()` 实现 DCE 的**核心约束**是：它必须保持 inline（内联在条件判断中），使 bundler 能在编译期对整个分支做常量折叠。源码注释明确写道：
 
-> `feature() must stay inline for build-time dead code elimination` — `cli.tsx:111`
+> `feature() must stay inline for build-time dead code elimination` — `cli.tsx:110`
 
 在这个约束下，`feature()` 可以搭配**两种**模块加载方式：
 
@@ -67,7 +67,7 @@ if (feature('DAEMON') && args[0] === '--daemon-worker') {
 这种模式在 `tools.ts` 中最为密集，因为工具注册是 feature flag 使用最集中的地方：
 
 ```typescript
-// tools.ts:29-53 — 连续的条件注册
+// tools.ts:29-42 — 连续的条件注册
 const cronTools = feature('AGENT_TRIGGERS')
   ? [
       require('./tools/ScheduleCronTool/CronCreateTool.js').CronCreateTool,
@@ -349,9 +349,9 @@ if (args.length === 1 && (args[0] === '--version' || args[0] === '-v' || args[0]
 两者可以组合使用：
 
 ```typescript
-// constants/system.ts:82
+// constants/system.ts:82,91
 const cch = feature('NATIVE_CLIENT_ATTESTATION') ? ' cch=00000;' : ''
-const header = `cc_version=${MACRO.VERSION}.${fingerprint}; cc_entrypoint=${entrypoint};${cch}`
+const header = `x-anthropic-billing-header: cc_version=${version}; cc_entrypoint=${entrypoint};${cch}${workloadPair}`
 ```
 
 这行代码同时使用了 `feature()` 决定是否包含客户端认证标记，和 `MACRO.VERSION` 注入版本号。
@@ -480,7 +480,7 @@ const GROWTHBOOK_REFRESH_INTERVAL_MS =
 GrowthBook 的 A/B 测试需要记录用户被分配到了哪个实验组。Claude Code 的实现有一个精巧的延迟曝光机制：
 
 ```typescript
-// services/analytics/growthbook.ts:83-88
+// services/analytics/growthbook.ts:84,89
 // Track features accessed before init that need exposure logging
 const pendingExposures = new Set<string>()
 
@@ -495,7 +495,7 @@ const loggedExposures = new Set<string>()
 GrowthBook 被广泛用于控制各种运行时行为。以几个典型场景为例：
 
 ```typescript
-// utils/toolSchemaCache.ts:7-8 — 问题说明
+// utils/toolSchemaCache.ts:5-7 — 问题说明
 // GrowthBook gate flips (tengu_tool_pear, tengu_fgts), MCP reconnects, or
 // dynamic content in tool.prompt() all cause this churn.
 ```
@@ -582,7 +582,7 @@ Feature Flag 最大的风险是 mid-session 翻转导致不一致状态。Claude
 ### 6.2 toolSchemaCache：Session 级工具 Schema 锁定
 
 ```typescript
-// utils/toolSchemaCache.ts:6-8
+// utils/toolSchemaCache.ts:5-8,18
 // GrowthBook gate flips (tengu_tool_pear, tengu_fgts), MCP reconnects,
 // or dynamic content in tool.prompt() all cause this churn. Memoizing
 // per-session locks the schema bytes at first render.

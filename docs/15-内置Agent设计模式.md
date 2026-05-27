@@ -13,7 +13,7 @@
 3. **prompt 精度** —— 越专注的角色定义，模型的行为越可预测
 4. **token 节约** —— 只读 Agent 不需要 CLAUDE.md 中的 commit/PR/lint 规则，省下 5-15 Gtok/周
 
-Claude Code 通过 6 个内置 Agent（General-purpose、Statusline-setup、Explore、Plan、Guide、Verification），展示了一套**角色化 prompt 设计模式** —— 同样的工具集合，通过不同的 System Prompt 约束，产生完全不同的行为。本章重点剖析其中 5 个设计最具代表性的 Agent（Statusline-setup 偏领域特化，仅在架构图中列出）。
+Claude Code 通过 6 个内置 Agent（General-purpose、Statusline-setup、Explore、Plan、Guide、Verification），展示了一套**角色化 prompt 设计模式** —— 同样的工具集合，通过不同的 System Prompt 约束，产生完全不同的行为。本章逐一剖析全部 6 个 Agent —— 其中 Explore/Plan/Verification/General-purpose/Guide 五个偏 prompt 工程，Statusline-setup 偏领域特化（一个专门改 `settings.json` 的小 Agent），放在 §2.6。
 
 ---
 
@@ -79,7 +79,7 @@ export function getBuiltInAgents(): AgentDefinition[] {
 
 ---
 
-## 二、五个内置 Agent 逐一解析
+## 二、六个内置 Agent 逐一解析
 
 ### 2.1 Explore Agent：只读搜索专家
 
@@ -419,6 +419,40 @@ export const CLAUDE_CODE_GUIDE_AGENT: BuiltInAgentDefinition = {
 1. **精确工具列表**（而非通配符）—— 只需要搜索和网络访问工具。需要注意的是，当 `hasEmbeddedSearchTools()` 为 true 时（Ant 内部构建将 find/grep 别名为嵌入式 bfs/ugrep），Glob/Grep 会被替换为 Bash + Read + WebFetch + WebSearch，即工具列表并非固定不变，而是根据构建环境适配
 2. **`dontAsk` 权限模式** —— Guide Agent 只做搜索和 fetch，不需要用户确认
 3. **动态 System Prompt** —— `getSystemPrompt` 接收 `toolUseContext` 参数，是所有内置 Agent 中唯一使用运行时上下文来构建 prompt 的
+
+### 2.6 Statusline-setup Agent：领域特化的小工
+
+**文件**：`tools/AgentTool/built-in/statuslineSetup.ts`
+
+Statusline-setup 是 6 个内置 Agent 中**最专一**的一个——它只做一件事：根据用户的 shell PS1 把 `~/.claude/settings.json` 的 `statusLine.command` 字段写好。它没有 READ-ONLY 约束，也没有对抗性 prompt，全部 System Prompt 是一份"领域操作手册"：
+
+```typescript
+// tools/AgentTool/built-in/statuslineSetup.ts:134-144
+export const STATUSLINE_SETUP_AGENT: BuiltInAgentDefinition = {
+  agentType: 'statusline-setup',
+  whenToUse:
+    "Use this agent to configure the user's Claude Code status line setting.",
+  tools: ['Read', 'Edit'],     // 仅 2 个工具：读 rc 文件 + 改 settings.json
+  source: 'built-in',
+  baseDir: 'built-in',
+  model: 'sonnet',             // 文本变换任务，sonnet 足够
+  color: 'orange',             // 橙色 UI 标识
+  getSystemPrompt: () => STATUSLINE_SYSTEM_PROMPT,
+}
+```
+
+**最小工具白名单**：只有 `Read` 和 `Edit`——它需要读 `~/.zshrc`/`~/.bashrc` 等 rc 文件取 PS1，然后用 Edit 改 `~/.claude/settings.json`。没有 Bash、没有 Write、没有 Glob——这意味着它**改不了任何 settings.json 之外的东西，也不能用 Bash 隐式执行命令**。这种白名单设计比任何 prompt 约束都更可靠。
+
+System Prompt 本身（`statuslineSetup.ts:3-132`，约 130 行）是一份高度领域化的指南：
+1. **rc 文件读取顺序**：`~/.zshrc` → `~/.bashrc` → `~/.bash_profile` → `~/.profile`
+2. **PS1 提取正则**：`/(?:^|\n)\s*(?:export\s+)?PS1\s*=\s*["']([^"']+)["']/m`
+3. **PS1 转义到 shell 命令的映射表**：`\u → $(whoami)`、`\h → $(hostname -s)`、`\w → $(pwd)`、`\t → $(date +%H:%M:%S)` 等 12 条
+4. **statusLine stdin JSON schema 完整描述**：包含 `session_id`、`model`、`workspace`、`context_window`、`rate_limits`、`vim`、`agent`、`worktree` 等字段，附带 `jq` 取值示例
+5. **常用配方**：context 剩余百分比、5h/7d rate limit 显示等
+
+最后一条 `IMPORTANT` 还会让 Agent 在结束时通知主 Agent："以后改 statusLine 必须再调本 Agent"——这是一种 prompt 层面的自我宣传，把"专人专办"的契约刻进对话历史。
+
+Statusline-setup 体现了**第 4 种工具约束模式**：当任务足够窄、副作用足够明确时，最有效的约束是把工具集裁到最小——不需要长篇 READ-ONLY 警告，也不需要对抗性 prompt，仅 `tools: ['Read', 'Edit']` 这一行就锁死了所有越界路径。
 
 ---
 

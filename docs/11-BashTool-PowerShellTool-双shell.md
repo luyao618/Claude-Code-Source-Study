@@ -265,43 +265,56 @@ type QuoteExtraction = {
 
 #### 2.3.4 安全检查清单
 
-`bashSecurity.ts:77-101` 定义了 23 种安全检查的数字标识符，每种对应一个检测器：
+`bashSecurity.ts:77-101` 定义了 **23 种**安全检查的数字标识符（使用数字 ID 而不是字符串，是为了避免把检查名一并写入遥测日志）。这里逐条列全，避免读者再回 grep：
 
 ```typescript
 const BASH_SECURITY_CHECK_IDS = {
-  INCOMPLETE_COMMANDS: 1,          // 不完整命令
-  JQ_SYSTEM_FUNCTION: 2,          // jq 的 system() 函数调用
-  OBFUSCATED_FLAGS: 4,            // 混淆的命令行标志
-  SHELL_METACHARACTERS: 5,        // Shell 元字符
-  DANGEROUS_VARIABLES: 6,         // 危险环境变量
-  NEWLINES: 7,                    // 命令中的换行符
-  IFS_INJECTION: 11,              // IFS 注入攻击
-  PROC_ENVIRON_ACCESS: 13,        // /proc 环境变量访问
-  MALFORMED_TOKEN_INJECTION: 14,  // 畸形 token 注入
-  BRACE_EXPANSION: 16,            // 花括号展开
-  CONTROL_CHARACTERS: 17,         // 控制字符
-  UNICODE_WHITESPACE: 18,         // Unicode 空白字符
-  ZSH_DANGEROUS_COMMANDS: 20,     // Zsh 危险命令
-  COMMENT_QUOTE_DESYNC: 22,       // 注释/引号不同步
-  // ...
-};
+  INCOMPLETE_COMMANDS: 1,                            // 不完整命令（含未闭合引号/管道等）
+  JQ_SYSTEM_FUNCTION: 2,                             // jq 表达式中 `system(...)`
+  JQ_FILE_ARGUMENTS: 3,                              // jq 的 -f/--from-file 等读取外部脚本的参数
+  OBFUSCATED_FLAGS: 4,                               // 混淆的命令行标志（反斜杠/Unicode 拼接）
+  SHELL_METACHARACTERS: 5,                           // Shell 元字符（;、&、$ 等出现在敏感位置）
+  DANGEROUS_VARIABLES: 6,                            // 危险环境变量赋值（如 LD_PRELOAD）
+  NEWLINES: 7,                                       // 命令中的裸换行符
+  DANGEROUS_PATTERNS_COMMAND_SUBSTITUTION: 8,        // $(…) / `…` 命令替换
+  DANGEROUS_PATTERNS_INPUT_REDIRECTION: 9,           // < / <<< / <(…) 等输入重定向
+  DANGEROUS_PATTERNS_OUTPUT_REDIRECTION: 10,         // > / >> 等输出重定向（带兜底白名单）
+  IFS_INJECTION: 11,                                 // IFS 注入攻击
+  GIT_COMMIT_SUBSTITUTION: 12,                       // git commit -m 中带命令替换
+  PROC_ENVIRON_ACCESS: 13,                           // /proc/<pid>/environ 读取
+  MALFORMED_TOKEN_INJECTION: 14,                     // 畸形 token 注入（绕过 shell-quote 解析）
+  BACKSLASH_ESCAPED_WHITESPACE: 15,                  // \\<space> 被用来伪装连续 token
+  BRACE_EXPANSION: 16,                               // 花括号展开 {a,b}
+  CONTROL_CHARACTERS: 17,                            // ASCII 控制字符（\x00-\x1F 等）
+  UNICODE_WHITESPACE: 18,                            // Unicode 空白（U+00A0 等冒充空格）
+  MID_WORD_HASH: 19,                                 // 词中 # 把后续 token 截成注释
+  ZSH_DANGEROUS_COMMANDS: 20,                        // zsh 模块/builtin（zmodload、zf_* 等）
+  BACKSLASH_ESCAPED_OPERATORS: 21,                   // 用反斜杠遮蔽 ;、& 等操作符
+  COMMENT_QUOTE_DESYNC: 22,                          // 注释/引号同步错位（'x'# 用注释隐藏后续命令）
+  QUOTED_NEWLINE: 23,                                // 引号内塞入换行绕过单行匹配
+} as const
 ```
 
 每种检查都有对应的 validator 函数。检测到问题时，命令不会被直接拒绝，而是标记为"不安全"，触发权限确认对话框。这体现了一个核心原则：**安全系统应该 fail-closed（检测到不确定性时默认询问用户），而不是 fail-open**。
 
 ### 2.4 每子命令权限判定中的只读验证（readOnlyValidation.ts）
 
-只读验证**并非主链路的独立层**，而是在每个子命令的权限判定函数 `bashToolCheckPermission()`（bashPermissions.ts:1050-1178）内部的第 7 步调用。判定顺序为：
+只读验证**并非主链路的独立层**，而是在每个子命令的权限判定函数 `bashToolCheckPermission()`（bashPermissions.ts:1050-1178）内部的第 8 步调用。整个函数的 8 步骨架（**每一步的行号区间已校对到源码**）；其后还有一条 passthrough 兜底分支，不计入这 8 步：
 
-1. 精确匹配 deny/ask 规则
-2. 前缀/通配符 deny/ask 规则
-3. 路径约束检查（`checkPathConstraints`）
-4. 精确匹配 allow 规则
-5. 前缀/通配符 allow 规则
-6. sed 约束 + 模式检查
-7. **只读验证**：`BashTool.isReadOnly(input)` → `checkReadOnlyConstraints()`
+| 步骤 | 名称 | 行号区间 | 命中后行为 |
+| --- | --- | --- | --- |
+| 1 | 精确匹配 deny/ask 规则 | 1058-1070 | deny / ask 立即返回 |
+| 2 | 前缀/通配符 deny/ask 规则 | 1072-1104 | deny / ask 立即返回 |
+| 3 | 路径约束检查（`checkPathConstraints`） | 1106-1122 | 非 passthrough 立即返回 |
+| 4 | 精确匹配 allow 规则 | 1124-1127 | allow 立即返回 |
+| 5 | 前缀/通配符 allow 规则 | 1129-1139 | allow 立即返回 |
+| 6 | sed 约束检查（`checkSedConstraints`） | 1141-1145 | 非 passthrough 立即返回 |
+| 7 | 权限模式分支（`checkPermissionMode`） | 1147-1151 | 非 passthrough 立即返回（acceptEdits/plan 等模式专用） |
+| 8 | **只读验证**：`BashTool.isReadOnly(input)` → `checkReadOnlyConstraints()` | 1153-1163 | 命中即 allow（`reason: 'Read-only command is allowed'`） |
 
-只有当前面所有规则都没有匹配时，才轮到只读验证。这意味着如果用户设置了 `Bash(git status)` 的 deny 规则，即使 `git status` 是只读命令，也会被拒绝——deny 规则的优先级高于只读放行。
+> **兜底分支（在 8 步之外）**：passthrough（1165-1177）—— 前 8 步均未命中时触发权限确认对话框，附带 exact-match 建议。
+
+deny 规则的优先级高于只读放行：如果用户设置了 `Bash(git status)` 的 deny 规则，即使 `git status` 是只读命令也会被拒绝。同时注意第 6/7 步在第 8 步之前——sed 危险写入和 plan 模式都能在只读放行之前先把命令拦下。
 
 `readOnlyValidation.ts` 长达 1,990 行，其中大部分是命令配置。它为 100+ 个常用命令定义了"安全标志白名单"。但在判定一条命令是否只读之前，`checkReadOnlyConstraints()` 还有**一串关键的安全前置条件**（readOnlyValidation.ts:1882-1966）：
 
@@ -575,7 +588,7 @@ if (initialResult !== null) {
 
 ### 5.3 前台/后台任务转换
 
-BashTool 支持三种后台化方式：
+BashTool 支持**四种**后台化方式：
 
 1. **AI 主动后台化**：`run_in_background: true`（BashTool.tsx:989-1001）
 2. **超时自动后台化**：超过默认超时时间后自动转入后台（BashTool.tsx:967-971）

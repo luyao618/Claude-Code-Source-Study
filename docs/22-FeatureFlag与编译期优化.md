@@ -83,31 +83,206 @@ const MonitorTool = feature('MONITOR_TOOL')
   : null
 ```
 
-### 1.3 89 个 Feature Flag 的全景
+### 1.3 90 个 Feature Flag 的全景
 
-通过搜索整个代码库，共发现 **89 个**不同的 `feature()` 标识符。以使用频次排序，Top 15 为：
+**90 这个数字是怎么数出来的？** —— 直接对源码仓库（`/Users/yao/work/code/awesome-project/claude-code-cli`）跑一次：
+
+```bash
+grep -rhoE "feature\(['\"]([A-Z_0-9]+)['\"]\)" --include="*.ts" --include="*.tsx" . \
+  | sed -E "s/feature\(['\"]([A-Z_0-9]+)['\"]\)/\1/" \
+  | sort | uniq -c | sort -rn | wc -l
+```
+
+得到 **90 个**独立 flag。下面先看高频 Top 16（使用次数 ≥ 16），随后给出剩下 74 个 flag 的**分类速查表**——按主题域分组，每组给出 flag 名 + 使用次数，方便按特性家族而非字母序检索。
+
+注：这里频繁出现的 `KAIROS`（希腊语「恰当时机」）出现 156 次，几乎是第二名的 1.5 倍——它对应的是 Claude Code 的**「Assistant 助手 / 聊天」模式**，一个内部大型实验功能（入口在 `assistant/index.ts`、`assistant/gate.ts`、`commands/assistantChat.tsx` 等），其下还派生出 5 个 `KAIROS_*` 子 flag（详见下面的速查表）。
 
 | Feature Flag | 使用次数 | 功能领域 |
 |-------------|---------|---------|
-| `KAIROS` | 154 | 助手/聊天模式 |
-| `TRANSCRIPT_CLASSIFIER` | 107 | 权限自动分类 |
-| `TEAMMEM` | 51 | 团队记忆 |
-| `VOICE_MODE` | 46 | 语音交互 |
-| `BASH_CLASSIFIER` | 45 | Bash 命令安全分类 |
-| `KAIROS_BRIEF` | 39 | 简报模式 |
-| `PROACTIVE` | 37 | 主动模式 |
+| `KAIROS` | 156 | Assistant 助手/聊天模式 |
+| `TRANSCRIPT_CLASSIFIER` | 110 | 权限自动分类 |
+| `TEAMMEM` | 53 | 团队记忆 |
+| `VOICE_MODE` | 49 | 语音交互 |
+| `BASH_CLASSIFIER` | 49 | Bash 命令安全分类 |
+| `KAIROS_BRIEF` | 39 | Assistant 简报模式 |
+| `PROACTIVE` | 37 | 主动模式（SleepTool 等） |
 | `COORDINATOR_MODE` | 32 | 多 Agent 协调器 |
-| `BRIDGE_MODE` | 28 | IDE 远程桥接 |
+| `BRIDGE_MODE` | 29 | IDE 远程桥接 |
+| `CONTEXT_COLLAPSE` | 23 | 上下文折叠 |
+| `KAIROS_CHANNELS` | 21 | Assistant 频道 |
 | `EXPERIMENTAL_SKILL_SEARCH` | 21 | 实验性技能搜索 |
-| `CONTEXT_COLLAPSE` | 20 | 上下文折叠 |
-| `KAIROS_CHANNELS` | 19 | 频道功能 |
-| `UDS_INBOX` | 17 | Unix 域套接字消息 |
+| `UDS_INBOX` | 18 | Unix 域套接字消息 |
+| `BUDDY` | 18 | Buddy 模式 |
+| `HISTORY_SNIP` | 16 | 历史片段剪辑 |
 | `CHICAGO_MCP` | 16 | Computer Use MCP |
-| `BUDDY` | 16 | Buddy 模式 |
 
 这些 flag 中，`KAIROS`（希腊语「恰当时机」）出现 154 次，几乎是第二名的 1.5 倍 —— 它对应的是 Claude Code 的「助手」（Kairos Assistant）模式，本质上是一个把 Claude Code 内核当成"主动型聊天助手"使用的内部大型实验功能：相比默认的请求-响应循环，它会在更多触发点主动开口（如长任务结束、idle 提醒、定时简报），并依赖 `KAIROS_BRIEF`、`KAIROS_CHANNELS`、`KAIROS_GITHUB_WEBHOOKS` 等一系列同前缀的子 flag 协同。所以严格来说 `KAIROS` 不是"助手模式"这么宽泛，而是"主动型助手"的总开关。
 
-> **关于剩下 74 个 flag**：完整 89 个 flag 没有全部展开 —— 一是大量 flag 属于尚未对外公开的实验功能（如 `KAIROS_*` 子家族、`TEAMMEM_*`、`BUDDY` 内部细分），列出明细对读者价值有限且容易过期；二是 Top 15 已覆盖每个主要功能域的入口，沿着 `tools.ts`、`commands.ts`、`query.ts` 里的 `feature(...)` 调用点向下追，剩下的 flag 都能就近找到，本章的目的是讲清"门控机制"而不是"flag 全表"。如果要看全表，最权威的方式是在源码里 `grep -r "feature('" cli/` 自己跑一遍。
+#### 1.3.1 剩余 74 个 flag 的分类速查表
+
+按主题域分组（**逐个列出**，不再让读者自行 grep）。"次"指 `feature('X')` 在源码中的出现次数。下方各组合计 74 个唯一 flag（`BUDDY` 已在 Top 16 中、未在此重复计数）。
+
+**Assistant / KAIROS 家族（除 KAIROS、KAIROS_BRIEF、KAIROS_CHANNELS 外的 3 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `KAIROS_PUSH_NOTIFICATION` | 4 | Assistant 推送通知 |
+| `KAIROS_GITHUB_WEBHOOKS` | 4 | Assistant 监听 GitHub Webhook |
+| `KAIROS_DREAM` | 1 | Assistant 模式下的 Dream/记忆整理 |
+
+**Coordinator / 多 Agent / Workflow（6 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `WORKFLOW_SCRIPTS` | 10 | 工作流脚本（LocalWorkflowTask） |
+| `MONITOR_TOOL` | 13 | MonitorTool（与 MonitorMcpTask 配合） |
+| `FORK_SUBAGENT` | 5 | Fork subagent 上下文分叉 |
+| `VERIFICATION_AGENT` | 4 | Verification 内置 Agent |
+| `BUILTIN_EXPLORE_PLAN_AGENTS` | 1 | Explore/Plan 内置 Agent 总开关 |
+| `COWORKER_TYPE_TELEMETRY` | 2 | Coworker 类型遥测 |
+
+**Cron / 自动化触发（2 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `AGENT_TRIGGERS` | 11 | ScheduleCronTool 三件套 |
+| `AGENT_TRIGGERS_REMOTE` | 2 | 远程触发器 |
+
+**Compact / 上下文管理（5 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `CACHED_MICROCOMPACT` | 12 | 缓存 microcompact 链路 |
+| `REACTIVE_COMPACT` | 5 | 响应式压缩 |
+| `TOKEN_BUDGET` | 9 | Token 预算管理 |
+| `COMPACTION_REMINDERS` | 1 | 压缩提醒注入 |
+| `PROMPT_CACHE_BREAK_DETECTION` | 9 | Prompt cache 断裂检测 |
+
+**Memory / 记忆（3 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `EXTRACT_MEMORIES` | 7 | 后台 extract memories |
+| `MEMORY_SHAPE_TELEMETRY` | 3 | 记忆形态遥测 |
+| `AGENT_MEMORY_SNAPSHOT` | 2 | Agent memory 快照 |
+
+**MCP / 工具扩展（3 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `MCP_SKILLS` | 9 | MCP server 暴露的 Skills |
+| `MCP_RICH_OUTPUT` | 3 | MCP 富文本输出 |
+| `WEB_BROWSER_TOOL` | 4 | WebBrowserTool 注册 |
+
+**Bridge / 远程会话 / 直连（5 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `DIRECT_CONNECT` | 5 | DirectConnect 上游代理 |
+| `SSH_REMOTE` | 4 | SSH 远程会话 |
+| `BG_SESSIONS` | 11 | 后台会话管理（ps/logs/attach） |
+| `DAEMON` | 3 | daemon 子命令与 worker |
+| `LODESTONE` | 6 | Lodestone 远程基础设施 |
+
+**CCR / 客户端连接（3 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `CCR_MIRROR` | 4 | CCR 镜像传输 |
+| `CCR_AUTO_CONNECT` | 3 | CCR 自动连接 |
+| `CCR_REMOTE_SETUP` | 1 | CCR 远程初始化 |
+
+**TREE_SITTER（2 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `TREE_SITTER_BASH` | 3 | tree-sitter Bash 解析（主路径） |
+| `TREE_SITTER_BASH_SHADOW` | 5 | tree-sitter Bash 影子模式（diff 旧解析） |
+
+**用户设置同步（2 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `UPLOAD_USER_SETTINGS` | 2 | 用户设置上传 |
+| `DOWNLOAD_USER_SETTINGS` | 5 | 用户设置下载 |
+
+**UI / 终端 / 输入输出（9 个，另含 `BUDDY` 已在 Top 16）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `BUDDY` | (见 Top 16) | Buddy 宠物（跨主题域，归 UI 一族） |
+| `TERMINAL_PANEL` | 5 | 终端面板 |
+| `QUICK_SEARCH` | 5 | 快速搜索面板 |
+| `MESSAGE_ACTIONS` | 5 | 消息动作菜单 |
+| `HISTORY_PICKER` | 4 | 历史选择器 UI |
+| `CONNECTOR_TEXT` | 8 | 连接器文本渲染 |
+| `TEMPLATES` | 6 | 模板系统 |
+| `STREAMLINED_OUTPUT` | 1 | 精简输出 |
+| `AUTO_THEME` | 3 | 自动主题 |
+| `NATIVE_CLIPBOARD_IMAGE` | 2 | 原生剪贴板图片粘贴 |
+
+**Power user / Ultraplan / Review（3 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `ULTRAPLAN` | 10 | Ultraplan 远程深度规划 |
+| `REVIEW_ARTIFACT` | 4 | Review artifact 渲染 |
+| `ULTRATHINK` | 1 | UltraThink 深度思考模式 |
+
+**遥测 / 调试 / 实验（10 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `SHOT_STATS` | 10 | shot 统计 |
+| `ENHANCED_TELEMETRY_BETA` | 2 | 增强遥测 beta |
+| `PERFETTO_TRACING` | 1 | Perfetto 性能追踪 |
+| `SLOW_OPERATION_LOGGING` | 1 | 慢操作日志 |
+| `OVERFLOW_TEST_TOOL` | 2 | OverflowTestTool（压测用） |
+| `BREAK_CACHE_COMMAND` | 2 | breakCache 命令 |
+| `HARD_FAIL` | 2 | 硬失败模式 |
+| `ANTI_DISTILLATION_CC` | 1 | 反蒸馏 |
+| `DUMP_SYSTEM_PROMPT` | 1 | --dump-system-prompt 快速路径 |
+| `ABLATION_BASELINE` | 1 | 消融实验基线（见 §1.5） |
+
+**命令归属 / 集成（5 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `COMMIT_ATTRIBUTION` | 12 | commit 自动归属 |
+| `HOOK_PROMPTS` | 1 | Hook prompt 拼装 |
+| `FILE_PERSISTENCE` | 3 | 文件持久化层 |
+| `AWAY_SUMMARY` | 2 | 离开总结 |
+| `SKIP_DETECTION_WHEN_AUTOUPDATES_DISABLED` | 1 | 自动更新关掉时跳过检测 |
+
+**Skill / 自定义（3 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `SKILL_IMPROVEMENT` | 1 | Skill 改进流 |
+| `RUN_SKILL_GENERATOR` | 1 | Skill 生成器 |
+| `NEW_INIT` | 2 | 新版 init 流 |
+
+**Power shell / 平台特化（5 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `POWERSHELL_AUTO_MODE` | 2 | PowerShell 自动模式 |
+| `IS_LIBC_MUSL` | 1 | 检测 musl libc |
+| `IS_LIBC_GLIBC` | 1 | 检测 glibc |
+| `NATIVE_CLIENT_ATTESTATION` | 1 | 原生客户端认证头 |
+| `ALLOW_TEST_VERSIONS` | 2 | 允许测试版本 |
+
+**杂项（5 个）**
+
+| Flag | 次 | 用途 |
+|---|---|---|
+| `BYOC_ENVIRONMENT_RUNNER` | 1 | Bring-Your-Own-Compute runner |
+| `SELF_HOSTED_RUNNER` | 1 | 自托管 runner |
+| `UNATTENDED_RETRY` | 1 | 无人值守重试 |
+| `TORCH` | 1 | Torch 调试探针 |
+| `BUILDING_CLAUDE_APPS` | 1 | 构建 Claude apps 工作流 |
+
+合计：Top 16（16 个唯一 flag，其中 `BUDDY` 同时归入下方"UI"组但**不重复计数**） + 下方各主题组共 74 个唯一 flag = 90，正好覆盖完整集合。这张速查表的目的是：**当你在源码里看到 `feature('XYZ')` 时，可以一眼定位它属于哪条产品线**，而不必把整张表重新 grep 一遍。
 
 ### 1.4 feature() 的全栈影响
 

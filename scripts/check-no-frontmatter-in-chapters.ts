@@ -12,11 +12,11 @@
  *
  * 硬约束：`docs/` 下所有面向读者的章节 markdown（即 `docs/*.md`）**不允许**
  * 出现任何 YAML frontmatter。所有 chapter 元数据只活在 PR 描述、issue body、
- * `docs/V2-REVISION-SPEC.md` 内部、或 `scripts/` 外部 manifest 里——这些位置
+ * `docs/archive/V2-REVISION-SPEC.md` 内部、或 `scripts/` 外部 manifest 里——这些位置
  * 读者根本不会看到。
  *
  * 例外白名单（必须在文件首列出原因）：
- *   - docs/V2-REVISION-SPEC.md  —— 这是 spec 元文档，不是面向读者的书章节。
+ *   - docs/archive/V2-REVISION-SPEC.md  —— 这是 spec 元文档，不是面向读者的书章节。
  *
  * 检测口径：文件第一行 + 第二行（去除 BOM 后）若出现 `^---\s*$`，直接 fail。
  *   ——这与 markdown 工具链对 YAML frontmatter 的识别口径一致；不试图区分
@@ -36,7 +36,7 @@ import { join } from "node:path";
 const DOCS_DIR = "docs";
 
 // 例外白名单：spec 元文档允许 frontmatter；章节正文不允许。
-const ALLOWLIST = new Set<string>(["docs/V2-REVISION-SPEC.md"]);
+const ALLOWLIST = new Set<string>(["docs/archive/V2-REVISION-SPEC.md"]);
 
 function listChapterFiles(): string[] {
   const out: string[] = [];

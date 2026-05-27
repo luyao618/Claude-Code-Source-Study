@@ -1,6 +1,6 @@
 # 第 6 章：System Prompt 与 Output Style 注入 — 精密控制模型行为的提示词体系
 
-> 本章是《深入 Claude Code 源码》系列第 6 章。我们将深入 `constants/prompts.ts`（914 行，commit `290fdc94`）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
+> 本章是《深入 Claude Code 源码》系列第 6 章。我们将深入 `constants/prompts.ts`（914 行）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
 
 ## 为什么 System Prompt 值得单独一篇？
 
@@ -15,6 +15,8 @@
 1. **System Prompt 由哪些模块组成，如何组装？** — `getSystemPrompt()` 的完整流程
 2. **静态与动态内容如何分离以优化缓存？** — `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` 机制
 3. **提示词中编码了哪些关键的行为引导技巧？** — 从安全指令到代码风格约束
+
+章节大纲：§一 整体架构 → §二 DYNAMIC_BOUNDARY 缓存 → §三 Context 注入 → §四 行为引导 → **§五 Output Style：用户接管 system prompt 末尾** → §六 优先级体系 → §七 Subagent 增强 → §八 预取策略 → §九 可迁移模式。
 
 ---
 
@@ -443,7 +445,7 @@ const codeStyleSubitems = [
 ]
 ```
 
-注意最后一组注释指令**仅对内部版启用**（`process.env.USER_TYPE === 'ant'`）。源码中的注释标签 `@[MODEL LAUNCH]` 说明这是针对特定模型版本（Capybara）调整的 — 因为该模型默认过度注释，需要明确的反向引导。
+注意最后一组注释指令**仅对内部版启用**（`process.env.USER_TYPE === 'ant'`）。源码中的注释标签 `@[MODEL LAUNCH]` 说明这是针对特定模型版本上线时的临时引导 — 因为该模型默认过度注释，需要明确的反向引导。
 
 ### 4.3 工具使用优先级：让模型用对工具
 
@@ -488,7 +490,7 @@ const providedToolSubitems = [
 ] : []),
 ```
 
-这揭示了一个实际的模型问题 — AI 会倾向于「虚报成功」。源码注释 `@[MODEL LAUNCH]: False-claims mitigation for Capybara v8 (29-30% FC rate vs v4's 16.7%)` 表明 Capybara v8 模型的虚报率高达 29-30%，相比 v4 的 16.7% 显著上升，因此需要更强的提示词约束。
+这揭示了一个实际的模型问题 — AI 会倾向于「虚报成功」。源码注释 `@[MODEL LAUNCH]` 的措辞表明这是在新模型上线时观察到虚报率上升后加上的针对性约束，需要更强的提示词来兜底。
 
 ### 4.5 输出效率：内外版的风格分水岭
 
@@ -505,7 +507,38 @@ const providedToolSubitems = [
 
 ---
 
-## 五、System Prompt 的优先级体系
+## 五、Output Style：把 system prompt 的尾巴交给用户
+
+前面四节讲的是 Claude Code 自己怎么组装 system prompt。本节聚焦另一个反方向问题：**用户如何介入这条管线**，让模型按自己的风格作答——甚至关掉默认的 coding-instructions。源码主入口在 `outputStyles/loadOutputStylesDir.ts:1-98`（98 行）和 `constants/outputStyles.ts`（内建样式 + 优先级合并）。
+
+### 5.1 注入点：system prompt 末尾的可替换 tail
+
+`constants/prompts.ts:151-158` 的 `getOutputStyleSection()` 在 system prompt 拼装时被排到末尾（`prompts.ts:506` 在静态段被排入数组、`prompts.ts:562-565` 在 simple 路径里影响 intro / doingTasks）。它返回的不是固定文本，而是**当前激活 Output Style 的 `prompt` 字段**——也就是说，system prompt 的"尾巴"被设计成用户可注入的接缝。
+
+### 5.2 frontmatter 字段与 `keep-coding-instructions` 归一化
+
+用户在 `.claude/output-styles/*.md` 写一个 markdown 文件，文件名 = 样式名，正文 = 风格 prompt。frontmatter 支持几个关键字段（`outputStyles/loadOutputStylesDir.ts:34-78`）：
+
+| 字段 | 类型 | 作用 |
+|---|---|---|
+| `name` | string | 样式显示名（缺省取文件名） |
+| `description` | string | 列表展示用；缺省时从正文首段抽取 |
+| `keep-coding-instructions` | bool / "true" / "false" / undefined | **关键开关**：是否保留默认的 coding-instructions 段；`undefined` 走默认行为 |
+| `force-for-plugin` | -- | 仅对 plugin 样式生效，普通样式会被忽略并打 warn（line 64-70） |
+
+`keep-coding-instructions` 的归一化（line 52-62）显式把 `true` / `'true'` 都视为 `true`、`false` / `'false'` 都视为 `false`、其它值视为 `undefined`。这条小逻辑解释了为什么 Output Style 不只是"追加 prompt"，它**还能反向「关掉」整段默认 coding instructions**——这条核心论点之前散在 §1.1 的脚注里，这里收拢说清。
+
+### 5.3 优先级合并：built-in / user / project / plugin / policy
+
+`constants/outputStyles.ts` 的 `getAllOutputStyles()` 把内建样式（`Explanatory` / `Learning`）与 `getOutputStyleDirStyles()` 从磁盘扫描到的样式合并，按 `pluginStyles → userStyles → projectStyles → managedStyles` 的顺序定优先级；`getOutputStyleConfig()` 进一步实现"forced plugin > settings.outputStyle"的最终选择。
+
+### 5.4 与第 30 章的分工
+
+第 30 章 §二 也叫"Output Style：把 system prompt 的尾巴交给用户"，但视角不同：**第 30 章 §二走"用户体验 / 选择器交互 / 优先级合并的体验后果"**，本节走"源码注入链路"。两节互引，避免重复展开 frontmatter 字段表。
+
+---
+
+## 六、System Prompt 的优先级体系
 
 `getSystemPrompt()` 并不总是唯一的 prompt 来源。`utils/systemPrompt.ts` 中的 `buildEffectiveSystemPrompt()` 定义了一个清晰的优先级体系：
 
@@ -557,7 +590,7 @@ export function buildEffectiveSystemPrompt({
 
 ---
 
-## 六、Subagent 的 Prompt 增强
+## 七、Subagent 的 Prompt 增强
 
 当一个 Agent（subagent）被创建时，它的 System Prompt 通常会经过 `enhanceSystemPromptWithEnvDetails()` 函数（`prompts.ts:760-791`）的增强：
 
@@ -608,7 +641,7 @@ Fork subagent 的 prompt 策略是**直接复用父线程已经渲染好的 syst
 
 ---
 
-## 七、预取策略：在用户打字时准备好 Prompt
+## 八、预取策略：在用户打字时准备好 Prompt
 
 System Prompt 的计算不是等到用户发送消息才开始的。`main.tsx` 中的 `startDeferredPrefetches()` 会在 REPL 渲染后立即开始预取：
 
@@ -641,7 +674,7 @@ function prefetchSystemContextIfSafe(): void {
 
 ---
 
-## 八、可迁移的设计模式
+## 九、可迁移的设计模式
 
 ### 模式 1：静态/动态分界线 + 缓存作用域
 

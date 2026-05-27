@@ -21,7 +21,7 @@
  *
  * **判定范围（OC-R PR #17 反馈收窄）**：候选文件限制为顶层章节文件
  * `docs/NN-标题.md`（两位数字前缀），由 `CHAPTER_FILE_RE` 控制。
- * `docs/appendix/{A..F}.md`（自动生成附录）、`docs/V2-REVISION-SPEC.md`
+ * `docs/appendix/{A..F}.md`（自动生成附录）、`docs/archive/V2-REVISION-SPEC.md`
  * （spec 本体）以及任何子目录散页都不进入新章判定。
  *
  * 仅统计源码 fenced block：`ts / tsx / js / jsx / bash / sh / typescript /

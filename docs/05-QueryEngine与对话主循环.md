@@ -20,6 +20,13 @@
 
 本章将从宏观到微观，层层展开这个循环的设计。
 
+> **阅读地图（三层结构）**：
+> - **门面层**：`QueryEngine.ts`（1295 行）—— 一个 conversation 一个 `QueryEngine` 实例，负责会话级状态、SDK 翻译、终止分支（详见 §十一）。
+> - **内核层**：`query.ts`（1729 行）—— 无状态 AsyncGenerator，`query()` / `queryLoop()` 是真正驱动一次请求-工具-重试的核心（§一 ~ §十）。
+> - **横切层**：`query/` 子模块（4 个小文件、共 ≈ 652 行）—— `config.ts` / `deps.ts` / `stopHooks.ts` / `tokenBudget.ts`，是 `query.ts` 的横切关注点（§十二）。
+>
+> 前 10 节看的是 `query.ts` 内核视角；§十一 回到门面 `QueryEngine`；§十二 收尾 `query/` 子模块。
+
 ---
 
 ## 一、全局视角：AsyncGenerator 驱动的状态机
@@ -742,7 +749,7 @@ const contextCollapse = feature('CONTEXT_COLLAPSE')
 
 ---
 
-## 十一、回到门面：QueryEngine 这一层在做什么？
+## 十一、门面层 QueryEngine.ts：会话级状态与 SDK 翻译
 
 前面九节讲的都是"一次 turn 里发生了什么"，但 `query()` 这个内核并不是 SDK 调用方直接面对的入口。介于 SDK 与 `query()` 之间，还有一层 1295 行的门面——`QueryEngine.ts`。这一层的存在感不像 `query.ts` 那么强，但它承担了几件 `query()` 故意不管的事。
 

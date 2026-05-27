@@ -789,7 +789,7 @@ MCP Skill 有一个关键安全限制：**不执行 Shell 命令嵌入**（`load
 
 ## Output Style：体验层的第三条扩展路径
 
-前面五节一直在围着 Skill / Agent / Plugin / Hook 这条"行为面"主线转 —— 谁注入 prompt、谁调工具、谁拦截事件。但 Claude Code 还藏着另一条扩展路径，叫 Output Style。它跟 Skill 看起来都是 `.md` 文件、都吃 frontmatter，第一眼很容易混为一谈；实际上两者切入对话的位置完全不同 —— Skill 是把内容注入到 user/assistant 这一侧，Output Style 是把内容顶替掉 system 那一侧。前者在"一次回合里要做什么"上加料，后者在"这个助理是谁、说话什么腔调"上换皮。
+前面五节一直在围着 Skill / Agent / Plugin / Hook 这条"行为面"主线转 —— 谁注入 prompt、谁调工具、谁拦截事件。但 Claude Code 还藏着另一条扩展路径，叫 Output Style。它跟 Skill 看起来都是 `.md` 文件、都吃 frontmatter，第一眼很容易混为一谈；实际上两者切入对话的位置完全不同 —— Skill 是把内容注入到 user/assistant 这一侧，Output Style 则是在 system prompt 末端追加一段 `# Output Style: ...` 风格指令（`constants/prompts.ts:151-157`），并可选地省略 `getSimpleDoingTasksSection()` 那段默认任务清单（`constants/prompts.ts:564-567`），intro / system / actions / tools / tone / efficiency 以及 memory / env / language / MCP 等其余 system sections 一概照常保留。前者在"一次回合里要做什么"上加料，后者只是在原有 system prompt 之上追加风格指令、调整输出腔调，并不会顶替或换掉 system 那一侧。
 
 ### 一个文件 = 一个 style
 
@@ -859,7 +859,7 @@ Plugin 则是这三者的"打包发行单元"。一个完整的 plugin 可以同
 
 - 想加一段**当前回合的指令** → 写 Skill；
 - 想加一个**独立的子角色** → 写 Agent；
-- 想换掉**整段会话的助手人格** → 写 Output Style；
+- 想**调整整段会话的输出腔调 / 在 system prompt 末端追加一段风格指令** → 写 Output Style；
 - 想把上面任意一种**作为产品发行**（带版本、带 user config、带 MCP 服务） → 写 Plugin。
 
 读到这里再回过头看前面那张 plugin 目录树，`output-styles/` 这一条就不只是"凑齐目录种类"了 —— 它是 plugin 作者唯一能影响"模型默认怎么说话"的入口。

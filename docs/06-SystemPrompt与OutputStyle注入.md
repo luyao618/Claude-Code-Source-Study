@@ -445,7 +445,7 @@ const codeStyleSubitems = [
 ]
 ```
 
-注意最后一组注释指令**仅对内部版启用**（`process.env.USER_TYPE === 'ant'`）。源码中的注释标签 `@[MODEL LAUNCH]` 说明这是针对特定模型版本（Capybara）调整的 — 因为该模型默认过度注释，需要明确的反向引导。
+注意最后一组注释指令**仅对内部版启用**（`process.env.USER_TYPE === 'ant'`）。源码中的注释标签 `@[MODEL LAUNCH]` 说明这是针对特定模型版本上线时的临时引导 — 因为该模型默认过度注释，需要明确的反向引导。
 
 ### 4.3 工具使用优先级：让模型用对工具
 
@@ -490,7 +490,7 @@ const providedToolSubitems = [
 ] : []),
 ```
 
-这揭示了一个实际的模型问题 — AI 会倾向于「虚报成功」。源码注释 `@[MODEL LAUNCH]: False-claims mitigation for Capybara v8 (29-30% FC rate vs v4's 16.7%)` 表明 Capybara v8 模型的虚报率高达 29-30%，相比 v4 的 16.7% 显著上升，因此需要更强的提示词约束。
+这揭示了一个实际的模型问题 — AI 会倾向于「虚报成功」。源码注释 `@[MODEL LAUNCH]` 的措辞表明这是在新模型上线时观察到虚报率上升后加上的针对性约束，需要更强的提示词来兜底。
 
 ### 4.5 输出效率：内外版的风格分水岭
 

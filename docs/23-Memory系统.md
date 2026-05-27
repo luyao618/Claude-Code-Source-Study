@@ -226,6 +226,37 @@ export const DIR_EXISTS_GUIDANCE =
 
 这是典型的**Prompt 与代码协同**设计模式：代码保证前置条件，Prompt 告知 AI 前置条件已满足，从而省去不必要的验证步骤。
 
+### 2.6 Team Memory —— 把私有记忆同步给整支团队
+
+私有 Auto Memory 解决了"自己跨会话记住事情"，但团队协作还需要"全员共享同一套约定"。Claude Code 把这件事单独建在 `services/teamMemorySync/` 下（4 个文件：`index.ts` 1256 行 + `watcher.ts` 387 行 + `secretScanner.ts` 324 行 + `types.ts` 156 行），整体走 feature gate `tengu_herring_clock` + `feature('TEAMMEM')`。
+
+team 目录是 auto 目录的子目录（`memdir/teamMemPaths.ts:84-86`）：
+
+```typescript
+// memdir/teamMemPaths.ts:84-86
+export function getTeamMemPath(): string {
+  return (join(getAutoMemPath(), 'team') + sep).normalize('NFC')
+}
+```
+
+放在子目录而不是平级，是为了让一次 `mkdir -p team/` 顺带创建 auto 目录（见 `memdir.ts:455-458` 的注释解释）。但子目录化也带来了攻击面：服务端下发的 key 如果包含 `..` 或 URL 编码的遍历，就可能写到 `~/.ssh/`。`teamMemPaths.ts` 用一整个 `validateTeamMemKey()` 来防这件事，依次拒绝：null 字节、URL 编码遍历、Unicode NFKC 归一化后的全角点号（`．．／`）、反斜杠、绝对路径、以及最关键的"先 resolve 再走一次 realpath" —— 防止仓库里被埋了一个指向 `~/.ssh/authorized_keys` 的符号链接，绕过纯字符串的前缀比较（`teamMemPaths.ts:108-171`）。
+
+同步通道是一对 HTTP 端点（`teamMemorySync/index.ts:8-12`）：
+
+```text
+GET  /api/claude_code/team_memory?repo={owner/repo}             → 全量拉取
+GET  /api/claude_code/team_memory?repo={owner/repo}&view=hashes → 只取 checksum 元数据
+PUT  /api/claude_code/team_memory?repo={owner/repo}             → 增量 upsert 推送
+```
+
+仓库身份由 git remote URL 决定 —— 这意味着 fork 出去的私人仓库不会污染上游团队的记忆库。**Pull** 是"服务端赢"：每个 key 用服务端版本覆盖本地。**Push** 是 delta：本地为每个文件算 `sha256:<hex>`，只把 hash 与 `serverChecksums` 不一致的 key 上传。文件删除不会反向传播 —— 删本地一份不会让服务端跟着删，下一次 pull 会把它放回来（`index.ts:14-19`）。这条设计是有意的"最小破坏"语义：误删比误增的代价更高。
+
+推送链路上还有两个不显眼但很关键的尺寸限制（`index.ts:71-89`）：单条 entry 250KB（服务端 `claude_code_team_memory_limits` 的客户端镜像），单个 PUT body 200KB。后者的注释解释得很坦白 —— API 网关会在请求触达应用层之前就把超过 256–512KB 的 body 用未结构化的 HTML 413 拒掉，应用层那个带 `extra_details.max_entries` 的结构化 413 永远拿不到。所以 watcher 在客户端就按 200KB 自己拆批，让服务端的 upsert merge 把多次 PUT 合起来。
+
+`watcher.ts` 用 `fs.watch` 监听 team 目录，写入触发 2 秒 debounce 后 push（`watcher.ts:35`）。它还维护一条 `pushSuppressedReason` 闸 —— 一旦遇到 `no_oauth` / `no_repo` 或 4xx 永久错误（409、429 不算）就熄火，避免另一个会话给共享目录写文件触发我这边的 watcher、然后我无限重试。注释里给出的事实是："Mar 14-16 一个 no_oauth 设备在 2.5 天内发了 167K 个 push event"（`watcher.ts:45-51`），这条闸就是那次事故复盘的产物。
+
+push 之前还要过一层秘密扫描（`secretScanner.ts` 324 行）—— OpenAI key、AWS key、GitHub PAT 等命中模式的文件会被跳过并以 `SkippedSecretFile` 形式返回。团队记忆里夹带的密钥比私有记忆里夹带的更危险，因为前者会被分发给每一位组织成员。
+
 ---
 
 ## 三、Background Extract Memories —— 从对话中自动提取记忆
@@ -652,6 +683,40 @@ graph TD
 不要在主对话流中做记忆提取（会增加延迟），而是用 fire-and-forget 的后台 Agent。通过扫描主 Agent 是否已写入记忆来决定是否跳过（互斥），用闭包作用域管理游标和合并逻辑。
 
 **适用场景**：任何需要后台处理但又与主流程共享资源的系统 —— 日志分析、缓存预热、数据同步。
+
+---
+
+## 十、最后一块拼图：远程会话历史的分页回放
+
+前九节讲的是"本机文件系统上的记忆"。但 Claude Code 还支持把会话状态保存到云端，然后在另一台设备上接着聊（Resume Conversation 屏的远端模式就走这条路径）。负责把云端 session 的事件流捞回本地的，是 `assistant/sessionHistory.ts` —— 整个模块只有 87 行，干净到值得整段读完，但它在这里被点名是因为它定义了"什么算是这场会话的可访问历史"。
+
+接口设计是典型的反向分页（`sessionHistory.ts:7-22`）：
+
+```typescript
+// assistant/sessionHistory.ts:7-22
+export const HISTORY_PAGE_SIZE = 100
+
+export type HistoryPage = {
+  /** Chronological order within the page. */
+  events: SDKMessage[]
+  /** Oldest event ID in this page → before_id cursor for next-older page. */
+  firstId: string | null
+  /** true = older events exist. */
+  hasMore: boolean
+}
+```
+
+`fetchLatestEvents()` 用 `anchor_to_latest=true` 拿最新一页，`fetchOlderEvents()` 用 `before_id` 游标向更早翻页（`sessionHistory.ts:73-87`）。一页 100 条事件，所有请求带一个 15 秒超时和 `validateStatus: () => true`，把 HTTP 错误降级成"返回 null"而不是抛异常 —— 历史拉取失败不应该把 REPL 弄崩，最坏情况退化成"看不到更早的历史"。
+
+它还携带一个有趣的 beta header（`sessionHistory.ts:39`）：
+
+```typescript
+'anthropic-beta': 'ccr-byoc-2025-07-29',
+```
+
+`ccr-byoc` 是 "Claude Code Resume — Bring Your Own Credentials" 的缩写：会话事件由用户自己的 OAuth token 持有，服务端不替企业账户保管。这条 header 是开关，没有它服务端不会返回事件 payload。
+
+这块模块和前几节的记忆系统不属于同一类 —— 前者是"AI 自主写、自主读"，后者是"对话事件流的服务端回放"。但它们共同回答了同一个问题："这场会话开始之前，AI 知道些什么？" memdir 给出的是跨会话的语义沉淀，sessionHistory 给出的是当前 session 续接前的逐条事件。在 Resume Conversation 屏里，两者会同时被拉起 —— memdir 走 `loadMemoryPrompt()` 进入 System Prompt，sessionHistory 分页把历史 SDK 消息塞回 messages 数组，然后 query loop 才开始第一轮。
 
 ---
 

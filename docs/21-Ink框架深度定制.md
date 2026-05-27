@@ -1,6 +1,6 @@
 # 第 21 篇：Ink 框架深度定制 — 在终端中运行 React
 
-> 本篇深入 Claude Code 的 forked Ink 框架（`ink/` 目录，约 90 个文件），揭示如何在终端中构建一个完整的 React 渲染引擎：从自定义 Reconciler、Yoga 布局、双缓冲渲染管线，到虚拟滚动、鼠标事件、文本选择等深度定制。
+> 本篇深入 Claude Code 的 forked Ink 框架（`ink/` 目录，96 个 `.ts` / `.tsx` 文件、19,842 行），揭示如何在终端中构建一个完整的 React 渲染引擎：从自定义 Reconciler、Yoga 布局、双缓冲渲染管线，到虚拟滚动、鼠标事件、文本选择等深度定制。这一版还要把视线拉到与 `ink/` 配套的 `native-ts/` 目录——团队把原本走 WASM / NAPI 的三段原生模块（`yoga-layout` / `color-diff` / `file-index`）重新写成了纯 TypeScript 实现，Ink 的布局引擎就是其中第一段。
 
 ## 为什么要 Fork Ink？
 
@@ -227,7 +227,7 @@ export class YogaLayoutNode implements LayoutNode {
 }
 ```
 
-**为什么要这层抽象？** Yoga 的 API 是基于 WASM 的 C++ 绑定，直接引用会导致类型系统和 native 绑定紧耦合。抽象层将布局语义与 native 绑定解耦 —— 可能的设计意图包括让布局引擎可替换和简化测试，但源码中目前只有 `YogaLayoutNode` 一个实现。
+**为什么要这层抽象？** Yoga 上游本是 C++，社区主流走法是 `yoga-layout` 的 WASM 绑定——但 Claude Code 把 Yoga **整段重写成了纯 TypeScript**，落在 `native-ts/yoga-layout/`（见下文第九节）。`LayoutNode` 接口的存在让 `ink/layout/yoga.ts` 这层只关心"布局语义"而不绑定到任何一份 Yoga 实现：理论上替换布局引擎不需要动到 reconciler，实际上目前只有 `YogaLayoutNode` 一个实现，但它指向的已经不是 WASM 而是同进程的 JS 对象——`ink/layout/yoga.ts:302` 的注释把这事讲得很直白："no WASM loading, no linear memory growth, so no preload/swap/reset machinery is needed"。
 
 ### 3.2 文本测量
 
@@ -734,6 +734,20 @@ TerminalQuerier 的 DECRQM 查询机制用于探测其他终端能力（如 Kitt
 用已知必有响应的查询（DA1）作为哨兵，将"等超时"变为"等确认"。多个查询批量发送，一个哨兵统一裁决。精确、无等待、无误判。
 
 **适用场景**：任何需要探测对端能力的协议（终端、SMTP EHLO、HTTP 特性检测）。
+
+---
+
+## 九、把 native 模块搬回 JS 进程：`native-ts/` 三段重写
+
+如果你只读 `ink/`，会以为布局、配色、文件检索这些"看起来该用 C++/Rust"的模块还在某个原生绑定里。事实是，Claude Code 在仓库根的 `native-ts/` 目录下把它们**整段重写成了纯 TypeScript**——目前共三段：`yoga-layout/`（2,712 行）、`color-diff/`（999 行）、`file-index/`（370 行），合计 4,081 行 TS。这三个模块原本对应三种不同的"原生形态"，重写动机也不一样，但落地姿势一致：保留原 API 表面、消掉 native 依赖。
+
+`native-ts/yoga-layout/index.ts` 顶部的注释自己给出了第一段重写的取舍：它要"匹配 `yoga-layout/load` 的 API 表面，恰好覆盖 Ink 用到的 flexbox 子集"——`flex-direction` / `flex-grow` / `flex-shrink` / `flex-basis` / `align-items` / `justify-content` / 六向 margin/padding/border/gap / `position: absolute` / `display: flex|none` / `measureFunc` 这些是 Ink 真正调到的；多遍 flex clamping、`flex-wrap`、`align-content`、`align-items: baseline`、`display: contents`、`margin: auto` 这些是"为对齐 spec 一并实现"；`aspect-ratio` / `box-sizing: content-box` / RTL 这些"Ink 不用"的就索性不实现。`ink/layout/yoga.ts` 的引入路径直接落在 `'src/native-ts/yoga-layout/index.js'`——Ink 内部没有保留 WASM 退路。
+
+第二段 `color-diff/` 替换的是一个 Rust + NAPI 模块。原 Rust 版本用 `syntect + bat` 做语法高亮、用 `similar` crate 做 word diff；TS 版本改用 `highlight.js`（仓库里已经因 `cli-highlight` 拉过）+ `diff` npm 包的 `diffArrays`。重写后语义不是完全等价——头部注释明说"hljs 的语法定义有空洞：纯标识符与 `=` `:` 这类运算符没有 scope，因此会落在默认前景色而不是 syntect 习惯的白/粉"——但输出结构（行号、标记、底色、word-diff 区段）保持一致。这段额外讲究的是**惰性加载**：`highlight.js` 一次性注册 190+ 语法、加载时占 ~50MB / 100–200ms（Windows 上更慢），所以 TS 版本沿用了原 NAPI wrapper 的 `dlopen` 风格——`cachedHljs` 只在第一次渲染时 `require('highlight.js')`，避免被 `StructuredDiff.tsx` 的导入链拖进进程冷启动路径。
+
+第三段 `file-index/` 替换的是 `vendor/file-index-src`——一个包了 nucleo（helix-editor 出的 fzf 风格模糊搜索库）的 Rust NAPI 模块。TS 版本逐字段复刻了 nucleo 的打分常量：`SCORE_MATCH=16`、`BONUS_BOUNDARY=8`、`BONUS_CAMEL=6`、`BONUS_CONSECUTIVE=4`、`BONUS_FIRST_CHAR=8`、`PENALTY_GAP_START=3`、`PENALTY_GAP_EXTENSION=1`，所以输出排序行为与原模块对齐。这段最值得提的是它选择"按时间切片"而不是"按数量切片"——`CHUNK_MS = 4`，每跑 4ms 就 `await` 一次让出事件循环；M 系列芯片下 5k 路径打分约 2ms（按 `native-ts/file-index/index.ts` 顶部注释自述），但老 Windows 机器可能要 15ms+，按时间切片让慢机也能保持响应。
+
+把这三段叠起来看，会发现 `native-ts/` 的设计意图很统一：**Claude Code 是一个长会话 CLI，而不是一次性的渲染任务**。每多一段 WASM / NAPI，就多一份冷启动延迟、多一处跨平台二进制分发、多一条 OOM / dlopen 失败的链路。把这些都搬回 JS 进程后，整个 CLI 重新变成"纯 npm 包"，安装体验回到 `npm i` 直接能跑——这是 `ink/layout/yoga.ts:302` 那句"no WASM loading"背后真正想表达的事。代价当然存在：纯 TS Yoga 比 C++ 慢（章节六中提到的 `recordYogaMs` 帧统计，正是为了在真机上盯着这个代价是否还可接受），highlight.js 的语法覆盖比 syntect 少几个 token，纯 JS 模糊搜索吃 CPU 比 Rust 多——但都被换成了"可以在长会话里 hot-fix 的纯 TS 代码"。这就是为什么这一节要把视线从 `ink/` 拉到 `native-ts/`：原生模块的取舍，本来就是 Ink 渲染管线的延伸。
 
 ---
 

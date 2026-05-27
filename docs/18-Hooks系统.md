@@ -281,17 +281,70 @@ function hookDedupKey(m: MatchedHook, payload: string): string {
 
 设想这样一幕：模型刚刚说"答完了"，正准备把麦克风交还给用户。这时有一道关卡会再问一句："你确定吗？要不要再想想？" 这就是 Stop 与 SubagentStop hook 的位置 —— 一个 turn 真正结束之前的最后一道决策门。
 
-干这件事的函数叫 `handleStopHooks()`，它的执行节奏分三段，每段干一件事。
+它的运行节拍画出来是这样：
 
-第一段是后台清洗。如果不是 `--bare` 这种极简模式，就顺手启动三条后台链路：一条是给下一轮准备 prompt 建议，一条是抽取这轮对话里值得记住的事实，一条是触发"自动复盘"。这三条都是 fire-and-forget，主流程不等它们跑完。
+```mermaid
+sequenceDiagram
+    participant M as 模型
+    participant H as handleStopHooks
+    participant BG as 后台三件套
+    participant U as 用户 Stop hook
+    participant Q as 对话队列
 
-第二段才是真正运行用户配置的 Stop hook。这里有一个小分叉：主 session 触发的事件名是 `Stop`，子 Agent 触发的是 `SubagentStop` —— 同一段执行引擎，不同的事件名，让用户能分开挂钩。
+    M->>H: 我答完了
+    H-)BG: fire-and-forget<br/>(prompt 建议 / extractMemories / autoDream)
+    H->>U: 触发 Stop / SubagentStop
+    U-->>H: 三摞结果<br/>(报错 / 输出 / 阻塞)
+    alt 有 hook 说"别结束"
+        H->>Q: 把反馈塞成 user message
+        Q->>M: 下一个 turn 一睁眼就看到
+    else 没人反对
+        H->>M: turn 真的结束
+    end
+```
 
-第三段是收结果。hook 跑完后会逐条返回，引擎把它们分成三摞：报错的、有输出的、纯提示的。如果某条 hook 明确说"不行，别结束"，它的反馈会被当成一条 user message 塞回对话队列 —— 模型在下一个 turn 一睁眼就会看到这条反馈，于是接着想下去。
+干这件事的函数叫 `handleStopHooks()`，节奏分三段，每段干一件事。
 
-所以 Stop hook 不是"会话结束钩子"，而是"会话**愿不愿意结束**的决策钩子"。模型说"我答完了"，hook 说"再想想"，于是 turn 继续。这是它跟 PreToolUse、PostToolUse 那种"工具调用前后切一刀"的钩子完全不同的地方 —— 它绑定的是对话的节拍，不是单次动作。
+第一段是后台清洗。如果不是 `--bare` 这种极简模式，就顺手启动三条 fire-and-forget 链路 —— 主流程不等它们跑完：
 
-异步分支也共用同一套语义。比如 hook 在后台跑测试，跑完失败了，它不需要把当前 turn 拽回来，而是把失败信息打包成一条系统提醒，等模型下一次 idle 时再喂进去 —— 这套就是前面 §5.3 讲过的 asyncRewake 模式。同步把当前 turn 拽回去，异步把未来某个 turn 拽回去，两种姿势复用的是同一套"阻塞 = 继续聊"的协议。
+```typescript
+// query/stopHooks.ts:136-156（节选）
+if (!isBareMode()) {
+  if (!isEnvDefinedFalsy(process.env.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION)) {
+    void executePromptSuggestion(stopHookContext)
+  }
+  if (feature('EXTRACT_MEMORIES') && !toolUseContext.agentId && isExtractModeActive()) {
+    void extractMemoriesModule!.executeExtractMemories(stopHookContext, ...)
+  }
+  if (!toolUseContext.agentId) {
+    void executeAutoDream(stopHookContext, toolUseContext.appendSystemMessage)
+  }
+}
+```
+
+三个 `void` 三种意图：给下一轮准备 prompt 建议、抽取本轮值得记住的事实、触发"自动复盘"。注意 `extractMemories` 和 `autoDream` 都拒绝子 Agent 触发（`!toolUseContext.agentId`），因为这是 session 级的脑回路，跟子任务无关。
+
+第二段才是真正运行用户配置的 Stop hook，事件名按身份分叉 —— 主 session 触发 `Stop`，子 Agent 触发 `SubagentStop`，同一段执行引擎，两个挂钩点：
+
+```typescript
+// query/stopHooks.ts:180-189（节选）
+const generator = executeStopHooks(
+  permissionMode,
+  toolUseContext.abortController.signal,
+  undefined,
+  stopHookActive ?? false,
+  toolUseContext.agentId,           // ← 有 agentId 就是 SubagentStop
+  toolUseContext,
+  [...messagesForQuery, ...assistantMessages],
+  toolUseContext.agentType,
+)
+```
+
+第三段是收结果。hook 逐条返回后被分成三摞：报错的、有输出的、阻塞的。如果某条 hook 明确说"不行，别结束"，它的反馈会被打包成一条 user message 塞回队列 —— 模型在下一个 turn 一睁眼就会看到，于是接着想下去。
+
+所以 Stop hook 不是"会话结束钩子"，而是"会话**愿不愿意结束**的决策钩子"。模型说"我答完了"，hook 说"再想想"，于是 turn 继续。这跟 PreToolUse、PostToolUse 那种"工具调用前后切一刀"的钩子是完全不同的位面 —— 它绑定的是对话的节拍，不是单次动作。
+
+异步分支也共用同一套语义。比如 hook 在后台跑测试，跑完失败了，它不需要把当前 turn 拽回来，而是把失败打包成系统提醒，等模型下一次 idle 时再喂进去 —— 这就是前面 §5.3 讲过的 asyncRewake 模式。同步把当前 turn 拽回去，异步把未来某个 turn 拽回去，两种姿势复用的是同一套"阻塞 = 继续聊"的协议。
 
 附：本节涉及源码 —— `query/stopHooks.ts:65-473` `handleStopHooks()`、`query/stopHooks.ts:133-157` 三条后台链路、`query/stopHooks.ts:175-189` 主流程、`utils/hooks.ts:3653-3656` 事件名分叉与 `hasHookForEvent()` 快检。
 
@@ -301,9 +354,37 @@ function hookDedupKey(m: MatchedHook, payload: string): string {
 
 它解决的问题特别朴素：CLI 启动后要在合适的时机弹一些一次性的提示 —— 启动横幅、订阅状态变了、模型要迁移了、NPM 包过期了、Rate Limit 警告、LSP 初始化完成、Plugin 自动更新了……一共 16 条这样的通知，每一条都长在一个独立的 `useXxxNotification` 文件里。
 
-这些通知有一个共同的脾气：**只在进程启动后弹一次，远程模式下要安静**。早期每条通知自己实现这套脾气，结果就是同一段守卫代码被抄了十几遍。后来抽成了一个公共自定义 hook `useStartupNotification(compute)` —— 你给它一个返回通知内容的函数，它负责保证"只跑一次"和"远程模式跳过"这两件事（`hooks/notifs/useStartupNotification.ts:19-30`）。`compute` 可以返回 `null`、一条通知、或一组通知，同步异步都行。远程模式跳过是因为这些提示对远端会话要么没意义（NPM 过期），要么 host 端自己会发（Rate Limit），两头都报反而吵。
+这些通知有一个共同的脾气：**只在进程启动后弹一次，远程模式下要安静**。早期每条通知自己实现这套脾气，结果就是同一段守卫代码被抄了十几遍。后来抽成了一个公共自定义 hook，长这样：
 
-之所以把它跟生命周期 hook 放在同一章讲，是因为两套东西名字一样、语义其实也一样：**在某个时间点挂一段自定义行为**。区别只在挂哪儿。生命周期 hook 挂在 query loop 的事件上 —— Shell、LLM、HTTP；notifs hook 挂在 React 渲染循环上 —— UI。两套体系在代码里没有任何耦合，知道这件事，下次看到目录名就不会迷路。
+```typescript
+// hooks/notifs/useStartupNotification.ts:19-30（节选）
+export function useStartupNotification(
+  compute: () => Result | Promise<Result>,
+): void {
+  const { addNotification } = useNotifications()
+  const hasRunRef = useRef(false)
+  // ...
+  useEffect(() => {
+    if (getIsRemoteMode() || hasRunRef.current) return  // ← 两道守卫
+    hasRunRef.current = true
+    void Promise.resolve()
+      .then(() => computeRef.current())
+      .then(result => { /* 派发通知 */ })
+      .catch(logError)
+  }, [addNotification])
+}
+```
+
+11 行代码兜住两件事：`hasRunRef` 保证"只跑一次"，`getIsRemoteMode()` 保证"远程模式跳过"。`compute` 可以返回 `null`、一条通知、或一组通知，同步异步都行。远程跳过是因为这些提示对远端会话要么没意义（NPM 过期是 host 的事），要么 host 端自己会发（Rate Limit），两头都报反而吵。
+
+之所以把它跟生命周期 hook 放在同一章讲，是因为两套东西名字一样、语义其实也一样：**在某个时间点挂一段自定义行为**。区别只在挂哪儿：
+
+| 类别 | 挂在哪 | 触发时机 | 例子 |
+|------|--------|----------|------|
+| 生命周期 hook | query loop 的事件总线 | Shell、LLM、HTTP、Stop…… | `PreToolUse` 拦下危险 bash |
+| notifs hook | React 渲染循环 | 组件挂载 / 状态变更 | 启动时弹一次 NPM 过期警告 |
+
+两套体系在代码里没有任何耦合，知道这件事，下次看到目录名就不会迷路。
 
 ---
 
@@ -681,17 +762,75 @@ HTTP Hook 内置了 SSRF（Server-Side Request Forgery）防护（`utils/hooks/s
 
 ### 8.4 三种执行身份的 permission handler
 
-同一个工具调用，谁来问"允不允许"？答案因身份而异。`hooks/toolPermission/handlers/` 下挂了三个 handler，分别对应三种身份：你自己坐在终端前用的主 Agent、Coordinator 模式下的 worker、Swarm 里的 worker。三套流程长得不一样。
+同一个工具调用，谁来问"允不允许"？答案因身份而异。`hooks/toolPermission/handlers/` 下挂了三个 handler，对应三种身份：你自己坐在终端前用的主 Agent、Coordinator 模式下的 worker、Swarm 里的 worker。三套流程的时序长得不一样：
 
-**主 Agent 走的是"赛跑"模式**。权限 hook 在后台跑、bash 命令分类器在后台跑、用户那边的弹窗也同时弹出来 —— 谁先有答案谁说了算。这种"多路赛跑、一锤定音"的写法靠的是一个一次性 resolver：无论哪条线先到终点，都能让其它线的结果自动作废，避免重复 resolve。
+```mermaid
+flowchart LR
+    subgraph Interactive["主 Agent · 赛跑"]
+        I0["权限请求"] --> I1["hook (后台)"]
+        I0 --> I2["classifier (后台)"]
+        I0 --> I3["用户弹窗"]
+        I1 --> IR["resolveOnce<br/>一锤定音"]
+        I2 --> IR
+        I3 --> IR
+    end
+    subgraph Coordinator["Coordinator worker · 接力"]
+        C0["权限请求"] --> C1["hook (快)"]
+        C1 -->|no| C2["classifier (慢)"]
+        C2 -->|no| C3["fallback 弹窗"]
+    end
+    subgraph Swarm["Swarm worker · 打回主站"]
+        S0["权限请求"] --> S1["classifier 快路径"]
+        S1 -->|no| S2["mailbox → leader"]
+        S2 --> S3["挂起等回信"]
+    end
+```
 
-**Coordinator 模式下的 worker 走的是"接力"模式**。同样这几路检查，这里不让它们一起跑，而是按顺序：先跑权限 hook，它是本地的、快，能给答案最好；给不出再跑分类器，它要走模型推理、慢，且只对 bash 生效；还给不出，最后才落到交互弹窗那条慢路径。
+**主 Agent 走的是"赛跑"模式**。权限 hook 在后台跑、bash 命令分类器在后台跑、用户那边的弹窗也同时弹出来 —— 谁先有答案谁说了算。关键就在那个一次性 resolver 上：
 
-**Swarm worker 走的是"打回主站"模式**。worker 本地没有用户可问，它把请求打包成一封邮件经 mailbox 发回主 session，自己挂起等回信。bash 命令的本地分类器仍然保留作为快路径 —— 能本地放行的就不必跨进程走一趟。
+```typescript
+// hooks/toolPermission/handlers/interactiveHandler.ts:70（节选）
+const { resolve: resolveOnce, isResolved, claim } = createResolveOnce(resolve)
+```
 
-这三套流程的共同地基是 §七 描述的 hook 合并规则 —— deny > ask > allow 的优先级链。也就是说，"权限 hook 之间怎么合并"这一段对三种身份是统一的；差别只在 hook 给不出答案之后，谁来兜底：是弹窗、是顺序接力，还是远端裁决。
+`resolveOnce` 是赛道终点的裁判 —— 哪条线先到，其它线后续的 `resolveOnce(...)` 调用都自动作废，避免重复 resolve 一个 Promise。
 
-附：本节涉及源码 —— `hooks/toolPermission/handlers/interactiveHandler.ts`、`hooks/toolPermission/handlers/coordinatorHandler.ts`、`hooks/toolPermission/handlers/swarmWorkerHandler.ts`、`hooks/toolPermission/PermissionContext.ts` 的一次性 resolver。
+**Coordinator worker 走的是"接力"模式**。同样这几路检查，这里不让它们一起跑，而是按顺序 await：
+
+```typescript
+// hooks/toolPermission/handlers/coordinatorHandler.ts:31-46（节选）
+// 1. Try permission hooks first (fast, local)
+const hookResult = await ctx.runHooks(permissionMode, suggestions, updatedInput)
+if (hookResult) return hookResult
+
+// 2. Try classifier (slow, inference -- bash only)
+const classifierResult = feature('BASH_CLASSIFIER')
+  ? await ctx.tryClassifier?.(params.pendingClassifierCheck, updatedInput)
+  : null
+if (classifierResult) return classifierResult
+
+// 3. Neither resolved -- fall through to dialog below.
+```
+
+先 hook（本地、快），给不出再 classifier（推理、慢、只对 bash），还给不出再落到交互弹窗。worker 进程没什么并发预算，串行反而省事。
+
+**Swarm worker 走的是"打回主站"模式**。worker 本地没有用户可问，它把请求打包成一封邮件经 mailbox 发回主 session，自己挂起等回信：
+
+```typescript
+// hooks/toolPermission/handlers/swarmWorkerHandler.ts:49-57（节选）
+// 先试 classifier 快路径 —— 能本地放行就不必跨进程
+const classifierResult = feature('BASH_CLASSIFIER')
+  ? await ctx.tryClassifier?.(params.pendingClassifierCheck, updatedInput)
+  : null
+if (classifierResult) return classifierResult
+// 否则 createPermissionRequest + sendPermissionRequestViaMailbox + 等 leader 回信
+```
+
+注意第 51-52 行：bash 分类器作为"省一次往返"的快路径仍然保留 —— 能本地裁决的就不打扰主站。
+
+这三套流程的共同地基是 §七 描述的 hook 合并规则 —— deny > ask > allow 的优先级链。"权限 hook 之间怎么合并"这一段对三种身份是统一的；差别只在 hook 给不出答案之后由谁来兜底：是弹窗、是顺序接力，还是远端裁决。
+
+附：本节涉及源码 —— `hooks/toolPermission/handlers/interactiveHandler.ts:57-72`、`hooks/toolPermission/handlers/coordinatorHandler.ts:26-62`、`hooks/toolPermission/handlers/swarmWorkerHandler.ts:40-80`、`hooks/toolPermission/PermissionContext.ts` 的 `createResolveOnce`。
 
 ---
 

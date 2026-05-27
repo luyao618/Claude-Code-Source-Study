@@ -1,6 +1,6 @@
 # 第 3 章：配置体系与企业 MDM — 多层配置的合并之道
 
-> 本篇是《深入 Claude Code 源码》系列第 17 篇。我们将剖析 Settings 系统如何从 5 个正式配置源（加 1 个 Plugin 基底层）中读取、验证、合并配置，以及如何在运行时监听变更并热更新 —— 一个面向企业级部署的多层配置合并架构。除了文件层的合并管线之外，Claude Code 还有两条独立运行的组织级服务管线 —— `services/policyLimits/` 与 `services/settingsSync/` —— 它们不参与设置合并，但同样在「企业管控」与「跨设备一致性」两个维度上塑造了用户最终看到的运行时配置面貌。
+> 本章是《深入 Claude Code 源码》系列第 3 章。我们将剖析 Settings 系统如何从 5 个正式配置源（加 1 个 Plugin 基底层）中读取、验证、合并配置，以及如何在运行时监听变更并热更新 —— 一个面向企业级部署的多层配置合并架构。除了文件层的合并管线之外，Claude Code 还有两条独立运行的组织级服务管线 —— `services/policyLimits/` 与 `services/settingsSync/` —— 它们不参与设置合并，但同样在「企业管控」与「跨设备一致性」两个维度上塑造了用户最终看到的运行时配置面貌。
 
 ## 为什么需要多层配置？
 
@@ -234,7 +234,7 @@ function parseSettingsFileUncached(path: string): {
 
 ### 3.2 SettingsSchema 的向后兼容设计
 
-`SettingsSchema` 定义在 `utils/settings/types.ts` 中，使用 `lazySchema()` 延迟构造（与工具系统一致的模式，见第 9 篇）。它的设计严格遵循向后兼容原则：
+`SettingsSchema` 定义在 `utils/settings/types.ts` 中，使用 `lazySchema()` 延迟构造（与工具系统一致的模式，见第 10 章）。它的设计严格遵循向后兼容原则：
 
 ```typescript
 // utils/settings/types.ts:210-241（注释节选）
@@ -321,7 +321,7 @@ mdm/
 └── settings.ts   — 解析、缓存、first-source-wins 逻辑
 ```
 
-**为什么要这样拆？** 因为 `rawRead.ts` 在 `main.tsx` 模块求值阶段就被调用（第 2 篇提到的侧效果前置），此时不能引入任何重量级模块。MDM 读取分为**两个阶段**：
+**为什么要这样拆？** 因为 `rawRead.ts` 在 `main.tsx` 模块求值阶段就被调用（第 2 章提到的侧效果前置），此时不能引入任何重量级模块。MDM 读取分为**两个阶段**：
 
 **阶段一：预启动子进程**（`main.tsx:3-4`，模块求值期）
 

@@ -1,16 +1,16 @@
 # 第 24 章：Bridge IPC 与远程会话 — 把本地 CLI 接到手机和浏览器上的那条线
 
-> 本篇是《深入 Claude Code 源码》系列的第 24 篇。前面 23 篇我们都把 Claude Code 当成一个跑在终端里的进程：你敲 `claude`、它开 REPL、你按回车、它回答、退出。这一篇换一个场景：**你人在地铁上，会话却得继续跑**。
+> 本章是《深入 Claude Code 源码》系列第 24 章。前面 23 章我们都把 Claude Code 当成一个跑在终端里的进程：你敲 `claude`、它开 REPL、你按回车、它回答、退出。这一篇换一个场景：**你人在地铁上，会话却得继续跑**。
 
 读者第一次看到 `bridge/` 这个目录、加上一旁同样陌生的 `remote/`、`commands/bridge/`、`commands/remote-setup/`、`commands/remote-env/`，第一反应往往是「这不是把一个 CLI 改成 server 了吗」。其实没那么夸张——这一摞代码做的只是一件事：**让你笔记本上跑着的那个 Claude Code 进程，对外暴露成一条能被手机点亮、被浏览器接管、被 Web UI 续写指令的会话**。
 
 为什么这件事值得单独一篇？因为它把一个看似单进程的 CLI 拆成了**两端**：你按下回车的那一端，和真正动手干活的那一端，被一条由 WebSocket、JWT、子进程、控制帧、消息转译胶水起来的链路串了起来。链路里任何一段出错，对面就只看到一句「断线了」。Claude Code 在这条线上的工程心思和前面看过的对话循环、工具系统、Agent 编排是同一种气质——把异步、失败、续期都写在明面上，把「正常路径」缩到很小一段。
 
-> **风格说明**：本章对齐第 1 篇《项目全景》与第 2 篇《启动优化》的写法——以「问题先行 → 源码佐证 → 设计推演」三段式推进，结尾以「可迁移的设计模式 + 实战示例」收束。
+> **风格说明**：本章对齐第 1 章《项目全景》与第 2 章《启动优化》的写法——以「问题先行 → 源码佐证 → 设计推演」三段式推进，结尾以「可迁移的设计模式 + 实战示例」收束。
 >
 > 本章因涉及未公开的服务端契约，对 wire 协议帧布局、企业安全策略、上游服务器 endpoint 命名仅作接口层叙述，省略具体二进制 layout 与签名算法细节。阅读时请把出现的 URL 路径理解成「一类端点」，不要当作公开稳定契约。
 
-本篇将回答四个核心问题：
+本章将回答四个核心问题：
 
 1. **为什么不能用一条 HTTP 长连接解决全部？** — 三个绕不开的协议需求把架构推成两层
 2. **一台本地机器是怎么被服务端「派单」的？** — `register → poll → work secret` 的握手协议
@@ -122,7 +122,7 @@ const TOOL_VERBS: Record<string, string> = {
 
 这张映射表很有趣。它把工具的英文名换成进行时——`Read` 变成 `Reading`、`Bash` 变成 `Running`。手机上你看到的「正在读 `package.json`」「正在跑 `npm test`」就是这张表的直接产物。它不在服务端、也不在前端，就在你的本地 `sessionRunner` 里。这种「把状态文案的源头放到最靠近事实的那一端」是 Claude Code 反复出现的工程偏好——上一篇 Cron 调度里我们就看到过同样的写法。
 
-`extractActivities()` 函数负责扫子进程的 stdout JSON 流，把 `tool_use` / `text` / `result` / `error` 这四类事件转成 activity 上报。它和第 5 篇看过的 SSE 解码逻辑同源——同一份 JSON 块，在终端里你看到的是渲染好的彩色界面，从这里看出去就是一条条扁平的事件。
+`extractActivities()` 函数负责扫子进程的 stdout JSON 流，把 `tool_use` / `text` / `result` / `error` 这四类事件转成 activity 上报。它和第 5 章看过的 SSE 解码逻辑同源——同一份 JSON 块，在终端里你看到的是渲染好的彩色界面，从这里看出去就是一条条扁平的事件。
 
 子进程怎么起？`spawnScriptArgs()`（`bridge/sessionRunner.ts:47-54` 附近）会判断当前 `claude` 是编译进 bundled binary 的还是 npm dev 模式，给出不同的命令行。源码注释直接指到上游 issue [anthropics/claude-code#28334](https://github.com/anthropics/claude-code/issues/28334)——记录的是「编译态 vs npm 态在子进程参数解析上的行为差」。读者翻 git log 会看到它前后被改过好几次，每一次都是「编译进二进制带来的细节代价」。
 
@@ -143,7 +143,7 @@ const TOOL_VERBS: Record<string, string> = {
 // buildCCRv2SdkUrl: 用 worker_jwt + worker_epoch 拼出 v2 ingress URL
 ```
 
-它有一道单独的 feature flag `tengu_bridge_repl_v2` 把守，**仅** REPL 走这条路；daemon 模式和 print 模式还留在环境制下。这种「老的没废、新的并跑」的策略和第 19 篇编译期优化里讨论过的灰度模式一脉相承——给一条新链路一个独立 flag，让灰度发布期间老路径继续兜底。
+它有一道单独的 feature flag `tengu_bridge_repl_v2` 把守，**仅** REPL 走这条路；daemon 模式和 print 模式还留在环境制下。这种「老的没废、新的并跑」的策略和第 22 章编译期优化里讨论过的灰度模式一脉相承——给一条新链路一个独立 flag，让灰度发布期间老路径继续兜底。
 
 `worker_epoch` 是这条链路里的小亮点。每调用一次 `/bridge` 端点，服务端就把会话的 epoch 加 1，并返回给客户端。客户端在所有后续 WebSocket 帧上都带这个 epoch；如果同一条会话被另一台机器**抢占**——你换到办公室那台笔记本接着用——旧的 epoch 立刻失效。这把 `register` 时代靠服务端单独维护 worker 注册表的事情压缩成了一个递增整数：更便宜、更不容易写错。
 
@@ -185,7 +185,7 @@ if (message.type === 'control_response')       { /* 控制帧确认 */ }
 if (isSDKMessage(message))                     { this.callbacks.onMessage(message) }
 ```
 
-正常的对话消息直接交给上层 UI 渲染；控制请求走单独的 `handleControlRequest`（`remote/RemoteSessionManager.ts:189-214`）；控制取消走单独的清理路径。这种「按消息 type 分发」的写法你在第 5 篇 query 主循环里见过——同一种风格在网络层、对话层、UI 层反复出现，是这套代码的稳态。
+正常的对话消息直接交给上层 UI 渲染；控制请求走单独的 `handleControlRequest`（`remote/RemoteSessionManager.ts:189-214`）；控制取消走单独的清理路径。这种「按消息 type 分发」的写法你在第 5 章 query 主循环里见过——同一种风格在网络层、对话层、UI 层反复出现，是这套代码的稳态。
 
 `RemoteSessionConfig` 里还有一个值得留意的小字段 `viewerOnly`（`remote/RemoteSessionManager.ts:56-61` 注释）：当对面是 `claude assistant` 这类「只想看一眼」的客户端时，Ctrl+C / Escape 不会真的把 interrupt 信号发给远端；60 秒断线超时也被禁用；会话标题永远不被更新。这是把「观察者」和「驾驶者」在协议层就分开——不需要服务端帮忙，本地包装类自己就知道自己处于哪种身份。
 

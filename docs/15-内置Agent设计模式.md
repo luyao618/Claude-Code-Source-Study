@@ -1,10 +1,10 @@
 # 第 15 章：内置 Agent 设计模式 — Explore、Plan、Verification 的 Prompt 设计
 
-> 本篇是《深入 Claude Code 源码》系列第 13 篇。我们将深入 6 个内置 Agent 的 System Prompt 设计，揭示如何通过 prompt 工程将同一套工具系统塑造出截然不同的 Agent 人格与行为模式，并解析自定义 Agent 的 markdown frontmatter 配置全貌。
+> 本章是《深入 Claude Code 源码》系列第 15 章。我们将深入 6 个内置 Agent 的 System Prompt 设计，揭示如何通过 prompt 工程将同一套工具系统塑造出截然不同的 Agent 人格与行为模式，并解析自定义 Agent 的 markdown frontmatter 配置全貌。
 
 ## 为什么需要内置 Agent？
 
-在第 12 篇中，我们了解了 Agent 系统的整体架构 —— `AgentDefinition` 数据结构、`runAgent()` 生命周期、`createSubagentContext()` 的隔离机制。但架构只是骨架，真正赋予 Agent "灵魂"的是它们的 **System Prompt 设计**。
+在第 14 章中，我们了解了 Agent 系统的整体架构 —— `AgentDefinition` 数据结构、`runAgent()` 生命周期、`createSubagentContext()` 的隔离机制。但架构只是骨架，真正赋予 Agent "灵魂"的是它们的 **System Prompt 设计**。
 
 一个核心问题：Claude Code 拥有 40+ 个工具，为什么不让一个通用 Agent 做所有事？答案藏在工程实践中：
 
@@ -13,7 +13,7 @@
 3. **prompt 精度** —— 越专注的角色定义，模型的行为越可预测
 4. **token 节约** —— 只读 Agent 不需要 CLAUDE.md 中的 commit/PR/lint 规则，省下 5-15 Gtok/周
 
-Claude Code 通过 6 个内置 Agent（General-purpose、Statusline-setup、Explore、Plan、Guide、Verification），展示了一套**角色化 prompt 设计模式** —— 同样的工具集合，通过不同的 System Prompt 约束，产生完全不同的行为。本篇重点剖析其中 5 个设计最具代表性的 Agent（Statusline-setup 偏领域特化，仅在架构图中列出）。
+Claude Code 通过 6 个内置 Agent（General-purpose、Statusline-setup、Explore、Plan、Guide、Verification），展示了一套**角色化 prompt 设计模式** —— 同样的工具集合，通过不同的 System Prompt 约束，产生完全不同的行为。本章重点剖析其中 5 个设计最具代表性的 Agent（Statusline-setup 偏领域特化，仅在架构图中列出）。
 
 ---
 
@@ -369,7 +369,7 @@ const effectiveType = subagent_type
   ?? (isForkSubagentEnabled() ? undefined : GENERAL_PURPOSE_AGENT.agentType);
 ```
 
-当 fork subagent 功能启用时（编译期 `feature('FORK_SUBAGENT')` + 非 Coordinator 模式 + 交互式会话），省略 `subagent_type` 会走 fork path 而非 general-purpose。Fork path 会让子 Agent 继承父 Agent 的完整对话上下文，这是一种完全不同的执行模式（详见第 12 篇）。
+当 fork subagent 功能启用时（编译期 `feature('FORK_SUBAGENT')` + 非 Coordinator 模式 + 交互式会话），省略 `subagent_type` 会走 fork path 而非 general-purpose。Fork path 会让子 Agent 继承父 Agent 的完整对话上下文，这是一种完全不同的执行模式（详见第 14 章）。
 
 General-purpose 的设计哲学是"不限制，但给引导" —— 不限制工具，但通过 prompt 引导"不要镀金（gold-plate）"和"不要主动创建文档"。
 

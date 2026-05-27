@@ -1,6 +1,6 @@
 # 第 22 章：Feature Flag 与编译期优化 — 同一份代码构建两个产品
 
-> 本篇揭示 Claude Code 如何用一套代码库同时维护内部版和外部版两个产品。你将看到 Bun 的 `feature()` 编译期常量折叠、`process.env.USER_TYPE` 构建时 `--define` 常量、`MACRO.*` 构建时值注入、以及 GrowthBook A/B 测试平台如何在不同的时间维度上协同工作。
+> 本章揭示 Claude Code 如何用一套代码库同时维护内部版和外部版两个产品。你将看到 Bun 的 `feature()` 编译期常量折叠、`process.env.USER_TYPE` 构建时 `--define` 常量、`MACRO.*` 构建时值注入、以及 GrowthBook A/B 测试平台如何在不同的时间维度上协同工作。
 
 ## 为什么需要多层 Feature Flag？
 
@@ -577,7 +577,7 @@ Feature Flag 最大的风险是 mid-session 翻转导致不一致状态。Claude
 
 ### 6.1 Latch 模式（单向锁存）
 
-在 Prompt Cache 系统中（第 7 篇详述），多个 flag 使用 **Latch 模式**：一旦开启就不再关闭：
+在 Prompt Cache 系统中（第 8 章详述），多个 flag 使用 **Latch 模式**：一旦开启就不再关闭：
 
 > AFK header / cache editing header / fast mode header 一旦开启不关闭，防止 mid-session 翻转破坏缓存。
 
@@ -596,7 +596,7 @@ const TOOL_SCHEMA_CACHE = new Map<string, CachedSchema>()
 ### 6.3 QueryConfig 刻意排除 feature()
 
 ```
-// query/config.ts — 第 5 篇提到的设计
+// query/config.ts — 第 5 章提到的设计
 // QueryConfig 是不可变环境快照，刻意排除 feature() gate 以保留 DCE
 ```
 

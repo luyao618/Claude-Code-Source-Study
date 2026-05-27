@@ -1,6 +1,6 @@
 # 第 9 章：Thinking、Effort 与 Advisor — 让模型「想」多少
 
-> 本篇是《深入 Claude Code 源码》系列的第 8 篇。我们将深入分析 Claude Code 如何精细控制模型的推理深度——从 Extended Thinking 的三种模式、Effort 级别系统、`ultrathink` 关键词触发，到 Advisor 这一"更强模型审阅"机制。
+> 本章是《深入 Claude Code 源码》系列第 9 章。我们将深入分析 Claude Code 如何精细控制模型的推理深度——从 Extended Thinking 的三种模式、Effort 级别系统、`ultrathink` 关键词触发，到 Advisor 这一"更强模型审阅"机制。
 >
 > 这些机制共同回答了一个核心问题：**在速度、质量和成本之间，如何给用户最大的控制权？**
 
@@ -562,11 +562,11 @@ export function hasUltrathinkKeyword(text: string): boolean {
 }
 ```
 
-双重门控：编译期 `feature('ULTRATHINK')` 控制代码是否包含在构建中，GrowthBook `tengu_turtle_carbon` 控制运行时是否启用。这是第 19 篇将详述的 Feature Flag 模式的典型应用。
+双重门控：编译期 `feature('ULTRATHINK')` 控制代码是否包含在构建中，GrowthBook `tengu_turtle_carbon` 控制运行时是否启用。这是第 22 章将详述的 Feature Flag 模式的典型应用。
 
 ### 4.2 通过 Attachment 系统注入
 
-关键词检测后，ultrathink 通过 Attachment 系统（第 5 篇提到的消息附件机制）注入到对话中：
+关键词检测后，ultrathink 通过 Attachment 系统（第 5 章提到的消息附件机制）注入到对话中：
 
 **文件**：`utils/attachments.ts:1446-1452`
 
@@ -943,7 +943,7 @@ export function shouldEnablePromptSuggestion(): boolean {
 // 节省的那点 effort 钱远抵不上 cache miss 多花的钱。
 ```
 
-这就是第 7 篇 Prompt Cache 那一章反复强调的"前缀稳定"原则在这里的反向印证——**子系统宁可多花点 token 跑一遍同等 effort 的模型，也不能动主对话的缓存前缀**。这条约束和本章 §二 里 Thinking 的 `thinkingClearLatched` 是一个家族的设计：所有"会改变 API 请求关键字段"的开关，都要先回答"它会不会让主对话的缓存掉血"。
+这就是第 8 章 Prompt Cache 那一章反复强调的"前缀稳定"原则在这里的反向印证——**子系统宁可多花点 token 跑一遍同等 effort 的模型，也不能动主对话的缓存前缀**。这条约束和本章 §二 里 Thinking 的 `thinkingClearLatched` 是一个家族的设计：所有"会改变 API 请求关键字段"的开关，都要先回答"它会不会让主对话的缓存掉血"。
 
 ### 番外.3 早退守卫与父缓存温度
 

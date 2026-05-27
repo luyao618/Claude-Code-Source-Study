@@ -1,10 +1,10 @@
 # 第 11 章：BashTool / PowerShellTool 双 shell — 最复杂的单个工具家族
 
-> 本篇是《深入 Claude Code 源码》系列第 10 篇。BashTool 是 Claude Code 中代码量最大、安全逻辑最复杂的单个工具，总计 12,411 行代码。我们将从命令语义分析、多层安全防线、沙箱执行、输出处理、权限匹配五个维度，完整剖析它如何让 AI 安全地执行 Shell 命令；末尾再以 PowerShellTool 作为 Windows 路径上的对照实现。
+> 本章是《深入 Claude Code 源码》系列第 11 章。BashTool 是 Claude Code 中代码量最大、安全逻辑最复杂的单个工具，总计 12,411 行代码。我们将从命令语义分析、多层安全防线、沙箱执行、输出处理、权限匹配五个维度，完整剖析它如何让 AI 安全地执行 Shell 命令；末尾再以 PowerShellTool 作为 Windows 路径上的对照实现。
 
 ## 为什么 BashTool 是最复杂的工具？
 
-在第 9 篇中我们了解了 `buildTool()` 的抽象体系和 Tool 接口的设计。所有工具都遵循相同的 `name / inputSchema / call() / checkPermissions()` 协议。但 BashTool 的特殊之处在于：**它是唯一一个允许 AI 在用户机器上执行任意代码的工具**。
+在第 10 章中我们了解了 `buildTool()` 的抽象体系和 Tool 接口的设计。所有工具都遵循相同的 `name / inputSchema / call() / checkPermissions()` 协议。但 BashTool 的特殊之处在于：**它是唯一一个允许 AI 在用户机器上执行任意代码的工具**。
 
 这意味着它必须同时解决两个相互矛盾的需求：
 1. **足够强大** — AI 需要通过 Shell 命令完成 git 操作、运行测试、安装依赖、查看日志等几乎一切任务
@@ -369,7 +369,7 @@ type ShellPermissionRule =
   | { type: 'wildcard'; pattern: string } // 通配符: "git *"
 ```
 
-权限规则有三种来源：`alwaysAllowRules`（自动批准）、`alwaysDenyRules`（自动拒绝）、`alwaysAskRules`（总是询问）。规则按 source 分层（参见第 16 篇权限系统）。
+权限规则有三种来源：`alwaysAllowRules`（自动批准）、`alwaysDenyRules`（自动拒绝）、`alwaysAskRules`（总是询问）。规则按 source 分层（参见第 19 章权限系统）。
 
 ### 3.2 环境变量剥离与包装器剥离
 

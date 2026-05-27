@@ -1,10 +1,10 @@
 # 第 16 章：任务模型与 TaskType 谱系 — Agent 的并发执行引擎
 
-> 本篇是《深入 Claude Code 源码》系列的第 14 篇。我们将深入分析 Claude Code 如何通过一套统一的任务系统，管理从后台 Shell 命令到多 Agent 并行协作的所有异步工作。
+> 本章是《深入 Claude Code 源码》系列第 16 章。我们将深入分析 Claude Code 如何通过一套统一的任务系统，管理从后台 Shell 命令到多 Agent 并行协作的所有异步工作。
 
 ## 为什么需要任务系统？
 
-在前几篇中，我们已经见过了 Agent 系统（第 12 篇）和内置 Agent 设计模式（第 13 篇）。但有一个关键问题尚未解决：**当模型同时发起多个 Agent、多个后台 Shell 命令、甚至一个"做梦"式的记忆整理任务时，这些并发工作如何被统一管理？**
+在前几篇中，我们已经见过了 Agent 系统（第 14 章）和内置 Agent 设计模式（第 15 章）。但有一个关键问题尚未解决：**当模型同时发起多个 Agent、多个后台 Shell 命令、甚至一个"做梦"式的记忆整理任务时，这些并发工作如何被统一管理？**
 
 想象一个真实场景：Coordinator 模式下，主 Agent 同时派出 3 个 Worker 去研究代码库的不同部分，每个 Worker 又可能启动自己的后台 Shell 命令。此时系统需要：
 
@@ -156,7 +156,7 @@ export function getAllTasks(): Task[] {
 }
 ```
 
-注意 `LocalWorkflowTask` 和 `MonitorMcpTask` 使用了 `feature()` 门控 + 条件 `require()` 的模式（与第 1 篇介绍的编译期 DCE 机制一致）。在外部构建中，这两个任务类型的代码会被完全删除。
+注意 `LocalWorkflowTask` 和 `MonitorMcpTask` 使用了 `feature()` 门控 + 条件 `require()` 的模式（与第 1 章介绍的编译期 DCE 机制一致）。在外部构建中，这两个任务类型的代码会被完全删除。
 
 ---
 
@@ -219,7 +219,7 @@ export function updateTaskState<T extends TaskState>(
 }
 ```
 
-这个函数的**引用相等性优化**值得注意：如果 updater 返回了相同的引用（表示无需更新），它跳过 spread 操作，避免触发 React 不必要的重渲染。这与第 3 篇介绍的 Store 中 `Object.is` 检查是同一个模式。
+这个函数的**引用相等性优化**值得注意：如果 updater 返回了相同的引用（表示无需更新），它跳过 spread 操作，避免触发 React 不必要的重渲染。这与第 33 章介绍的 Store 中 `Object.is` 检查是同一个模式。
 
 **evictTerminalTask()** — 终态任务的提前驱逐：
 
@@ -792,7 +792,7 @@ export type TeammateIdentity = {
 
 ## 六、上下文隔离：createSubagentContext() 的设计
 
-> **交叉引用**：`createSubagentContext()` 的完整接口设计在[第 12 篇](./14-Agent系统与SubAgent调用.md)第四节已详述。本节聚焦于它在**并发任务场景**下的特殊考量。
+> **交叉引用**：`createSubagentContext()` 的完整接口设计在[第 14 章](./14-Agent系统与SubAgent调用.md)第四节已详述。本节聚焦于它在**并发任务场景**下的特殊考量。
 
 所有 Agent 协作模式都依赖 `createSubagentContext()` 来创建隔离的执行上下文。这个函数定义在 `utils/forkedAgent.ts` 中，是整个并发体系的安全基石：
 

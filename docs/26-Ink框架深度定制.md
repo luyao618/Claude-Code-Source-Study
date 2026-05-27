@@ -1,6 +1,6 @@
 # 第 26 章：Ink 框架深度定制 — 在终端中运行 React
 
-> 本篇深入 Claude Code 的 forked Ink 框架（`ink/` 目录，96 个 `.ts` / `.tsx` 文件、19,842 行），揭示如何在终端中构建一个完整的 React 渲染引擎：从自定义 Reconciler、Yoga 布局、双缓冲渲染管线，到虚拟滚动、鼠标事件、文本选择等深度定制。这一版还要把视线拉到与 `ink/` 配套的 `native-ts/` 目录——团队把原本走 WASM / NAPI 的三段原生模块（`yoga-layout` / `color-diff` / `file-index`）重新写成了纯 TypeScript 实现，Ink 的布局引擎就是其中第一段。
+> 本章深入 Claude Code 的 forked Ink 框架（`ink/` 目录，96 个 `.ts` / `.tsx` 文件、19,842 行），揭示如何在终端中构建一个完整的 React 渲染引擎：从自定义 Reconciler、Yoga 布局、双缓冲渲染管线，到虚拟滚动、鼠标事件、文本选择等深度定制。这一版还要把视线拉到与 `ink/` 配套的 `native-ts/` 目录——团队把原本走 WASM / NAPI 的三段原生模块（`yoga-layout` / `color-diff` / `file-index`）重新写成了纯 TypeScript 实现，Ink 的布局引擎就是其中第一段。
 
 ## 为什么要 Fork Ink？
 

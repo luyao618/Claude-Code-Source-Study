@@ -1,6 +1,6 @@
 # 第 8 章：Prompt Cache 横切 — 跨模块的缓存策略如何降低 API 成本
 
-> 本篇是《深入 Claude Code 源码》系列的第 7 篇。我们将从一个横切视角，解析 Prompt Cache 机制如何贯穿 System Prompt、对话循环、上下文管理三大模块，以及 Fork Agent 如何通过精密的参数对齐实现跨进程缓存共享。
+> 本章是《深入 Claude Code 源码》系列第 8 章。我们将从一个横切视角，解析 Prompt Cache 机制如何贯穿 System Prompt、对话循环、上下文管理三大模块，以及 Fork Agent 如何通过精密的参数对齐实现跨进程缓存共享。
 
 ## 为什么需要理解 Prompt Cache？
 
@@ -8,9 +8,9 @@
 
 Anthropic 的 Prompt Caching 机制可以将 **重复前缀** 的成本降低 90%。服务端会缓存请求前缀（System Prompt + 工具定义 + 消息历史前缀），只要下次请求的前缀字节完全一致，就可以从缓存中读取，而非重新处理。
 
-但"字节完全一致"这个要求极其严苛 —— **哪怕多一个空格、换一个 JSON 字段顺序、改一个 `cache_control` 的 scope，整个缓存就失效了。** Claude Code 的源码中充斥着对这个约束的防御性设计。本篇将揭示这些设计的全貌。
+但"字节完全一致"这个要求极其严苛 —— **哪怕多一个空格、换一个 JSON 字段顺序、改一个 `cache_control` 的 scope，整个缓存就失效了。** Claude Code 的源码中充斥着对这个约束的防御性设计。本章将揭示这些设计的全貌。
 
-本篇将回答三个核心问题：
+本章将回答三个核心问题：
 1. **缓存是怎么标记的？** — `cache_control` 标记的放置策略与作用域选择
 2. **缓存是怎么保护的？** — 从 System Prompt 分段到 Cached Microcompact，如何避免缓存失效
 3. **缓存是怎么共享的？** — Fork Agent 如何通过 `CacheSafeParams` 实现跨线程缓存命中
@@ -180,7 +180,7 @@ function should1hCacheTTL(querySource?: QuerySource): boolean {
 
 ### 2.1 `SYSTEM_PROMPT_DYNAMIC_BOUNDARY`：静态与动态的分界线
 
-System Prompt 由多个 section 组成（详见第 4 篇），其中一些是所有用户共享的（如核心指令、工具使用规范），另一些是会话特定的（如 Git 状态、CLAUDE.md 内容、语言设置）。如果把它们合并成一个块做缓存标记，任何动态部分的变化都会导致整个 System Prompt 的缓存失效。
+System Prompt 由多个 section 组成（详见第 6 章），其中一些是所有用户共享的（如核心指令、工具使用规范），另一些是会话特定的（如 Git 状态、CLAUDE.md 内容、语言设置）。如果把它们合并成一个块做缓存标记，任何动态部分的变化都会导致整个 System Prompt 的缓存失效。
 
 Claude Code 的解决方案是插入一个 **边界标记**：
 
@@ -280,7 +280,7 @@ export async function resolveSystemPromptSections(
 
 ### 3.1 问题：清理旧的工具结果 vs 保护缓存前缀
 
-在长对话中，早期的工具调用结果（如 `FileRead` 读取的文件内容、`Bash` 的命令输出）会占用大量 token，但随着对话推进，这些结果已经不再有用。第 6 篇介绍了 Microcompact 机制来清理它们。
+在长对话中，早期的工具调用结果（如 `FileRead` 读取的文件内容、`Bash` 的命令输出）会占用大量 token，但随着对话推进，这些结果已经不再有用。第 7 章介绍了 Microcompact 机制来清理它们。
 
 但传统的 Microcompact 有一个问题：**修改消息内容会改变请求前缀的字节，导致缓存失效**。假设服务端缓存了 `[sysprompt, msg1, msg2(tool_result="file content..."), msg3]` 这个前缀，如果我们把 `msg2` 的 `tool_result` 替换为 `"[Old tool result content cleared]"`，前缀就不匹配了。
 

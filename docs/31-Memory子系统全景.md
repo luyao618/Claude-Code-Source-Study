@@ -1,6 +1,6 @@
 # 第 31 章：Memory 子系统全景 — AI 记忆的多层架构
 
-> 本篇深入 Claude Code 的记忆系统。我们将看到，一个 AI Agent 如何在"无状态"的 LLM 对话模型上，构建出跨越单次会话、跨越多个项目、甚至跨越团队协作的持久化记忆能力。
+> 本章深入 Claude Code 的记忆系统。我们将看到，一个 AI Agent 如何在"无状态"的 LLM 对话模型上，构建出跨越单次会话、跨越多个项目、甚至跨越团队协作的持久化记忆能力。
 
 ## 为什么 AI Agent 需要记忆？
 
@@ -413,7 +413,7 @@ export function shouldExtractMemory(messages: Message[]): boolean {
 
 ### 4.3 与 Compact 的协同
 
-Session Memory 的核心价值在 compact（上下文压缩）时体现。当 auto-compact 触发时，Session Memory 提供了一个比让 LLM 重新总结更低成本的替代方案 —— `sessionMemoryCompact.ts`（第 6 篇已详述）可以直接复用后台已经提取好的 Session Memory 作为 compact 后的总结，**免去额外的 compact 总结 API 调用**。需要注意的是，Session Memory 自身的维护仍然是通过 forked agent 完成的（每次提取都要调用一次 API），但这些提取是在后台增量进行的，代价远低于在 compact 时从头生成摘要。
+Session Memory 的核心价值在 compact（上下文压缩）时体现。当 auto-compact 触发时，Session Memory 提供了一个比让 LLM 重新总结更低成本的替代方案 —— `sessionMemoryCompact.ts`（第 7 章已详述）可以直接复用后台已经提取好的 Session Memory 作为 compact 后的总结，**免去额外的 compact 总结 API 调用**。需要注意的是，Session Memory 自身的维护仍然是通过 forked agent 完成的（每次提取都要调用一次 API），但这些提取是在后台增量进行的，代价远低于在 compact 时从头生成摘要。
 
 提取完成后会等待（`waitForSessionMemoryExtraction()`，15 秒超时）确保 compact 能拿到最新的笔记。
 
@@ -626,7 +626,7 @@ function isGateOpen(): boolean {
 }
 ```
 
-如果巩固失败，**回滚锁的 mtime** 让时间门控重新通过，下次会话会再次尝试。如果用户手动 kill 了 dream task，DreamTask 的 `kill()` 方法也会回滚 mtime —— 防止"梦被永久打断"（第 14 篇已详述）。
+如果巩固失败，**回滚锁的 mtime** 让时间门控重新通过，下次会话会再次尝试。如果用户手动 kill 了 dream task，DreamTask 的 `kill()` 方法也会回滚 mtime —— 防止"梦被永久打断"（第 16 章已详述）。
 
 ---
 

@@ -1,6 +1,6 @@
 # 第 6 章：System Prompt 与 Output Style 注入 — 精密控制模型行为的提示词体系
 
-> 本篇是《深入 Claude Code 源码》系列的第 4 篇。我们将深入 `constants/prompts.ts`（914 行，commit `290fdc94`）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
+> 本章是《深入 Claude Code 源码》系列第 6 章。我们将深入 `constants/prompts.ts`（914 行，commit `290fdc94`）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
 
 ## 为什么 System Prompt 值得单独一篇？
 
@@ -11,7 +11,7 @@
 3. **它是模型行为的根基** — 代码风格约束、安全指令、工具使用优先级、输出格式，全部编码在这里
 4. **它有内外版差异** — 通过 `process.env.USER_TYPE === 'ant'` 区分内部版（Anthropic 员工）和外部版（公开用户），同一套代码产出不同的行为指引
 
-本篇将回答三个核心问题：
+本章将回答三个核心问题：
 1. **System Prompt 由哪些模块组成，如何组装？** — `getSystemPrompt()` 的完整流程
 2. **静态与动态内容如何分离以优化缓存？** — `SYSTEM_PROMPT_DYNAMIC_BOUNDARY` 机制
 3. **提示词中编码了哪些关键的行为引导技巧？** — 从安全指令到代码风格约束

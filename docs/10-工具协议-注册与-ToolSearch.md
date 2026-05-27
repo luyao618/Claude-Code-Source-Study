@@ -1,6 +1,6 @@
 # 第 10 章：工具协议、注册与 ToolSearch — buildTool() 的抽象之美
 
-> 本篇是《深入 Claude Code 源码》系列的第 9 篇。我们将深入工具系统的核心设计：从 `Tool` 接口的核心方法，到 `buildTool()` 的 builder 模式，到 `tools.ts` 的注册表架构，再到 ToolSearch 的延迟加载机制，揭示一个生产级 AI Agent 如何管理一整族内置工具（具体清单与分类见 [附录 A](./appendix/A.md)）和无限数量的 MCP 工具。
+> 本章是《深入 Claude Code 源码》系列第 10 章。我们将深入工具系统的核心设计：从 `Tool` 接口的核心方法，到 `buildTool()` 的 builder 模式，到 `tools.ts` 的注册表架构，再到 ToolSearch 的延迟加载机制，揭示一个生产级 AI Agent 如何管理一整族内置工具（具体清单与分类见 [附录 A](./appendix/A.md)）和无限数量的 MCP 工具。
 
 ## 为什么工具系统是 Agent 的灵魂？
 
@@ -13,7 +13,7 @@ Claude Code 内置工具的真实集合不是一个固定数字，而是「`tool
 3. **条件注册**：不同构建版本、不同运行模式下可用的工具不同
 4. **规模可扩展**：当工具数量超过模型上下文窗口的承载能力时，需要动态发现机制
 
-本篇将回答这些问题，并从中提炼出可迁移到自己项目的设计模式。
+本章将回答这些问题，并从中提炼出可迁移到自己项目的设计模式。
 
 ---
 
@@ -530,7 +530,7 @@ export type ToolUseContext = {
 }
 ```
 
-`ToolUseContext` 是第 3 篇讲过的"运行时上下文容器"。它最关键的设计是 `getAppState/setAppState` 对 —— subagent 的 `setAppState` 可以是 no-op（参见 `createSubagentContext()`），实现了 Agent 隔离。
+`ToolUseContext` 是第 33 章讲过的"运行时上下文容器"。它最关键的设计是 `getAppState/setAppState` 对 —— subagent 的 `setAppState` 可以是 no-op（参见 `createSubagentContext()`），实现了 Agent 隔离。
 
 ---
 

@@ -1,6 +1,6 @@
 # 第 21 章：Skill / Plugin / Output Style 三扩展点 — 基于源码理解扩展点
 
-> 本篇是《深入 Claude Code 源码》系列的第 24 篇。前面 23 篇我们深入分析了 Claude Code 的内部架构，现在是时候"反过来用"了 —— 站在扩展开发者的视角，理解如何编写自定义 Agent、Skill、Plugin 和 Hook 脚本。本篇的独特价值在于：每一个配置字段、每一个行为约定，我们都能追溯到源码中的具体实现。
+> 本章是《深入 Claude Code 源码》系列第 21 章。前面 20 章我们深入分析了 Claude Code 的内部架构，现在是时候"反过来用"了 —— 站在扩展开发者的视角，理解如何编写自定义 Agent、Skill、Plugin 和 Hook 脚本。本章的独特价值在于：每一个配置字段、每一个行为约定，我们都能追溯到源码中的具体实现。
 
 ## 为什么需要理解扩展点？
 
@@ -17,9 +17,9 @@ Hook 脚本 → Skill 文件 → Agent 定义 → Plugin 包
 - **Agent**：一个 Markdown 文件，定义一个独立的 AI 角色（有自己的 prompt、工具集、模型）
 - **Plugin**：一个完整的目录包，可以同时提供 Skill、Agent、Hook、MCP 服务器
 
-除了这四档"行为面"扩展，还有一条很容易被忽略的"体验面"扩展路径 —— **Output Style**。它不改变模型能调哪些工具、也不在循环里塞 prompt，而是在 system prompt 末端追加一段 `# Output Style: ...` 段落（`constants/prompts.ts:151-157`），把"该用什么腔调说话"显式写到模型面前；同时它可以让 Claude Code 在拼装 system prompt 时选择性地省略默认那段"写代码助手任务清单"（`constants/prompts.ts:564-567` 中 `getSimpleDoingTasksSection()` 的开关）。Plugin 可以把自己的 Output Style 一起带进来，但 Output Style 本身也能独立存在于 `.claude/output-styles/` 目录里，单独使用。所以读完前四档之后，本篇会专门留一节给它，把它放回到 Skill / Plugin 的同一张图里看。
+除了这四档"行为面"扩展，还有一条很容易被忽略的"体验面"扩展路径 —— **Output Style**。它不改变模型能调哪些工具、也不在循环里塞 prompt，而是在 system prompt 末端追加一段 `# Output Style: ...` 段落（`constants/prompts.ts:151-157`），把"该用什么腔调说话"显式写到模型面前；同时它可以让 Claude Code 在拼装 system prompt 时选择性地省略默认那段"写代码助手任务清单"（`constants/prompts.ts:564-567` 中 `getSimpleDoingTasksSection()` 的开关）。Plugin 可以把自己的 Output Style 一起带进来，但 Output Style 本身也能独立存在于 `.claude/output-styles/` 目录里，单独使用。所以读完前四档之后，本章会专门留一节给它，把它放回到 Skill / Plugin 的同一张图里看。
 
-本篇将逐一解析这四个扩展点的编写方式，并指出它们在源码中是如何被发现、解析和执行的。
+本章将逐一解析这四个扩展点的编写方式，并指出它们在源码中是如何被发现、解析和执行的。
 
 ---
 
@@ -336,7 +336,7 @@ You are a test runner agent. Your job is to...
 
 ### 2.3 工具约束三策略
 
-Agent 的工具控制有三种策略，在 `runAgent()` 中实现了三层过滤（详见第 12 篇）：
+Agent 的工具控制有三种策略，在 `runAgent()` 中实现了三层过滤（详见第 14 章）：
 
 **白名单**（`tools`）：只允许使用列出的工具。
 ```yaml
@@ -579,7 +579,7 @@ type LoadedPlugin = {
 
 ### 4.1 Hook 配置格式
 
-Hook 可以在三个地方配置：settings.json、Agent frontmatter、Skill frontmatter。格式统一为三层嵌套结构（详见第 18 篇）：
+Hook 可以在三个地方配置：settings.json、Agent frontmatter、Skill frontmatter。格式统一为三层嵌套结构（详见第 20 章）：
 
 ```json
 {
@@ -851,7 +851,7 @@ const name = `${pluginName}:${baseStyleName}`
 
 ### 跟 Skill / Plugin 是什么关系
 
-回到本篇开头那个问题：Output Style 和前面四档究竟是什么关系？
+回到本章开头那个问题：Output Style 和前面四档究竟是什么关系？
 
 如果说 Skill 是给模型"一段当前回合可以参考的指令"，那么 Output Style 改的是模型"做完每一回合后该用什么腔调说话"。两者的生命周期完全不同 —— Skill 的注入一般只活在它被调用的那一回合（或 fork 出去的 sub-agent 内），而 Output Style 一旦切换就贯穿整段会话，直到用户再次 `/output-style` 切走。
 

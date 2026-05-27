@@ -69,14 +69,14 @@ function getChangedFiles(base: string): string[] {
  * `is_new_chapter` 身份导致 25% 占比闸 skip = 漏判）。
  */
 const NEW_CHAPTER_FILES = new Set<string>([
-  "docs/26-配置迁移即代码.md",
-  "docs/27-通信调度问询与合成工具.md",
-  "docs/28-Coordinator-Cron-与定时调度.md",
-  "docs/29-Bridge-IPC-与远程会话.md",
-  "docs/30-DirectConnect-与上游代理.md",
-  "docs/31-Keybindings-Vim-与-Voice-输入.md",
-  "docs/32-Buddy-宠物.md",
-  "docs/33-Doctor-屏与-Output-Style-体验.md",
+  "docs/04-配置迁移即代码.md",
+  "docs/13-通信调度问询与合成工具.md",
+  "docs/17-Coordinator-Cron-与定时调度.md",
+  "docs/24-Bridge-IPC-与远程会话.md",
+  "docs/25-DirectConnect-与上游代理.md",
+  "docs/28-Keybindings-Vim与Voice输入.md",
+  "docs/29-Buddy人格.md",
+  "docs/30-Doctor屏与OutputStyle体验.md",
 ]);
 
 const SOURCE_LANGS = new Set([

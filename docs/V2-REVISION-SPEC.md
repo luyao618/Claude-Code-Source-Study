@@ -574,18 +574,20 @@ OC-PM 据本文档为每个 v2 章节产出 1 个 parent issue，包含三件套
 >
 > 规则：所有 8 篇新章按 C 编号顺序追加到 v1 末尾（v1 占 00–25），自 NN=26 起。具体落地由 OC-Dev 在 spec 中显式登记，writer **不得**自挑文件名。每新增一行，必须同步追加到 `scripts/check-code-ratio.ts` 的 `NEW_CHAPTER_FILES` 集合；spec 表格与脚本集合的一一对应由 OC-Dev 在仲裁仲裁/合 PR 时人工守住。
 
+> **YAO-144 仲裁更新（v2 全书重排落地）**：v2 完成 34 章后，整书按 §5 的 8 篇 / 34 章顺序统一重排 NN 槽位。新章不再「自 26 起追加」，而是各归 v2 章位（C04→NN=04、C13→NN=13、C17→NN=17、C24→NN=24、C25→NN=25、C28→NN=28、C29→NN=29、C30→NN=30）。本表以**当前 main 上的实际文件名**为唯一来源，`scripts/check-code-ratio.ts` 的 `NEW_CHAPTER_FILES` 集合已同步。
+
 | Cxx | 章节标题 | 落地文件 | 备注 |
 |---|---|---|---|
-| C04 | 配置迁移即代码 | `docs/26-配置迁移即代码.md` | YAO-135 仲裁，YAO-106 落地 |
-| C13 | 通信、调度、问询与合成工具 | `docs/27-通信调度问询与合成工具.md` | YAO-135 仲裁，YAO-114 落地 |
-| C17 | Coordinator、Cron 与定时调度 | `docs/28-Coordinator-Cron-与定时调度.md` | YAO-135 仲裁，YAO-137 追加（NN=28，承接 26/27 落地，准 YAO-117 启动） |
-| C24 | Bridge IPC 与远程会话 | `docs/29-Bridge-IPC-与远程会话.md` | YAO-138 追加（NN=29，承接 26/27/28 落地，准 YAO-123 启动） |
-| C25 | DirectConnect 与上游代理 | `docs/30-DirectConnect-与上游代理.md` | YAO-139 仲裁，YAO-124 落地（NN=30，承接 26/27/28/29，准 YAO-124 启动） |
-| C28 | Keybindings、Vim 与 Voice 输入 | `docs/31-Keybindings-Vim-与-Voice-输入.md` | YAO-140 追加（NN=31，承接 26/27/28/29/30 落地，准 YAO-127 启动） |
-| C29 | Buddy 人格 | `docs/32-Buddy-宠物.md` | YAO-143 追加（NN=32，承接 26/27/28/29/30/31 落地，准 YAO-128 启动） |
-| C30 | Doctor 屏与 Output Style 体验 | `docs/33-Doctor-屏与-Output-Style-体验.md` | YAO-142 仲裁，YAO-129 落地（NN=33，承接 26/27/28/29/30/31/32 落地） |
+| C04 | 配置迁移即代码 | `docs/04-配置迁移即代码.md` | YAO-144 重排（原 docs/26-…） |
+| C13 | 通信、调度、问询与合成工具 | `docs/13-通信调度问询与合成工具.md` | YAO-144 重排（原 docs/27-…） |
+| C17 | Coordinator、Cron 与定时调度 | `docs/17-Coordinator-Cron-与定时调度.md` | YAO-144 重排（原 docs/28-…） |
+| C24 | Bridge IPC 与远程会话 | `docs/24-Bridge-IPC-与远程会话.md` | YAO-144 重排（原 docs/29-…） |
+| C25 | DirectConnect 与上游代理 | `docs/25-DirectConnect-与上游代理.md` | YAO-144 重排（原 docs/30-…） |
+| C28 | Keybindings、Vim 与 Voice 输入 | `docs/28-Keybindings-Vim与Voice输入.md` | YAO-144 重排（原 docs/31-…） |
+| C29 | Buddy 人格 | `docs/29-Buddy人格.md` | YAO-144 重排（原 docs/32-Buddy-宠物.md，命名对齐 spec 的"人格"） |
+| C30 | Doctor 屏与 Output Style 体验 | `docs/30-Doctor屏与OutputStyle体验.md` | YAO-144 重排（原 docs/33-…） |
 
-注：v1 的 `docs/04-System-Prompt-工程.md` **不**因 C04 让位而 rename——它继续以 v1 文件身份留在 NN=04 槽位，待 C06（System Prompt 与 Output Style 注入）正式起笔时再走「迭代重写 / 拆分合并」流程改名为 `docs/06-System-Prompt-与-Output-Style-注入.md`，那是 C06 PR 自己的 scope。新章追加 NN 槽位的方案把「v1 文件 rename」与「新章下笔」这两件事解耦——C04 不需要触碰任何 v1 文件。
+注：v1 26 个文件（00–25）已经全部按 v2 8 篇骨架重排到对应 NN 槽位；v1 ↔ v2 的 NN 对应关系见 §6.1 迁移矩阵的 v2 去向列。NN 不再被「写作时序」绑住，而是直接对应 §5 的章节顺序——读者翻开任意 NN 文件就是 §5 表里的那一章。
 
 ```yaml
 title: "v2 · C<NN> <章节标题>"

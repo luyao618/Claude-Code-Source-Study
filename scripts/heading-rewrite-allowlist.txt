@@ -13,3 +13,15 @@
 // （Bridge IPC / Coordinator-Agent / Migration-as-Code / Output-Style-as-Plugin
 // 四条新增）。标题数字与正文/源码事实冲突，改为 "## 11 个模式的全景关系"。
 docs/25-架构模式总结.md :: ## 7 个模式的全景关系
+
+// C21（YAO-152）：v1 Output Style 段缺节号；review 报告要求补 §六，后续节号顺延（实战示例 六→七、可迁移的设计模式 七→八）。
+docs/21-Skill-Plugin-OutputStyle三扩展点.md :: ## Output Style：体验层的第三条扩展路径
+docs/21-Skill-Plugin-OutputStyle三扩展点.md :: ## 六、实战示例
+docs/21-Skill-Plugin-OutputStyle三扩展点.md :: ## 七、可迁移的设计模式
+
+// C23（YAO-152）：v1 客户端传输层段缺节号；review 报告要求补 §五，后续节号顺延（连接错误 五→六、资源泄漏 六→七、生命周期 七→八、设计模式 八→九）。
+docs/23-客户端传输与API重试.md :: ## 客户端传输层：WebSocket / SSE / Hybrid 三态
+docs/23-客户端传输与API重试.md :: ## 五、连接错误分类与用户友好提示
+docs/23-客户端传输与API重试.md :: ## 六、资源泄漏防护
+docs/23-客户端传输与API重试.md :: ## 七、完整的 API 调用生命周期
+docs/23-客户端传输与API重试.md :: ## 八、可迁移的设计模式

@@ -95,7 +95,7 @@ function loadAllowlist(): Map<string, Set<string>> {
 const allowlist = loadAllowlist();
 
 const files = (explicitFiles ?? getChangedFiles(base)).filter(
-  (f) => f.startsWith("docs/") && f.endsWith(".md") && f !== "docs/V2-REVISION-SPEC.md",
+  (f) => f.startsWith("docs/") && f.endsWith(".md") && f !== "docs/archive/V2-REVISION-SPEC.md",
 );
 
 if (files.length === 0) {

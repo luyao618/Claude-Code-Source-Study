@@ -178,7 +178,7 @@ function scanFile(file: string, lineFilter: Set<number> | null): Hit[] {
 const useExplicit = explicitFiles !== null;
 // spec 元文档不扫——它的工作就是讨论这些 squad 内部术语。
 const files = (explicitFiles ?? getChangedFiles(base)).filter(
-  (f) => f.startsWith("docs/") && f.endsWith(".md") && f !== "docs/V2-REVISION-SPEC.md",
+  (f) => f.startsWith("docs/") && f.endsWith(".md") && f !== "docs/archive/V2-REVISION-SPEC.md",
 );
 
 if (files.length === 0) {

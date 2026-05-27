@@ -1,5 +1,5 @@
 # scripts/orphan-allowlist.txt
-# 一级源码目录在 V2-REVISION-SPEC.md §6.2 中未被任何 v2 章节覆盖，但属预期免覆盖。
+# 一级源码目录在 archive/V2-REVISION-SPEC.md §6.2 中未被任何 v2 章节覆盖，但属预期免覆盖。
 # 每行一项；# 之后为注释。每条新增必须配 PR 描述里的理由。
 
 # 进程内通用工具堆，跨章共用，不单独成章

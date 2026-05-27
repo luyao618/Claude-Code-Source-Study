@@ -1,8 +1,8 @@
-# 第 30 章：Doctor 屏与 Output Style 体验 — 给一个 CLI 装上自检仪表和换装系统
+# 第 30 章：screens/ 三屏 — Doctor、Output Style 与 ResumeConversation
 
 > 本章是《深入 Claude Code 源码》系列对终端 UI 一族的最后一篇。前面几章把 Ink 怎么把 React 搬进终端、设计系统如何收敛颜色与边距、键盘事件如何注入 React 树都讲透了。这一篇换一个角度：当 CLI 真的出问题时，用户怎么自己看清"问题在哪里"；当用户想换一种说话方式时，怎么用一份 markdown 把模型的开场白替换掉。
 
-## 为什么把 Doctor 和 Output Style 放在同一章？
+## 为什么把这三屏放在同一章？
 
 `screens/` 目录下只有三个文件：`REPL.tsx`（主回合）、`ResumeConversation.tsx`（会话恢复）、`Doctor.tsx`（自检屏）。前面三十多章已经把 REPL 拆得很彻底，本章把镜头对准另外两块——一块是**给用户的自检仪表盘**，一块是**给用户的换装系统**。
 

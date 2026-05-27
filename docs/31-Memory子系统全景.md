@@ -8,15 +8,19 @@ LLM 天生是"金鱼记忆" —— 每次对话都是从零开始。用户上次
 
 这不仅仅是用户体验问题 —— 它直接影响 AI Agent 的工作效率。没有记忆的 Agent 永远是新手：每次都要重新了解用户偏好、重新踩同样的坑、重新探索同样的代码库。
 
-Claude Code 的解决方案是一个**五层记忆架构**：
+Claude Code 的解决方案是一个**七层记忆架构**：
 
 | 层级 | 名称 | 生命周期 | 存储位置 | 核心职责 |
 |------|------|---------|---------|---------|
 | 1 | CLAUDE.md 指令文件 | 永久 | 项目目录 / 用户目录 | 静态指令与规则 |
 | 2 | Auto Memory（memdir） | 跨会话 | `~/.claude/projects/<slug>/memory/` | 自动提取的持久化知识 |
-| 3 | Session Memory | 单次会话 | `~/.claude/projects/<slug>/<sessionId>/session-memory/summary.md` | 当前会话的结构化笔记 |
-| 4 | Agent Memory | 跨会话 | 三种 scope 目录 | 特定 Agent 的专属记忆 |
-| 5 | Relevant Memories | 每用户 turn 按需注入 | 内存（Attachment） | 按需召回的相关记忆 |
+| 3 | Background Extract Memories | 跨会话（异步抽取） | 同 memdir，触发自后台 worker | 在对话进行中**异步**从 transcript 提取候选记忆并落盘 |
+| 4 | Session Memory | 单次会话 | `~/.claude/projects/<slug>/<sessionId>/session-memory/summary.md` | 当前会话的结构化笔记 |
+| 5 | Agent Memory | 跨会话 | 三种 scope 目录 | 特定 Agent 的专属记忆 |
+| 6 | Relevant Memories | 每用户 turn 按需注入 | 内存（Attachment） | 按需召回的相关记忆 |
+| 7 | Auto Dream | 会话空闲时触发 | 写回 memdir / Agent memory | 把多次会话的记忆做巩固、去重、改写（"做梦") |
+
+附（§十）会单独讲一块**不属于记忆层**但常被一并问到的东西：远程会话历史的分页回放。它读的是会话 transcript 而不是 memory，放在最后作为补充。
 
 每一层解决不同时间尺度和不同粒度的记忆需求。接下来我们逐层深入。
 
@@ -688,7 +692,7 @@ graph TD
 
 ---
 
-## 十、最后一块拼图：远程会话历史的分页回放
+## 附 · 最后一块拼图：远程会话历史的分页回放
 
 前九节讲的是"本机文件系统上的记忆"。但 Claude Code 还支持把会话状态保存到云端，然后在另一台设备上接着聊（Resume Conversation 屏的远端模式就走这条路径）。负责把云端 session 的事件流捞回本地的，是 `assistant/sessionHistory.ts` —— 整个模块只有 87 行，干净到值得整段读完，但它在这里被点名是因为它定义了"什么算是这场会话的可访问历史"。
 

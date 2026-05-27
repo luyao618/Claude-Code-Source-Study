@@ -79,7 +79,19 @@ graph TD
 
 ### 1.2 TaskType 与状态机
 
-任务系统定义了 7 种任务类型：
+任务系统定义了 7 种 wire 任务类型，但只有 6 种被注册到 `tasks.ts` 的 kill 分发表里 —— 二者并非一一对应，这是读源码时容易踩坑的地方，先把对照关系一次说清楚：
+
+| TaskType | ID 前缀 | 注册到 `getAllTasks()` | 门控 | kill 路径 |
+| --- | --- | --- | --- | --- |
+| `local_bash` | `b` | ✅ | 默认 | `LocalShellTask.kill` |
+| `local_agent` | `a` | ✅ | 默认 | `LocalAgentTask.kill` |
+| `remote_agent` | `r` | ✅ | 默认 | `RemoteAgentTask.kill` |
+| `dream` | `d` | ✅ | 默认 | `DreamTask.kill` |
+| `local_workflow` | `w` | ✅（条件） | `feature('LOCAL_WORKFLOW')` | `LocalWorkflowTask.kill` |
+| `monitor_mcp` | `m` | ✅（条件） | `feature('MONITOR_MCP')` | `MonitorMcpTask.kill` |
+| `in_process_teammate` | `t` | ❌ | swarm 模式 | `killInProcessTeammate()` 直管，**不走** `getTaskByType()` |
+
+也就是：**TaskType 联合有 7 个字面量**，**`getAllTasks()` 最多返回 6 个**（4 默认 + 2 feature-gated）。`in_process_teammate` 落在中间地带——类型层、UI 层（pill / 面板 / 消息镜像）都完整实现，但 kill 由 `utils/swarm/spawnInProcess.ts:killInProcessTeammate()` 直接驱动，所以走 `stopTask.ts` 通用路径时会得到 `unsupported_type` 错误。
 
 ```typescript
 // Task.ts:6-14
@@ -535,7 +547,7 @@ export function startBackgroundSession({ messages, queryParams, ... }): string {
 
 ---
 
-## 附 A · 模型侧的入口：六个 Task*Tool 与"两种 task"之分
+## 三点五、模型侧的入口：六个 Task*Tool 与"两种 task"之分
 
 读到这里，源码里有一个让人头疼的命名冲突需要先澄清：**"task" 这个词在 Claude Code 里指的是两件完全不同的事**。
 
@@ -554,7 +566,7 @@ export function startBackgroundSession({ messages, queryParams, ... }): string {
 | `tools/TaskListTool/` | TodoV2 | `tools/TaskListTool/TaskListTool.ts:33-116` | `isTodoV2Enabled()` |
 | `tools/TaskUpdateTool/` | TodoV2 | `tools/TaskUpdateTool/TaskUpdateTool.ts:88-406` | `isTodoV2Enabled()` |
 
-### 4.1 TaskStop / TaskOutput：观察与终止 TaskState
+### 3.5.1 TaskStop / TaskOutput：观察与终止 TaskState
 
 这两个工具不创建任务——任务由业务工具（BashTool 后台化、AgentTool spawn 子 Agent 等）隐式创建——它们的职责只有两件：**让模型主动 kill 一个还在跑的后台任务，以及读它的输出**。
 
@@ -592,7 +604,7 @@ async call({ task_id, shell_id }, { getAppState, setAppState }) {
 
 它仍然提供两种调用姿态（`tools/TaskOutputTool/TaskOutputTool.tsx:208-282`）：`block=true` 阻塞模式等任务进入终态后再返回最终输出；`block=false` 轮询模式立即返回当前 status 和已累积的输出片段。
 
-### 4.2 TaskCreate / Get / List / Update：另一套并行的 TodoV2 体系
+### 3.5.2 TaskCreate / Get / List / Update：另一套并行的 TodoV2 体系
 
 剩下 4 个工具名字里都带 task，但**完全不碰** `AppState.tasks`。它们调的是 `utils/tasks.ts` 暴露的 TodoV2 接口（`createTask` / `getTask` / `listTasks` / `updateTask` / `blockTask` / `deleteTask`），背后是按 `taskListId` 持久化的 JSON 文件，每条 task 的字段是 `subject` / `description` / `status` / `owner` / `blocks` / `blockedBy` / `metadata` 等。
 
@@ -629,7 +641,7 @@ if (
 
 触发条件是：主线程 agent（`!context.agentId`）一次性把一个 3+ 条的 todo list 全部关掉，而其中**没有任何一条**的 subject 命中 `/verif/i`。命中时工具结果里会被追加一段提示，要求 agent 在收尾前显式 spawn `subagent_type = VERIFICATION_AGENT_TYPE` 的子 Agent 来做验证。这是一个反"自评 summary"的结构性约束——它写在工具层而不是 prompt 里，模型逃不掉。
 
-### 4.3 为什么把两套体系放在同一章
+### 3.5.3 为什么把两套体系放在同一章
 
 它们几乎不共享代码，但共享同一个**词**：task。读源码的第一道坎就是分清 `AppState.tasks` 和 `utils/tasks.ts` 不是一回事——前者由业务工具隐式创建、由 TaskStop / TaskOutput 显式观察；后者由模型自己拿着这 4 个 Task*Tool 主动写入。把它们放在同一章里讲，正是为了让这条线**只需要被穿过一次**。
 

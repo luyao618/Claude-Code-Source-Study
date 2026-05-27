@@ -116,6 +116,8 @@ function getSettingsForSourceUncached(source: SettingSource): SettingsJson | nul
 
 注意这与外层的合并策略不同：外层是所有层级**逐层合并**（merge），Policy 内部是**第一个胜出**（first-source-wins）。设计意图很明确 —— 如果企业通过 Remote API 下发了策略，就不应该再考虑本地 managed-settings.json 的内容，避免策略冲突。
 
+> **章内导读**：§一 ~ §五 讲 5 个 `SettingSource` 的合并管线；§六（PolicyLimits）与 §七（SettingsSync）讲两条与 settings 平行的组织级旁路服务——它们**不进 `loadSettingsFromDisk()` 合并管线**（参见 `utils/settings/constants.ts:7-22` 中 `SETTING_SOURCES` 只有 5 个），但同样影响最终运行时配置。§八–§十一 回到合并体系本身，覆盖变更检测、安全设计、MDM 轮询与可迁移模式。
+
 ---
 
 ## 二、核心合并算法：loadSettingsFromDisk()
@@ -574,7 +576,7 @@ export function startBackgroundPolling(): void {
 
 ---
 
-## 五点五、PolicyLimits：与 Settings 平行的组织级开关
+## 六、PolicyLimits：与 Settings 平行的组织级开关
 
 读到这里，你已经看到 Settings 系统通过 Policy 层把"企业管控"塞进了同一条优先级链。但还有一类管控不适合走 Settings —— 它不是"应该用哪个模型"或"允许哪些权限"，而是"这个组织的用户能不能用某个产品特性"。`services/policyLimits/` 就是为这类组织级开关单独构建的一条服务。
 
@@ -646,7 +648,7 @@ export function initializePolicyLimitsLoadingPromise(): void {
 
 ---
 
-## 五点六、SettingsSync：跨设备一致性的双向通道
+## 七、SettingsSync：跨设备一致性的双向通道
 
 如果说 PolicyLimits 是"自上而下下发"，`services/settingsSync/` 就是"自机器之间互相搬运"。它解决的痛点是：用户在笔记本上配的偏好（模型、Hook、Permission、`CLAUDE.md` 记忆），怎么在另一台机器（甚至是托管在云端的 Claude Code Remote）上自然出现。
 
@@ -724,7 +726,7 @@ export function redownloadUserSettings(): Promise<boolean> {
 
 ---
 
-## 六、变更检测与热更新
+## 八、变更检测与热更新
 
 Settings 系统不是"启动时读一次就完了"—— 它支持运行时的配置文件变更检测和热更新。
 
@@ -870,7 +872,7 @@ export function applySettingsChange(
 
 ---
 
-## 七、安全设计：防止恶意项目配置
+## 九、安全设计：防止恶意项目配置
 
 Settings 系统中有多处安全防线，防止恶意项目通过配置文件获取过高权限：
 
@@ -925,7 +927,7 @@ export type EditableSettingSource = Exclude<
 
 ---
 
-## 八、MDM 轮询：注册表和 plist 的变更检测
+## 十、MDM 轮询：注册表和 plist 的变更检测
 
 文件系统的变更可以用 chokidar 监听，但 macOS plist 和 Windows 注册表的变更无法通过文件系统事件捕获。系统通过 30 分钟间隔的轮询来解决：
 
@@ -958,7 +960,7 @@ function startMdmPoll(): void {
 
 ---
 
-## 九、可迁移的设计模式
+## 十一、可迁移的设计模式
 
 ### 模式 1：多层配置合并 + 类型安全
 

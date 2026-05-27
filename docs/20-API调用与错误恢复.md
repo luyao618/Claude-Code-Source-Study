@@ -412,7 +412,7 @@ if (isStaleConnection && getFeatureValue_CACHED_MAY_BE_STALE(
 
 Claude Code 的 API 调用默认走流式（SSE），失败时自动降级到非流式；某些不支持 SSE 端点的代理返回 404 时也会走相同的降级路径。这一组机制涉及 `claude.ts` 内部的 `queryModel` 主流程、Stream Idle Watchdog、Stall 监控、`executeNonStreamingRequest` 包装、以及 404 端点降级，链路深、状态多，单独成章更易维持代码与叙事的对齐度。
 
-> 这部分内容已迁移到[第 25 篇：DirectConnect 与上游代理](./29-DirectConnect-与上游代理.md)。本节作为占位锚点保留，便于从历史目录直接跳转，并提示读者：流式降级与本篇的 `withRetry` 主循环、传输层长连接是三条互不相同的代码路径，请勿混淆。
+> 这部分内容已迁移到[第 25 篇：DirectConnect 与上游代理](./30-DirectConnect-与上游代理.md)。本节作为占位锚点保留，便于从历史目录直接跳转，并提示读者：流式降级与本篇的 `withRetry` 主循环、传输层长连接是三条互不相同的代码路径，请勿混淆。
 
 ## 客户端传输层：WebSocket / SSE / Hybrid 三态
 
@@ -487,20 +487,22 @@ if (elapsed < DEFAULT_RECONNECT_GIVE_UP_MS) {
 
 `SLEEP_DETECTION_THRESHOLD_MS = 60s` 是"最大正常重连延迟的两倍" —— 如果两次重连尝试的时间差超过这个值，可以判定为机器进入了睡眠状态，应该重置退避计数器立即重连，而不是按指数退避慢慢退到 5 分钟。
 
-**消息重放**用一个固定容量的 `CircularBuffer` 实现。每条出站消息附带客户端生成的 `requestId`，服务端在重连握手时返回 `x-last-request-id` 头告诉客户端"我处理到这条为止"：
+**消息重放**用一个固定容量的 `CircularBuffer<StdoutMessage>` 实现（`WebSocketTransport.ts:106` 的 `messageBuffer`，容量 `DEFAULT_MAX_BUFFER_SIZE = 1000`，见 `WebSocketTransport.ts:22`）。每条出站消息只要带 `uuid` 字段就会被 `add()` 进缓冲并把它记到 `lastSentId`（`WebSocketTransport.ts:660-664`），重连握手时通过 `X-Last-Request-Id` 请求头把这个 ID 发回服务端（`WebSocketTransport.ts:152-156`）；服务端在 upgrade 响应里回 `x-last-request-id` 表示"我处理到这条为止"：
 
 ```typescript
-// cli/transports/WebSocketTransport.ts: replayBufferedMessages (节选)
-const lastConfirmedId = response.headers?.['x-last-request-id']
-const lastConfirmedIndex = this.outboundBuffer.findIndex(
-  m => m.requestId === lastConfirmedId,
+// cli/transports/WebSocketTransport.ts:574-606（节选）
+const lastConfirmedIndex = messages.findIndex(
+  message => 'uuid' in message && message.uuid === lastId,
 )
 if (lastConfirmedIndex >= 0) {
-  // 服务端确认到这里，前面的可以丢
-  this.outboundBuffer.evictThrough(lastConfirmedIndex)
+  // 服务端确认到这里 —— 用 clear() + addAll() 保留未确认部分
+  const startIndex = lastConfirmedIndex + 1
+  const remaining = messages.slice(startIndex)
+  this.messageBuffer.clear()
+  this.messageBuffer.addAll(remaining)
 }
-for (const message of this.outboundBuffer.values()) {
-  this.send(message)
+for (const message of messagesToReplay) {
+  this.sendLine(jsonStringify(message) + '\n')
 }
 ```
 
@@ -518,21 +520,35 @@ const PERMANENT_HTTP_CODES = new Set([401, 403, 404])
 
 `LIVENESS_TIMEOUT_MS = 45s` 是 SSE 的"心跳超时"。CCR 服务端每隔几秒会推送一条空的 `:keepalive` 注释，客户端只要收到任何字节就重置定时器；连续 45 秒没字节就主动断开重连。`PERMANENT_HTTP_CODES = {401, 403, 404}` 在握手阶段直接判定为永久错误，跳过重连。
 
-**序号去重**是 SSE 转重连场景下最重要的不变量。服务端给每个事件分配单调递增的 `sequence_num`，客户端用一个 `Set<number>` 记录已经处理过的序号；重连时通过 `from_sequence_num` 查询参数或 `Last-Event-ID` 头告诉服务端"我处理到哪了"：
+**序号去重**是 SSE 转重连场景下最重要的不变量。`readStream()`（`SSETransport.ts:339-415`）从每个 SSE frame 的 `id` 字段解析出 `seqNum`，用 `seenSequenceNums: Set<number>` 去重并更新 `lastSequenceNum`；重连时通过 `from_sequence_num` 查询参数或 `Last-Event-ID` 头告诉服务端"我处理到哪了"：
 
 ```typescript
-// cli/transports/SSETransport.ts:245-249（简化）
-sseUrl.searchParams.set('from_sequence_num', String(this.lastSequenceNum))
+// cli/transports/SSETransport.ts:246-265（节选）
+if (this.lastSequenceNum > 0) {
+  sseUrl.searchParams.set('from_sequence_num', String(this.lastSequenceNum))
+  headers['Last-Event-ID'] = String(this.lastSequenceNum)
+}
 ```
 
 ```typescript
-// 收到事件后 (parseSSEFrames → 处理循环)
-if (this.seenSequences.has(ev.sequence_num)) {
-  continue  // 重连后服务端可能从更早的点重发，去重
+// cli/transports/SSETransport.ts:357-383（节选）
+if (frame.id) {
+  const seqNum = parseInt(frame.id, 10)
+  if (!isNaN(seqNum)) {
+    if (this.seenSequenceNums.has(seqNum)) {
+      continue  // 服务端可能从更早点重发，去重
+    }
+    this.seenSequenceNums.add(seqNum)
+    // 超 1000 条时清理 < lastSequenceNum - 200 的旧序号
+    if (this.seenSequenceNums.size > 1000) {
+      const threshold = this.lastSequenceNum - 200
+      for (const s of this.seenSequenceNums) {
+        if (s < threshold) this.seenSequenceNums.delete(s)
+      }
+    }
+    if (seqNum > this.lastSequenceNum) this.lastSequenceNum = seqNum
+  }
 }
-this.seenSequences.add(ev.sequence_num)
-this.lastSequenceNum = Math.max(this.lastSequenceNum, ev.sequence_num)
-// 当 set 超过 1000 条时，删掉最旧的一半，防止无限增长
 ```
 
 `parseSSEFrames` 这个工具函数被显式 `export` 出来 —— 既是 SSE 帧解析的核心逻辑，也方便测试隔离覆盖各种"半帧到达"的边界情况（一个事件被切成多个 TCP 包、`\n\n` 分隔符落在两个 chunk 边界等）。
@@ -567,35 +583,40 @@ this.uploader = new SerialBatchEventUploader({
 
 `maxQueueSize = 100_000` 远大于 `maxBatchSize = 500`，这是一个**反背压设计**。源码注释解释：调用方调用 `enqueue()` 时**不 await**，如果在一个 microtask 里塞了 600 条进队列、队列容量只有 500，那 `enqueue()` 会永远卡住等待 `processBatch` 把队列腾出位置 —— 而 `processBatch` 本身要等当前 microtask 跑完才能拿到 event loop。所以队列容量必须显著大于一次性可能塞入的批量大小，否则会死锁。
 
-**关闭时的 3 秒宽限**：`CLOSE_GRACE_MS = 3000` 让 WebSocket 在 `close()` 之后多等 3 秒，确保最后一批 POST 上行能完成。源码注释强调，archive 写入和 close 之间存在 await，没有这个宽限期就会丢最后一两条事件。
+**关闭时的 3 秒宽限**：`CLOSE_GRACE_MS = 3000` 给已经排队的写请求一个 best-effort 的宽限期。`close()`（`HybridTransport.ts:171-195`）的实际顺序是：先启动 `void Promise.race([uploader.flush(), timeout])` 但**不 await**，立即调用 `super.close()` 关掉 WebSocket，然后让宽限完成后再 `uploader.close()`。这一段是 fire-and-forget 的兜底窗口，不是"关 WS 前同步等 flush"。源码注释也明确：archive 写入与 close 之间已经 await 过一次，这里只是最后一道保险。
 
 ### 5.4 SerialBatchEventUploader：通用串行批量上传器
 
-`SerialBatchEventUploader<T>` 是一个泛型工具，被 `HybridTransport`（上传事件）、`SSETransport`（上传 POST 写）、以及其他需要"批量 + 串行 + 重试"的场景复用。它的核心抽象是一个 `RetryableError`：
+`SerialBatchEventUploader<T>` 是一个泛型工具，被 `HybridTransport`（上传事件）、`SSETransport`（上传 POST 写）、以及其他需要"批量 + 串行 + 重试"的场景复用。它的核心抽象是一个 `RetryableError` —— 但要看清它的真实语义：
 
 ```typescript
-// cli/transports/SerialBatchEventUploader.ts:21-32
+// cli/transports/SerialBatchEventUploader.ts:17-33（节选）
 /**
- * 抛出此错误表示这一批应该按 retryAfterMs 重试。
- * 其他错误视为不可恢复，丢弃这一批。
+ * 抛出此错误并附带 retryAfterMs，会让上传器按服务器给的延迟重试。
+ * 不带 retryAfterMs 时，与普通 thrown Error 一样走指数退避。
  */
 export class RetryableError extends Error {
-  constructor(message: string, public retryAfterMs?: number) {
+  constructor(message: string, readonly retryAfterMs?: number) {
     super(message)
   }
 }
 ```
 
-调用方传入的 `sendBatch` 函数判断业务错误，然后选择"抛 `RetryableError` 重试" 还是"抛普通 `Error` 丢弃"。退避策略统一在上传器内部实现，并对服务端的 `retryAfterMs` 做夹紧：
+实际行为见 `drain()`（`SerialBatchEventUploader.ts:156-202`）：**任何**从 `send()` 抛出的错误（`RetryableError` 或普通 `Error`）都会让上传器把这一批 `concat` 回 `pending` 队首再退避重试（`SerialBatchEventUploader.ts:184-188`）。差异只在退避延迟：`RetryableError.retryAfterMs` 给了就用它（夹紧 + 抖动），没给就走指数退避。"永久失败丢这一批"只在配置了 `maxConsecutiveFailures` 且连续失败计数到阈值时发生（`SerialBatchEventUploader.ts:171-180`），并触发 `onBatchDropped` 回调 + `droppedBatches++`。换句话说，HybridTransport 的 `postOnce()` 在 4xx 非 429 情况下用 `return` 表示"成功推进队列、把这一批丢掉"，而不是抛普通 `Error` —— 抛 `Error` 反而会被持续重试。
+
+退避策略统一在上传器内部实现，并对服务端的 `retryAfterMs` 做夹紧：
 
 ```typescript
-// SerialBatchEventUploader.ts:240-250（节选）
-// 服务端给的 retry-after 必须在 [baseDelayMs, maxDelayMs] 之间
-// 防止恶意/出错的服务端通过 retryAfterMs=1ms 把客户端打死
-const clamped = Math.max(
-  this.config.baseDelayMs,
-  Math.min(retryAfterMs, this.config.maxDelayMs),
-)
+// cli/transports/SerialBatchEventUploader.ts:235-247（节选）
+const jitter = Math.random() * this.config.jitterMs
+if (retryAfterMs !== undefined) {
+  // 服务端给的 retry-after 必须在 [baseDelayMs, maxDelayMs] 之间，再叠抖动
+  const clamped = Math.max(
+    this.config.baseDelayMs,
+    Math.min(retryAfterMs, this.config.maxDelayMs),
+  )
+  return clamped + jitter
+}
 ```
 
 `takeBatch()` 还有一个 `maxBatchBytes` 字段控制单批字节数 —— 序列化阶段如果某个事件抛异常（循环引用、`BigInt` 等无法 JSON 化），那一条会被**单独丢弃**而不是阻塞整批，并将 `droppedBatchCount` 单调递增。这是一个"局部失败不传染"的隔离设计。
@@ -642,7 +663,30 @@ if ((key === 'external_metadata' || key === 'internal_metadata') &&
 
 `sendWithRetry` 内部有一个微妙的"重试时吸收 pending"机制：每次重试前如果发现 `this.pending` 不为空，就把它合并到当前正在重试的 payload 里再发，确保**最终一致性**。如果重试期间用户改了 5 次状态，这 5 次会全部合并进同一个请求，而不是排成队列等。
 
-### 5.6 sessionIngress：JSONL 追加 + 乐观并发控制
+### 5.6 CCRClient：CCR v2 worker 生命周期协议
+
+CCR v2 把"事件流"从 WebSocket 拆成"SSE 读 + HTTP POST 写"之后，光有 `SSETransport` 还不够 —— 谁来报告 worker 状态？谁来做心跳？谁来回 ack？这层协议封装在 `cli/transports/ccrClient.ts` 的 `CCRClient` 类里。
+
+它的结构是"一个 `SSETransport` 喂入 + 四个 `SerialBatchEventUploader` / `WorkerStateUploader` 喂出"：
+
+```typescript
+// cli/transports/ccrClient.ts:286-292（节选）
+private readonly workerState: WorkerStateUploader
+private readonly eventUploader: SerialBatchEventUploader<ClientEvent>
+private readonly internalEventUploader: SerialBatchEventUploader<WorkerEvent>
+private readonly deliveryUploader: SerialBatchEventUploader<{
+  eventId: string
+  status: 'received' | 'processing' | 'processed'
+}>
+```
+
+四条通道分别走 `PUT /worker`（状态）、`POST /worker/events`（前端可见事件）、`POST /worker/internal-events`（不可见的 transcript 持久化）、`POST /worker/events/delivery`（每条入站事件的 ack）。每条通道的 `send` 回调里都是同一套模板（`ccrClient.ts:367-385`）：调 `this.request()` 拿到 `RequestResult`，失败就 `throw new RetryableError('...', result.retryAfterMs)`，让 `SerialBatchEventUploader` 按服务端给的 `Retry-After` 退避。
+
+`request()` 自己处理三种特殊状态码（`ccrClient.ts:582-630`）：`409` 触发 `handleEpochMismatch()`，按 `onEpochMismatch` 回调退出（spawn 模式下默认 `process.exit(1)`，REPL 必须注入自己的回调防止把用户进程杀掉）；`401/403` 时如果 `decodeJwtExpiry` 判断 token 已过期就立即认输，否则计入 `consecutiveAuthFailures`，到 `MAX_CONSECUTIVE_AUTH_FAILURES = 10` 仍不恢复才放弃（`ccrClient.ts:67-68`）；`429` 解析 `retry-after` 头并以 `retryAfterMs` 字段返回，转换成 `RetryableError` 的精确退避时间。
+
+`writeEvent()` 还内置了一个 **`stream_event` 100ms 折叠窗口**（`ccrClient.ts:735-751`），把同一内容块的 text_delta 累积成一个"full-so-far snapshot"再 enqueue —— 中途接进来的客户端拿到的就是一段自洽的完整文本，而不是从某个 delta 开始的碎片。累加状态键到 API message ID 上，`writeEvent` 收到完整 `assistant` 消息时通过 `clearStreamAccumulatorForMessage` 释放，这是 abort/error 路径也能可靠触发的边界。
+
+### 5.7 sessionIngress：JSONL 追加 + 乐观并发控制
 
 最后一块拼图是 `services/api/sessionIngress.ts`，对应 `PUT /session_ingress/.../entry` —— 把每条 transcript 消息以 JSONL 追加方式持久化到服务端。
 
@@ -837,7 +881,7 @@ return (input, init) => {
 
 ### 7.3 传输层的资源对账
 
-传输层有自己的资源回收要点。`WebSocketTransport.close()` 会同时清掉 ping 定时器、keep-alive 定时器、重连定时器、`CircularBuffer`，否则在长跑的 Bridge 会话里会泄漏闭包引用。`HybridTransport` 关 WS 前还要等 `SerialBatchEventUploader` 把队列 flush 干净（`CLOSE_GRACE_MS = 3000` 即此目的），否则会丢最后一批事件。`SSETransport` 的 `livenessTimer` 在 `close()` 时通过 `clearTimeout` 取消，且 `AbortController.abort()` 会中断挂起的 `fetch()` 流。
+传输层有自己的资源回收要点。`WebSocketTransport.close()` 会同时清掉 ping 定时器、keep-alive 定时器、重连定时器、`CircularBuffer`，否则在长跑的 Bridge 会话里会泄漏闭包引用。`HybridTransport.close()` 启动一个 `Promise.race([uploader.flush(), CLOSE_GRACE_MS])` 的 best-effort 宽限窗口（fire-and-forget），随后立即关 WS、再在宽限结束时 `uploader.close()`，给排队中的 POST 一个机会落盘但不阻塞调用方。`SSETransport` 的 `livenessTimer` 在 `close()` 时通过 `clearTimeout` 取消，且 `AbortController.abort()` 会中断挂起的 `fetch()` 流。
 
 `sessionIngress` 的 `clearSession(sessionId)` 与 `clearAllSessions()` 是另一个干净的接管点 —— 用户 `/clear` 时清空所有 sub-agent 的 `lastUuidMap` 与 `sequentialAppendBySession`，避免下次同名 session 复用旧的 `Last-Uuid` 出现伪冲突。
 

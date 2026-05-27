@@ -1,6 +1,6 @@
 # 第 6 章：System Prompt 与 Output Style 注入 — 精密控制模型行为的提示词体系
 
-> 本章是《深入 Claude Code 源码》系列第 6 章。我们将深入 `constants/prompts.ts`（914 行，commit `290fdc94`）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
+> 本章是《深入 Claude Code 源码》系列第 6 章。我们将深入 `constants/prompts.ts`（914 行）这个核心文件，揭示 Claude Code 如何通过精心设计的 System Prompt 架构，在「精确控制模型行为」和「最大化 Prompt Cache 命中率」之间取得平衡。
 
 ## 为什么 System Prompt 值得单独一篇？
 

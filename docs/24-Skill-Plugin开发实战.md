@@ -17,6 +17,8 @@ Hook 脚本 → Skill 文件 → Agent 定义 → Plugin 包
 - **Agent**：一个 Markdown 文件，定义一个独立的 AI 角色（有自己的 prompt、工具集、模型）
 - **Plugin**：一个完整的目录包，可以同时提供 Skill、Agent、Hook、MCP 服务器
 
+除了这四档"行为面"扩展，还有一条很容易被忽略的"体验面"扩展路径 —— **Output Style**。它不改变模型能调哪些工具、也不在循环里塞 prompt，而是直接顶替掉默认的 System Prompt 段落，把"一次回合的语气与人格"整段换掉。Plugin 可以把自己的 Output Style 一起带进来，但 Output Style 本身也能独立存在于 `.claude/output-styles/` 目录里，单独使用。所以读完前四档之后，本篇会专门留一节给它，把它放回到 Skill / Plugin 的同一张图里看。
+
 本篇将逐一解析这四个扩展点的编写方式，并指出它们在源码中是如何被发现、解析和执行的。
 
 ---
@@ -782,6 +784,85 @@ export function getMCPSkillBuilders(): MCPSkillBuilders {
 `loadSkillsDir.ts` 在模块初始化时注册构建器（`loadSkillsDir.ts:1083-1086`），这样 MCP 模块就可以使用相同的 `createSkillCommand()` 和 `parseSkillFrontmatterFields()` 函数来创建标准的 Skill 对象，实现统一的加载和执行路径。
 
 MCP Skill 有一个关键安全限制：**不执行 Shell 命令嵌入**（`loadSkillsDir.ts:374`），因为 MCP 来源的内容是远程不可信的。
+
+---
+
+## Output Style：体验层的第三条扩展路径
+
+前面五节一直在围着 Skill / Agent / Plugin / Hook 这条"行为面"主线转 —— 谁注入 prompt、谁调工具、谁拦截事件。但 Claude Code 还藏着另一条扩展路径，叫 Output Style。它跟 Skill 看起来都是 `.md` 文件、都吃 frontmatter，第一眼很容易混为一谈；实际上两者切入对话的位置完全不同 —— Skill 是把内容注入到 user/assistant 这一侧，Output Style 是把内容顶替掉 system 那一侧。前者在"一次回合里要做什么"上加料，后者在"这个助理是谁、说话什么腔调"上换皮。
+
+### 一个文件 = 一个 style
+
+Output Style 的发现入口比 Skill 简单得多 —— 一个文件名就是一个 style，整个加载器只有不到一百行。源码在 `outputStyles/loadOutputStylesDir.ts:26-92`：
+
+```typescript
+// outputStyles/loadOutputStylesDir.ts:26-50
+export const getOutputStyleDirStyles = memoize(
+  async (cwd: string): Promise<OutputStyleConfig[]> => {
+    const markdownFiles = await loadMarkdownFilesForSubdir(
+      'output-styles', cwd,
+    )
+    const styles = markdownFiles
+      .map(({ filePath, frontmatter, content, source }) => {
+        const styleName = basename(filePath).replace(/\.md$/, '')
+        const name = (frontmatter['name'] || styleName) as string
+        // ...keep-coding-instructions / force-for-plugin 解析
+        return { name, description, prompt: content.trim(), source, ... }
+      })
+      .filter(style => style !== null)
+    return styles
+  },
+)
+```
+
+跟 Skill 那种"目录 + SKILL.md"的硬约定不同，Output Style 直接落在 `.claude/output-styles/*.md`：一个文件就是一个 style，文件名就是 style 名（除非 frontmatter 里再起一个 `name`）。整个 `markdownFiles` 由 `loadMarkdownFilesForSubdir('output-styles', cwd)` 沿用与 Agent 同一套层级聚合逻辑产出，因此用户级 `~/.claude/output-styles/` 与项目级 `.claude/output-styles/` 会按同样的优先级合并。
+
+### 三个字段、三个语义
+
+Output Style 的 frontmatter 字段不多，但每一个都正对一个具体行为：
+
+```markdown
+---
+name: "Concise"
+description: "Reply in concise, no-preamble English"
+keep-coding-instructions: false
+---
+
+You are an expert assistant. Reply in short, direct sentences ...
+```
+
+- **`name` / `description`**（`loadOutputStylesDir.ts:41-50`）：name 默认取文件名；description 先从 frontmatter 取，缺省时由 `extractDescriptionFromMarkdown()` 从正文首段抽。`description` 是 `/output-style` 选单里显示给用户的那行小字。
+- **`keep-coding-instructions`**（`loadOutputStylesDir.ts:52-62`）：布尔值，决定 Claude Code 默认那段"写代码助手"system prompt（包含工具使用约束、规范、安全条款等）是否被保留下来。`true` 表示"换皮但保留 coding 指令"，`false` 表示"全部换掉，连 coding 默认指令一起删"。默认是 `undefined`，由消费方按自己的语义解释。
+- **`force-for-plugin`**（`loadOutputStylesDir.ts:64-70`）：只对 plugin 来源的 Output Style 有意义；如果一个非 plugin 来源的 style 写了这个字段，加载器会打一条 warn 然后忽略。这是显式地把"我希望 plugin 安装后默认就启用这个 style"这件事限制在 plugin 作者手里。
+
+### Plugin 自带 Output Style：命名空间与 force-for-plugin
+
+Plugin 的 manifest 里也有一个 `outputStyles` 字段（`utils/plugins/schemas.ts:509`），允许 plugin 通过 `./output-styles` 这样的相对路径把自己的 style 目录一起带进来；运行时则由 `LoadedPlugin.outputStylesPath` 与 `outputStylesPaths` 两个字段承接（`types/plugin.ts:64-65`）。
+
+Plugin 的 Output Style 在加载时会被自动加上 plugin 名前缀作为命名空间，这跟前面讲过的 "Plugin 命令命名规范"是一致的（`utils/plugins/loadPluginOutputStyles.ts:53-55`）：
+
+```typescript
+const baseStyleName = (frontmatter.name as string) || fileName
+// Namespace output styles with plugin name, consistent with commands and agents
+const name = `${pluginName}:${baseStyleName}`
+```
+
+`force-for-plugin: true` 的语义就清楚了：plugin 作者可以为自己的 plugin 推荐一个默认 style，安装后不需要让用户再去 `/output-style` 里手动选。这块解析在 `loadPluginOutputStyles.ts:64-70`，跟非 plugin 来源的 warn-and-ignore 行为相对照。
+
+### 跟 Skill / Plugin 是什么关系
+
+回到本篇开头那个问题：Output Style 和前面四档究竟是什么关系？
+
+如果说 Skill 是给模型"一段当前回合可以参考的指令"，那么 Output Style 改的是模型"做完每一回合后该用什么腔调说话"。两者的生命周期完全不同 —— Skill 的注入一般只活在它被调用的那一回合（或 fork 出去的 sub-agent 内），而 Output Style 一旦切换就贯穿整段会话，直到用户再次 `/output-style` 切走。
+
+Plugin 则是这三者的"打包发行单元"。一个完整的 plugin 可以同时携带 commands、skills、agents、hooks、mcpServers、还有 outputStyles —— manifest schema 把这六类放在同一层平铺。从扩展开发者的视角看：
+
+- 想加一段**当前回合的指令** → 写 Skill；
+- 想加一个**独立的子角色** → 写 Agent；
+- 想换掉**整段会话的助手人格** → 写 Output Style；
+- 想把上面任意一种**作为产品发行**（带版本、带 user config、带 MCP 服务） → 写 Plugin。
+
+读到这里再回过头看前面那张 plugin 目录树，`output-styles/` 这一条就不只是"凑齐目录种类"了 —— 它是 plugin 作者唯一能影响"模型默认怎么说话"的入口。
 
 ---
 

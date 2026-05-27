@@ -81,7 +81,7 @@
 | `vim/` | C28 |
 | `voice/` | C28 |
 
-## 孤儿目录与白名单
+## 孤儿目录
 
 当前 commit 下 orphans=0（孤儿统计已剔除 `scripts/orphan-allowlist.txt` 中的条目）。
 

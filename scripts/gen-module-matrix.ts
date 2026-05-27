@@ -205,7 +205,7 @@ const md = [
       `| \`${d}/\` | ${dirToChapters[d].length ? dirToChapters[d].join(", ") : "—"} |`,
   ),
   ``,
-  `## 孤儿目录与白名单`,
+  `## 孤儿目录`,
   ``,
   orphans.length === 0
     ? `当前 commit 下 orphans=0（孤儿统计已剔除 \`scripts/orphan-allowlist.txt\` 中的条目）。`

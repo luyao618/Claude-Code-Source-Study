@@ -12,3 +12,9 @@
 # 与上游 CLI 的 semver（v2.1.8）相关的源码注释复述，不是修订代号。
 # 行号是 docs/20-API调用与错误恢复.md 的硬引用，源码注释升级时同步调整。
 docs/20-API调用与错误恢复.md:619
+
+# CCR v2 是上游 CLI 的协议代号（见 cli/transports/ccrClient.ts:255 的源码注释
+# 与 cli/transports/transportUtils.ts:12 / CLAUDE_CODE_USE_CCR_V2 env），
+# 不是本书的修订代号。行号是 docs/20-API调用与错误恢复.md 的硬引用。
+docs/20-API调用与错误恢复.md:668
+docs/20-API调用与错误恢复.md:670

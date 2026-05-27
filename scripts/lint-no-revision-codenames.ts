@@ -13,7 +13,7 @@
  * 排除规则（按顺序应用，先排除后判禁）：
  *   1) frontmatter（首尾 --- 之间）整体豁免；
  *   2) HTML 注释 <!-- ... --> 整体豁免（含跨行）；
- *   3) docs/archive/V2-REVISION-SPEC.md 整体豁免（它本身就在讨论 v1/v2 流程）；
+ *   3) docs/archive/ 整体豁免（归档目录，含 V2-REVISION-SPEC.md 与历史 review feedback，均内部讨论 v1/v2 流程）；
  *   4) docs/appendix/*.manifest.json 的 notes 字段不在扫描范围（本脚本只扫 .md）；
  *      docs/appendix/*.md 仍受扫描，命中需进白名单；
  *   5) 代码块 ``` fence 内整体豁免；
@@ -34,7 +34,7 @@ import { join, relative, resolve } from "node:path";
 const REPO_ROOT = resolve(import.meta.dir, "..");
 const ALLOWLIST_PATH = join(REPO_ROOT, "scripts", "revision-codename-allowlist.txt");
 const DOCS_DIR = join(REPO_ROOT, "docs");
-const SPEC_PATH_REL = "docs/archive/V2-REVISION-SPEC.md";
+const ARCHIVE_DIR_REL = "docs/archive/";
 
 type Hit = { file: string; line: number; col: number; rule: string; text: string };
 
@@ -189,7 +189,7 @@ function isAllowed(relPath: string, lineNo: number, lineText: string, allow: All
 
 function scanFile(absPath: string, allow: AllowEntry[]): Hit[] {
   const relPath = relative(REPO_ROOT, absPath);
-  if (relPath === SPEC_PATH_REL) return [];
+  if (relPath.startsWith(ARCHIVE_DIR_REL)) return [];
   const src = readFileSync(absPath, "utf8");
   const mask = buildBodyMask(src);
   const lines = src.split("\n");

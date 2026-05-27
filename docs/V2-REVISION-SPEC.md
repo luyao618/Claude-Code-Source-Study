@@ -583,7 +583,7 @@ OC-PM 据本文档为每个 v2 章节产出 1 个 parent issue，包含三件套
 | C25 | DirectConnect 与上游代理 | `docs/30-DirectConnect-与上游代理.md` | YAO-139 仲裁，YAO-124 落地（NN=30，承接 26/27/28/29，准 YAO-124 启动） |
 | C28 | Keybindings、Vim 与 Voice 输入 | `docs/31-Keybindings-Vim-与-Voice-输入.md` | YAO-140 追加（NN=31，承接 26/27/28/29/30 落地，准 YAO-127 启动） |
 | C29 | Buddy 人格 | _（待 issue 启动时由 OC-Dev 追加）_ | |
-| C30 | Doctor 屏与 Output Style 体验 | _（待 issue 启动时由 OC-Dev 追加）_ | |
+| C30 | Doctor 屏与 Output Style 体验 | `docs/33-Doctor-屏与-Output-Style-体验.md` | YAO-142 仲裁，YAO-129 落地（NN=33，承接 26/27/28/29/30/31 落地；NN=32 预留给 C29，C29 自己的 issue 启动时由 OC-Dev 登记） |
 
 注：v1 的 `docs/04-System-Prompt-工程.md` **不**因 C04 让位而 rename——它继续以 v1 文件身份留在 NN=04 槽位，待 C06（System Prompt 与 Output Style 注入）正式起笔时再走「迭代重写 / 拆分合并」流程改名为 `docs/06-System-Prompt-与-Output-Style-注入.md`，那是 C06 PR 自己的 scope。新章追加 NN 槽位的方案把「v1 文件 rename」与「新章下笔」这两件事解耦——C04 不需要触碰任何 v1 文件。
 

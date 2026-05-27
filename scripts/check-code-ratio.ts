@@ -61,7 +61,7 @@ function getChangedFiles(base: string): string[] {
  *   C25 DirectConnect 与上游代理           → docs/<NN>-…md
  *   C28 Keybindings、Vim 与 Voice 输入     → docs/<NN>-…md
  *   C29 Buddy 人格                         → docs/<NN>-…md
- *   C30 Doctor 屏与 Output Style 体验      → docs/<NN>-…md
+ *   C30 Doctor 屏与 Output Style 体验      → docs/33-Doctor-屏与-Output-Style-体验.md
  *
  * 仅 C04 / C13 在 YAO-135 仲裁中被显式落槽；其余 6 篇的 NN 在各自 issue 启动时由
  * OC-Dev 在 spec §9.3 表格中追加，**同时**更新本集合。集合与 spec 表格保持
@@ -75,7 +75,8 @@ const NEW_CHAPTER_FILES = new Set<string>([
   "docs/29-Bridge-IPC-与远程会话.md",
   "docs/30-DirectConnect-与上游代理.md",
   "docs/31-Keybindings-Vim-与-Voice-输入.md",
-  // 其余 2 篇（C29/C30）在各自 issue 启动时追加。
+  "docs/33-Doctor-屏与-Output-Style-体验.md",
+  // C29（Buddy 人格）的 NN（预留 32）在其 issue 启动时由 OC-Dev 追加。
 ]);
 
 const SOURCE_LANGS = new Set([

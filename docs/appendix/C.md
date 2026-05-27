@@ -4,38 +4,39 @@
 
 - HOOK_EVENTS：27 个
 - Hook command type：4 类
+- 已补齐 trigger/payload：27/27
 
 ## HOOK_EVENTS（来源：`entrypoints/sdk/coreSchemas.ts:355-383`）
 
-| 事件名 |
-|---|
-| `PreToolUse` |
-| `PostToolUse` |
-| `PostToolUseFailure` |
-| `Notification` |
-| `UserPromptSubmit` |
-| `SessionStart` |
-| `SessionEnd` |
-| `Stop` |
-| `StopFailure` |
-| `SubagentStart` |
-| `SubagentStop` |
-| `PreCompact` |
-| `PostCompact` |
-| `PermissionRequest` |
-| `PermissionDenied` |
-| `Setup` |
-| `TeammateIdle` |
-| `TaskCreated` |
-| `TaskCompleted` |
-| `Elicitation` |
-| `ElicitationResult` |
-| `ConfigChange` |
-| `WorktreeCreate` |
-| `WorktreeRemove` |
-| `InstructionsLoaded` |
-| `CwdChanged` |
-| `FileChanged` |
+| 事件名 | 触发时机 | Payload 字段 | 源码位置 |
+|---|---|---|---|
+| `PreToolUse` | 工具被调度执行之前；可用 exit 2 / decision:'block' 阻断本次工具调用，hook 输出会作为 system reminder 反馈给模型。 | `session_id`<br/>`transcript_path`<br/>`cwd`<br/>`permission_mode?`<br/>`agent_id?`<br/>`agent_type?`<br/>`hook_event_name='PreToolUse'`<br/>`tool_name`<br/>`tool_input`<br/>`tool_use_id` | schema: `entrypoints/sdk/coreSchemas.ts:414-423`<br/>dispatch: `utils/hooks.ts:3394-3436`<br/>call: `services/tools/toolHooks.ts (executePreToolHooks)` |
+| `PostToolUse` | 工具调用成功完成之后；hook 可通过 decision:'block' 给模型注入反馈（不影响工具结果本身）。 | `...BaseHookInput`<br/>`hook_event_name='PostToolUse'`<br/>`tool_name`<br/>`tool_input`<br/>`tool_response`<br/>`tool_use_id` | schema: `entrypoints/sdk/coreSchemas.ts:436-446`<br/>dispatch: `utils/hooks.ts:3450-3477`<br/>call: `services/tools/toolHooks.ts:56` |
+| `PostToolUseFailure` | 工具调用失败 / 被中断之后；payload 携带 error 字符串与 is_interrupt 标记，hook 可向模型注入修复建议。 | `...BaseHookInput`<br/>`hook_event_name='PostToolUseFailure'`<br/>`tool_name`<br/>`tool_input`<br/>`tool_use_id`<br/>`error`<br/>`is_interrupt?` | schema: `entrypoints/sdk/coreSchemas.ts:448-459`<br/>dispatch: `utils/hooks.ts:3492-3527`<br/>call: `services/tools/toolHooks.ts:212` |
+| `Notification` | 需要向用户弹出系统通知前（待权限确认 / 待 elicitation / 输入空闲提醒等）；hook 可替换或抑制通知。在 REPL 之外执行。 | `...BaseHookInput`<br/>`hook_event_name='Notification'`<br/>`message`<br/>`title?`<br/>`notification_type` | schema: `entrypoints/sdk/coreSchemas.ts:473-482`<br/>dispatch: `utils/hooks.ts:3570-3592`<br/>call: `services/notifier.ts:25`<br/>call: `cli/print.ts:1366`<br/>call: `services/mcp/elicitationHandler.ts:183`<br/>call: `services/mcp/elicitationHandler.ts:283`<br/>call: `services/mcp/elicitationHandler.ts:298`<br/>call: `services/mcp/elicitationHandler.ts:307` |
+| `UserPromptSubmit` | 用户在 REPL 中提交 prompt 之后、消息入队 QueryEngine 之前；hook 可改写 prompt 或注入额外 system 消息。 | `...BaseHookInput`<br/>`hook_event_name='UserPromptSubmit'`<br/>`prompt` | schema: `entrypoints/sdk/coreSchemas.ts:484-491`<br/>dispatch: `utils/hooks.ts:3826-3855`<br/>call: `utils/processUserInput/processUserInput.ts:182` |
+| `SessionStart` | 会话开始或 resume/clear/compact 后重启 session；hook 可注入 system reminder（如自定义 agent 引导语）。 | `...BaseHookInput`<br/>`hook_event_name='SessionStart'`<br/>`source='startup'\|'resume'\|'clear'\|'compact'`<br/>`agent_type?`<br/>`model?` | schema: `entrypoints/sdk/coreSchemas.ts:493-502`<br/>dispatch: `utils/hooks.ts:3867-3892`<br/>call: `utils/sessionStart.ts:132` |
+| `SessionEnd` | 会话结束（logout / clear / resume 切换 / prompt_input_exit 等）；同步触发，关停 Ink 之后直接写 stderr。默认 1.5s 超时（CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS 覆盖）。 | `...BaseHookInput`<br/>`hook_event_name='SessionEnd'`<br/>`reason ∈ EXIT_REASONS` | schema: `entrypoints/sdk/coreSchemas.ts:758-765`<br/>dispatch: `utils/hooks.ts:4097-4141`<br/>call: `utils/gracefulShutdown.ts:473`<br/>call: `screens/REPL.tsx:1774`<br/>call: `commands/clear/conversation.ts:69` |
+| `Stop` | 主线程在一轮回合结束、准备进入 idle 之前；hook 可 exit 2 / decision:'block' 让模型继续执行，用于强制完成额外步骤。 | `...BaseHookInput`<br/>`hook_event_name='Stop'`<br/>`stop_hook_active`<br/>`last_assistant_message?` | schema: `entrypoints/sdk/coreSchemas.ts:513-527`<br/>dispatch: `utils/hooks.ts:3639-3697`<br/>call: `query/stopHooks.ts:180` |
+| `StopFailure` | 回合以 assistant 错误（API 错误 / 取消 / overload）收尾时，与 Stop 互斥；payload 携带最后一条 assistant message 与错误字段，主要用于审计 / 告警。 | `...BaseHookInput`<br/>`hook_event_name='StopFailure'`<br/>`error (SDKAssistantMessageError, 缺省 'unknown')`<br/>`error_details?`<br/>`last_assistant_message?` | schema: `entrypoints/sdk/coreSchemas.ts:529-538`<br/>dispatch: `utils/hooks.ts:3594-3627`<br/>call: `query.ts:1174`<br/>call: `query.ts:1181`<br/>call: `query.ts:1263` |
+| `SubagentStart` | AgentTool 创建并启动一个 subagent 之前；payload 给出 agent_id + agent_type，便于 hook 给子 agent 注入额外 system reminder。 | `...BaseHookInput`<br/>`hook_event_name='SubagentStart'`<br/>`agent_id`<br/>`agent_type` | schema: `entrypoints/sdk/coreSchemas.ts:540-548`<br/>dispatch: `utils/hooks.ts:3932-3952`<br/>call: `tools/AgentTool/runAgent.ts:532` |
+| `SubagentStop` | subagent 完成回合、准备返回结果给父 agent 之前；Stop 的 subagent 变体，executeStopHooks 在传入 subagentId 时切到此事件。可阻断让子 agent 继续工作。 | `...BaseHookInput`<br/>`hook_event_name='SubagentStop'`<br/>`stop_hook_active`<br/>`agent_id`<br/>`agent_transcript_path`<br/>`agent_type`<br/>`last_assistant_message?` | schema: `entrypoints/sdk/coreSchemas.ts:550-567`<br/>dispatch: `utils/hooks.ts:3639-3697`<br/>call: `query/stopHooks.ts:180` |
+| `PreCompact` | 压缩流程开始之前（手动 /compact 或 token 自动压缩）；hook 可返回 newCustomInstructions 覆盖默认指令，并把 displayMessage 显示给用户。 | `...BaseHookInput`<br/>`hook_event_name='PreCompact'`<br/>`trigger='manual'\|'auto'`<br/>`custom_instructions: string\|null` | schema: `entrypoints/sdk/coreSchemas.ts:569-577`<br/>dispatch: `utils/hooks.ts:3961-4025`<br/>call: `services/compact/compact.ts:413`<br/>call: `services/compact/compact.ts:818`<br/>call: `commands/compact/compact.ts:160` |
+| `PostCompact` | 压缩完成、summary 已写入会话之后；hook 输出仅作为 displayMessage 展示给用户，不参与后续模型上下文。 | `...BaseHookInput`<br/>`hook_event_name='PostCompact'`<br/>`trigger='manual'\|'auto'`<br/>`compact_summary` | schema: `entrypoints/sdk/coreSchemas.ts:579-589`<br/>dispatch: `utils/hooks.ts:4034-4089`<br/>call: `services/compact/compact.ts:723`<br/>call: `services/compact/compact.ts:1069` |
+| `PermissionRequest` | 权限引擎判定需要弹出权限对话框之前；hook 可程序化批准 / 拒绝，免去交互。在 REPL（含 SDK structuredIO 通道）与 PermissionContext 内都会触发。 | `...BaseHookInput`<br/>`hook_event_name='PermissionRequest'`<br/>`tool_name`<br/>`tool_input`<br/>`permission_suggestions?: PermissionUpdate[]` | schema: `entrypoints/sdk/coreSchemas.ts:425-434`<br/>dispatch: `utils/hooks.ts:4157-4192`<br/>call: `utils/permissions/permissions.ts:409`<br/>call: `cli/structuredIO.ts:798`<br/>call: `hooks/toolPermission/PermissionContext.ts:222` |
+| `PermissionDenied` | 权限引擎判定一次工具调用被拒绝之后，先于错误结果返回模型；fire-and-forget，主要用于审计 / 告警。 | `...BaseHookInput`<br/>`hook_event_name='PermissionDenied'`<br/>`tool_name`<br/>`tool_input`<br/>`tool_use_id`<br/>`reason` | schema: `entrypoints/sdk/coreSchemas.ts:461-471`<br/>dispatch: `utils/hooks.ts:3529-3562`<br/>call: `services/tools/toolExecution.ts:1081` |
+| `Setup` | 会话初始化 / 周期性维护阶段，紧随 SessionStart 之后；payload trigger 区分 'init' 与 'maintenance'。 | `...BaseHookInput`<br/>`hook_event_name='Setup'`<br/>`trigger='init'\|'maintenance'` | schema: `entrypoints/sdk/coreSchemas.ts:504-511`<br/>dispatch: `utils/hooks.ts:3902-3922`<br/>call: `utils/sessionStart.ts:203` |
+| `TeammateIdle` | teammate（多人协作中的另一个 agent）即将进入 idle 状态时；hook 可 exit 2 让其继续工作，用于强制完成轮询任务。 | `...BaseHookInput`<br/>`hook_event_name='TeammateIdle'`<br/>`teammate_name`<br/>`team_name` | schema: `entrypoints/sdk/coreSchemas.ts:591-599`<br/>dispatch: `utils/hooks.ts:3709-3729`<br/>call: `query/stopHooks.ts:403` |
+| `TaskCreated` | TaskCreateTool 创建任务前；hook 可阻断创建并向模型回馈拒绝理由（如校验任务标题命名规范）。 | `...BaseHookInput`<br/>`hook_event_name='TaskCreated'`<br/>`task_id`<br/>`task_subject`<br/>`task_description?`<br/>`teammate_name?`<br/>`team_name?` | schema: `entrypoints/sdk/coreSchemas.ts:601-612`<br/>dispatch: `utils/hooks.ts:3745-3773`<br/>call: `tools/TaskCreateTool/TaskCreateTool.ts:93` |
+| `TaskCompleted` | TaskUpdateTool 将任务置为 completed 之前；hook 可阻断完成（例如强制要求附录 / 验收脚本通过）。 | `...BaseHookInput`<br/>`hook_event_name='TaskCompleted'`<br/>`task_id`<br/>`task_subject`<br/>`task_description?`<br/>`teammate_name?`<br/>`team_name?` | schema: `entrypoints/sdk/coreSchemas.ts:614-625`<br/>dispatch: `utils/hooks.ts:3789-3817`<br/>call: `tools/TaskUpdateTool/TaskUpdateTool.ts:235` |
+| `Elicitation` | MCP 服务器发起 elicitation 请求、需要向用户弹出对话框前；hook 可程序化返回 accept/decline/cancel 与表单内容，跳过 UI。 | `...BaseHookInput`<br/>`hook_event_name='Elicitation'`<br/>`mcp_server_name`<br/>`message`<br/>`mode='form'\|'url'?`<br/>`url?`<br/>`elicitation_id?`<br/>`requested_schema?` | schema: `entrypoints/sdk/coreSchemas.ts:627-643`<br/>dispatch: `utils/hooks.ts:4470-4523`<br/>call: `services/mcp/elicitationHandler.ts:228` |
+| `ElicitationResult` | 用户已经响应 MCP elicitation、即将把结果发回服务器之前；hook 可观察或改写最终响应（含 decline 转 block）。 | `...BaseHookInput`<br/>`hook_event_name='ElicitationResult'`<br/>`mcp_server_name`<br/>`elicitation_id?`<br/>`mode='form'\|'url'?`<br/>`action='accept'\|'decline'\|'cancel'`<br/>`content?` | schema: `entrypoints/sdk/coreSchemas.ts:645-660`<br/>dispatch: `utils/hooks.ts:4525-4575`<br/>call: `services/mcp/elicitationHandler.ts:273` |
+| `ConfigChange` | 配置文件 watcher 检测到 user/project/local/policy settings 或 skills 目录变化时；hook 可 exit 2 阻断本次变更生效（policy_settings 例外，hook 仅审计、不可阻断）。 | `...BaseHookInput`<br/>`hook_event_name='ConfigChange'`<br/>`source ∈ CONFIG_CHANGE_SOURCES`<br/>`file_path?` | schema: `entrypoints/sdk/coreSchemas.ts:670-678`<br/>dispatch: `utils/hooks.ts:4214-4239`<br/>call: `utils/settings/changeDetector.ts:292`<br/>call: `utils/settings/changeDetector.ts:344`<br/>call: `utils/skills/skillChangeDetector.ts:267` |
+| `WorktreeCreate` | 需要为本会话创建 worktree 时；若用户配置了该 hook，则替代默认 git worktree 流程，stdout 中的路径作为新 worktree 根目录。无配置时回退到 git worktree。 | `...BaseHookInput`<br/>`hook_event_name='WorktreeCreate'`<br/>`name (slug，已经过 validateWorktreeSlug)` | schema: `entrypoints/sdk/coreSchemas.ts:709-716`<br/>dispatch: `utils/hooks.ts:4928-4958`<br/>call: `utils/worktree.ts:716`<br/>call: `utils/worktree.ts:913`<br/>call: `utils/worktree.ts:1262` |
+| `WorktreeRemove` | 会话结束 / 用户主动清理 worktree 时；若 hook 配置存在则替代默认 git worktree remove；返回 false 表示无 hook 配置、走默认路径。 | `...BaseHookInput`<br/>`hook_event_name='WorktreeRemove'`<br/>`worktree_path` | schema: `entrypoints/sdk/coreSchemas.ts:718-725`<br/>dispatch: `utils/hooks.ts:4967-5003`<br/>call: `utils/worktree.ts:827`<br/>call: `utils/worktree.ts:968` |
+| `InstructionsLoaded` | CLAUDE.md 或 .claude/rules/*.md 等指令文件被加载进上下文时（session_start / nested_traversal / path_glob_match / include / compact 五种场景）；fire-and-forget，仅用于观察与审计，不能阻断。 | `...BaseHookInput`<br/>`hook_event_name='InstructionsLoaded'`<br/>`file_path`<br/>`memory_type ∈ {User, Project, Local, Managed}`<br/>`load_reason ∈ INSTRUCTIONS_LOAD_REASONS`<br/>`globs?`<br/>`trigger_file_path?`<br/>`parent_file_path?` | schema: `entrypoints/sdk/coreSchemas.ts:695-707`<br/>dispatch: `utils/hooks.ts:4335-4369`<br/>call: `utils/claudemd.ts:1060`<br/>call: `utils/attachments.ts:1760` |
+| `CwdChanged` | 会话 cwd 发生切换之后（如 /cd 命令、worktree 切换）；hook 输出可声明 watchPaths 让 FileChanged watcher 重新订阅，并向 REPL 推 systemMessage。 | `...BaseHookInput`<br/>`hook_event_name='CwdChanged'`<br/>`old_cwd`<br/>`new_cwd` | schema: `entrypoints/sdk/coreSchemas.ts:727-735`<br/>dispatch: `utils/hooks.ts:4260-4276`<br/>call: `utils/hooks/fileChangedWatcher.ts:148` |
+| `FileChanged` | FileChangedWatcher 监听到 watchPaths 内文件 add/change/unlink 之后；hook 可输出新的 watchPaths 动态扩缩订阅集，输出失败将作为系统消息提示用户。 | `...BaseHookInput`<br/>`hook_event_name='FileChanged'`<br/>`file_path`<br/>`event='change'\|'add'\|'unlink'` | schema: `entrypoints/sdk/coreSchemas.ts:737-745`<br/>dispatch: `utils/hooks.ts:4278-4294`<br/>call: `utils/hooks/fileChangedWatcher.ts:85` |
 
 ## Hook command type（来源：`schemas/hooks.ts`）
 

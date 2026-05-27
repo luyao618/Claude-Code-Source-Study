@@ -277,6 +277,44 @@ function hookDedupKey(m: MatchedHook, payload: string): string {
 
 对于 callback 和 function 类型的 Hook，直接跳过去重逻辑（`utils/hooks.ts:1723-1729`）—— 这是一个性能优化，对内部 Hook（如 `sessionFileAccessHooks`）来说，跳过 6 轮 filter + 4 个 Map + 4 个 Array.from 带来了 44 倍的微基准性能提升。
 
+### 3.5 一回合结束的最后一道关：Stop 与 SubagentStop
+
+`executeHooks()` 是公共的执行引擎，但前面几节都没展开 Stop 这一类 hook 在对话主循环里**到底是被谁、何时、怎么调度**的。这件事发生在 `query/stopHooks.ts:65-473` 的 `handleStopHooks()` 里 —— 它是 `query.ts` 在一个 turn 即将结束、准备把控制权交还给用户之前最后一道流程，专门负责消费 Stop / SubagentStop hook 的输出。
+
+`handleStopHooks()` 的执行节奏分三段。第一段是**fire-and-forget 的后台清洗**（`query/stopHooks.ts:133-157`）：当不是 `--bare` / SIMPLE 模式时，依次启动 PromptSuggestion、`extractMemories`（受 `EXTRACT_MEMORIES` feature flag 与 `isExtractModeActive()` 双重保护）、`executeAutoDream` 三条后台链路，它们都是 `void` 调用，主流程不等待。第二段才是**真正运行用户 Stop hooks**（`query/stopHooks.ts:175-189`）：调用 `executeStopHooks()` 拿到一个 `AsyncGenerator<AggregatedHookResult>`，事件名由 `toolUseContext.agentId` 决定 —— 主 session 走 `Stop`，子 Agent 走 `SubagentStop`（`utils/hooks.ts:3653`）。第三段是**消费 generator**：循环 yield 进度消息给 UI，同时把每条 attachment 分流到 `hookErrors` / `hasOutput` / `hookInfos` 三个累加器，遇到 `blockingError` 就把它转成一条 user message 推回对话循环让模型继续回答。
+
+之所以 Stop 这条线值得单独看，是因为它绑定了一个独特的"中断重启"语义。`executeStopHooks()` 在 `utils/hooks.ts:3656` 上做了一次 `hasHookForEvent()` 快检 —— 没配置就立即 return；这跟 PreToolUse 那种"每次工具调用都有可能命中"的高频路径不同，是给那些"完全没配置 Stop hook"的用户准备的零开销快速路径。一旦 Stop hook 用 exit code 2 阻断本回合，对应的 user message 会通过 `createUserMessage({ isMeta: true })` 注入回 `messagesForQuery`，下一次 turn 直接带着这条反馈再问模型一次。Stop hook 因此不是"会话结束钩子"，而是"会话**愿不愿意结束**的决策钩子" —— 模型说"我答完了"，hook 说"再想想"，于是 turn 继续。
+
+`asyncRewake` 模式（前面 §5.3 提到的那一种）正是这条决策链的异步分支：hook 在后台跑测试，跑完如果失败（exit code 2）就通过 `enqueuePendingNotification()` 把 stderr 包成 `system-reminder` 推回队列，模型在下一个 idle tick 被唤醒重读。这意味着 Stop hook 既可以"同步把当前 turn 拽回去"，也可以"异步把未来某个 turn 拽回去"，两种模式共用同一套 exit code 2 = 阻塞的语义。
+
+### 3.6 notifs：在 React 树里轻量挂载 16 条系统通知
+
+`hooks/notifs/` 这个目录跟前面讲的执行引擎是**两个完全独立的系统**。这里的"hook"指的是 React 自定义 hook —— `hooks/notifs/` 下 16 个 `useXxxNotification.{ts,tsx}` 文件，每个对应一条系统提示（启动横幅、订阅切换、模型迁移提醒、NPM 弃用提示、Rate Limit 警告、LSP 初始化、Plugin 自动更新等），它们都挂在 REPL 顶层组件树里，通过 `context/notifications.ts` 暴露的 `useNotifications().addNotification()` 推到通知队列。
+
+之所以要把它们集中放在 `hooks/notifs/` 而不是散落在各自的 feature 目录里，原因写在 `hooks/notifs/useStartupNotification.ts:11-18` 的注释里：这 16 个 hook 共享同一种触发节奏 —— "**进程启动后只 fire 一次，remote 模式跳过**"。早期的代码把这套逻辑在每个 hook 里手工抄了一遍（`getIsRemoteMode()` 检查 + `useRef` 守卫 + `useEffect` 包裹），10+ 处复制粘贴到了不可维护的程度。最终的解法是抽出 `useStartupNotification(compute)` 这一个公共 hook：
+
+```typescript
+// hooks/notifs/useStartupNotification.ts:19-30
+export function useStartupNotification(
+  compute: () => Result | Promise<Result>,
+): void {
+  const { addNotification } = useNotifications()
+  const hasRunRef = useRef(false)
+  const computeRef = useRef(compute)
+  computeRef.current = compute
+
+  useEffect(() => {
+    if (getIsRemoteMode() || hasRunRef.current) return
+    hasRunRef.current = true
+    // ...
+  }, [])
+}
+```
+
+`compute` 函数返回 `null`（不发通知）/ 单个 `Notification`（发一条）/ `Notification[]`（发多条），同步或异步皆可。Remote 模式跳过是因为远程会话里这些本地提示要么没意义（如 NPM 弃用），要么由 host 端独立维护（如 Rate Limit），两边都报反而吵。
+
+这套 notifs 体系跟 `schemas/hooks.ts` 那一整套生命周期 hooks 没有任何代码上的耦合 —— 一个跑在 Ink/React 渲染循环里、用 `useEffect` 触发，另一个跑在 query loop 的非 React 世界、用 `executeHooks()` AsyncGenerator 触发。两者共用"hook"这个名字，是因为它们的语义一致：**在某个生命周期节点上挂自定义行为**。只是一个挂的是 UI 行为，一个挂的是 Shell / LLM / HTTP 行为。
+
 ---
 
 ## 四、Shell 命令执行：execCommandHook 的完整链路
@@ -650,6 +688,16 @@ export function updateHooksConfigSnapshot(): void {
 ### 8.3 HTTP Hook 的 SSRF 防护
 
 HTTP Hook 内置了 SSRF（Server-Side Request Forgery）防护（`utils/hooks/ssrfGuard.ts`）。`isBlockedAddress()` 函数阻止对私有/链路本地地址的请求（`169.254.0.0/16`、`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16` 等），但**刻意允许环回地址**（`127.0.0.0/8`）—— 因为本地开发策略服务器是 HTTP Hook 的主要使用场景。
+
+### 8.4 三种执行身份的 permission handler
+
+权限决策这条线不只有"hook 返回什么"这一面，还有"调用方是谁"这一面。`hooks/toolPermission/handlers/` 下三个文件 `interactiveHandler.ts` / `coordinatorHandler.ts` / `swarmWorkerHandler.ts` 把同一个工具调用的权限询问拆成了三套流程：
+
+- **interactive**（`hooks/toolPermission/handlers/interactiveHandler.ts`）：主 Agent 走的路径，把 `ToolUseConfirm` 推到 confirm 队列，权限 hook 和 bash classifier 在后台跑，**与用户的弹窗交互赛跑**。谁先有结论谁赢，靠 `createResolveOnce()`（`hooks/toolPermission/PermissionContext.ts`）确保只 resolve 一次。
+- **coordinator**（`hooks/toolPermission/handlers/coordinatorHandler.ts`）：Coordinator 模式下的 worker 走的路径，自动检查是**顺序串行**而不是赛跑 —— 先跑权限 hook（快、本地），跑不出结论再跑 classifier（慢、推理 / 只对 bash 生效），都没结论才落回交互弹窗。
+- **swarmWorker**（`hooks/toolPermission/handlers/swarmWorkerHandler.ts`）：Swarm worker 下的路径，把请求打包成 `permissionSync` 信件经 mailbox 发给主 session，自己挂起等回信；本地 classifier 在 bash 命令上仍可短路提前 approve。
+
+三个 handler 的共同基础是 `PermissionContext` 上挂的 `runHooks()` 接口 —— 也就是说，"PreToolUse / PermissionRequest hook 怎么跑"这一段对三种身份是统一的，差别只在"hook 给不出答案之后还有谁可以接力、谁可以问、谁有兜底权"。这也是为什么 §七 描述的 deny > ask > allow 优先级链能在三种身份下都成立：它只约束 hook 之间的合并，不关心后续兜底是弹窗、是 coordinator 顺序、还是 swarm 远端。
 
 ---
 

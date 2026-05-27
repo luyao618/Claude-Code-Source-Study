@@ -23,6 +23,8 @@ Hook 脚本 → Skill 文件 → Agent 定义 → Plugin 包
 
 ---
 
+> **章内导读**：§一 自定义 Skill → §二 自定义 Agent → §三 Plugin 系统架构 → §四 Hook 脚本 → §五 MCP Skill 桥接 → §六 Output Style 作为第三条扩展路径 → §七 实战示例 → §八 可迁移模式。本章按「扩展点从轻量到重量」组织：Skill → Agent → Plugin → Hook → MCP → Output Style。读完前六节后 §七 是一份可直接照抄的 walkthrough。
+
 ## 一、自定义 Skill 编写
 
 ### 1.1 目录结构与发现机制

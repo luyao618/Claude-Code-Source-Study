@@ -18,6 +18,8 @@ Claude Code 面临的正是这个问题。它的解决方案是**三层 Feature 
 
 ---
 
+> **章内导读**：§一 编译期 `feature()` 与 DCE（含 90 个 flag 全景与分类速查表）→ §二 构建时身份常量 `USER_TYPE` → §三 `MACRO.*` 常量注入 → §四 运行时 GrowthBook A/B → §五 三层协同的完整门控链路 → §六 防止 flag 翻转破坏系统 → §七 可迁移模式。§一–§四 是「四层门控机制」分别展开，§五 把它们串成一条链路。
+
 ## 一、编译期：`feature()` 与 Dead Code Elimination
 
 ### 1.1 核心机制

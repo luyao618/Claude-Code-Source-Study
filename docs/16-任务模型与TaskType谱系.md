@@ -20,6 +20,8 @@
 
 ---
 
+> **章内导读**：§一 架构全景（Task 接口 + TaskState 类型）→ §二 framework.ts 与输出管理基础设施 → §三 任务类型详解 → §三点五 模型侧的入口（六个 Task*Tool）→ §四 任务通知机制 → §五 三种 Agent 协作模式 → §六 `createSubagentContext()` 上下文隔离 → §七 可迁移模式。§三点五是后插入的「读源码避坑」段，澄清 `AppState.tasks` 与 `utils/tasks.ts` TodoV2 是两套同名不同实质的体系。
+
 ## 一、架构全景：Task 接口与 TaskState 类型体系
 
 ### 1.1 核心抽象：三层分离设计

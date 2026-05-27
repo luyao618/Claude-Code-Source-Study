@@ -17,6 +17,8 @@ Anthropic 的 Prompt Caching 机制可以将 **重复前缀** 的成本降低 90
 
 ---
 
+> **章内导读**：§一 缓存基本原理与标记策略 → §二 System Prompt 分块 → §三 Cached Microcompact → §四 Fork Agent 的 CacheSafeParams → §五 缓存失效检测 → §六 全景图 → §七 可迁移模式。前五节按缓存的「生命周期」展开（建立→分块→保护→共享→失效），第六节横切总览，第七节抽出可复用模式。
+
 ## 一、Prompt Cache 的基本原理与标记策略
 
 ### 1.1 `cache_control` 标记：告诉 API "请缓存到这里"

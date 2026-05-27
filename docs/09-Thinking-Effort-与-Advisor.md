@@ -19,6 +19,8 @@ Claude Code 面对的工程挑战是：**如何让用户（和系统）灵活地
 
 ---
 
+> **章内导读**：§一/§二 Extended Thinking（三种模式 + API 注入）→ §三 Effort 级别 → §四 Ultrathink 触发 → §五 Advisor 审阅 → §六/§七 Thinking 流式与 Side Query → §八 四子系统协作全景 → 番外 PromptSuggestion → §九 可迁移模式。本章是「四个相关但独立的推理控制旋钮」并列展开，按 §八 的全景图回头看，能把 §一–§五 串起来。
+
 ## 一、ThinkingConfig — Extended Thinking 的三种模式
 
 ### 1.1 类型定义

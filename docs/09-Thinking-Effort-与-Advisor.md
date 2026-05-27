@@ -935,10 +935,11 @@ export function shouldEnablePromptSuggestion(): boolean {
 
 整个文件最值得划重点的是 `generateSuggestion()` 的实现策略（`promptSuggestion.ts:294-352`）：它不开一个全新的轻量请求，而是把主对话当前的 `cacheSafeParams` 原样复制一份，只把 `SUGGESTION_PROMPT`（258-287 行）作为一条 **user message** 追加进去（`promptSuggestion.ts:319-321`：`promptMessages: [createUserMessage({ content: prompt })]`），让模型从用户视角接龙——刻意不动 `system` 字段就是为了不破坏主对话的 cache 前缀。
 
-为什么这么绕？因为 Anthropic 的 Prompt Cache 是**前缀严格匹配**的——任何一个参数（包括 `system`、`tools`、`temperature`、甚至 `thinking` / `effort`）和主请求不一致，就会触发一次完整的 cache write 而不是 cache hit。代码注释里直接写了教训：
+为什么这么绕？因为 Anthropic 的 Prompt Cache 是**前缀严格匹配**的——任何一个参数（包括 `system`、`tools`、`temperature`、甚至 `thinking` / `effort`）和主请求不一致，就会触发一次完整的 cache write 而不是 cache hit。源码里的代码注释（`services/PromptSuggestion/promptSuggestion.ts:313`）直接写了教训，下面是它的中文转述：
 
 ```typescript
-// PR #18143 复盘：早期版本把建议请求的 effort 强行降到 'low' 节省成本，
+// 改写自 services/PromptSuggestion/promptSuggestion.ts:313 的英文注释：
+// 早期版本把建议请求的 effort 强行降到 'low' 节省成本，
 // 结果 cache write 量飙升 45x，主对话的 cache hit rate 从 92.7% 跌到 61%。
 // 节省的那点 effort 钱远抵不上 cache miss 多花的钱。
 ```

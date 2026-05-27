@@ -351,7 +351,7 @@ case 'companion_intro':
 
 发现入口的设计在 `useBuddyNotification.tsx`。`buddy/useBuddyNotification.tsx:12-21` 给出两个判断函数 `isBuddyTeaserWindow()` 和 `isBuddyLive()`，它们都先有一道 `if ('external' === 'ant') return true` 的字面量比较，然后用 `new Date()` 拿到当前时间，分别比较年月日。`isBuddyTeaserWindow` 返回 `d.getFullYear() === 2026 && d.getMonth() === 3 && d.getDate() <= 7`——2026 年 4 月 1 日到 7 日；`isBuddyLive` 返回 `d.getFullYear() > 2026 || (d.getFullYear() === 2026 && d.getMonth() >= 3)`——2026 年 4 月及之后。
 
-两个判断都走 **本地日期**——`getFullYear() / getMonth() / getDate()`，不是 `getUTC*`。源码注释里把理由写明白了：
+两个判断都走 **本地日期**——`getFullYear() / getMonth() / getDate()`，不是 `getUTC*`。源码注释（`buddy/useBuddyNotification.tsx:9-10`）里把理由写明白了：
 
 > Local date, not UTC — 24h rolling wave across timezones. Sustained Twitter buzz instead of a single UTC-midnight spike, gentler on soul-gen load.
 

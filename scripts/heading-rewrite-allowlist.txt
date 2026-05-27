@@ -13,3 +13,13 @@
 // （Bridge IPC / Coordinator-Agent / Migration-as-Code / Output-Style-as-Plugin
 // 四条新增）。标题数字与正文/源码事实冲突，改为 "## 11 个模式的全景关系"。
 docs/25-架构模式总结.md :: ## 7 个模式的全景关系
+
+// C09（YAO-151）：v1 标题里的「打翻 Prompt Cache」是错别字，应为「打破」。
+// 改写正文同时必须改标题，无法绕开。
+docs/09-Thinking-Effort-与-Advisor.md :: ## 番外：PromptSuggestion — 预测用户的下一句，且不能打翻 Prompt Cache
+
+// C14（YAO-151）：v1 把 AgentSummary 标为「七.5」夹在六/七/八之间是 v1 自身的编号错误
+// （OC-R review 明确指出），修订时统一为正常的「八」并把原 §八「可迁移的设计模式」顺延为「九」。
+// 两个 v1 标题被改写，均为事实/编号勘误。
+docs/14-Agent系统与SubAgent调用.md :: ## 七.5、AgentSummary：后台进度摘要
+docs/14-Agent系统与SubAgent调用.md :: ## 八、可迁移的设计模式

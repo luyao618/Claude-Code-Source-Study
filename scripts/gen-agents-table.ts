@@ -179,22 +179,37 @@ for (const f of promptFiles) {
   // 该 export 名在 builtInAgents.ts 出现的行号，用于副表回链
   const indexLine = lineOf(exportName);
 
-  // whenToUse 节选：源码 `BuiltInAgentDefinition` 没有独立 displayName 字段；
-  // 用 whenToUse 的首句作为速查表的可读描述。优先匹配字面量；若是常量引用
-  // （如 `whenToUse: EXPLORE_WHEN_TO_USE`），同文件 / 同目录 ../constants.ts 回查。
+  // whenToUse：源码 `BuiltInAgentDefinition` 没有独立 displayName 字段；
+  // 直接取 whenToUse 全文作为速查表的可读描述（不再截断，避免 OC-R 在 PR1 中
+  // 指出的 `claude-code-guide` 在 `Claude...` 处截断的问题）。
   let whenToUseSummary = "";
   let whenToUseRaw: string | undefined;
-  const literalM = src.match(/whenToUse\s*:\s*['"`]([\s\S]*?)['"`]/);
+  // 必须匹配同种引号才能闭合（OC-R 在 PR1 review 中指出 `claude-code-guide` 与
+  // `statusline-setup` 的截断 bug：之前用 `['"`]` 三种引号互通闭合，
+  // 会被 `("Can Claude...` 或 `user's` 提前截断）。
+  const literalM =
+    src.match(/whenToUse\s*:\s*`([\s\S]*?)`/) ||
+    src.match(/whenToUse\s*:\s*"((?:\\.|[^"\\])*)"/) ||
+    src.match(/whenToUse\s*:\s*'((?:\\.|[^'\\])*)'/);
   if (literalM) {
     whenToUseRaw = literalM[1];
   } else {
     const refM = src.match(/whenToUse\s*:\s*([A-Z_][A-Z0-9_]*)\b/);
     if (refM) {
       const constName = refM[1];
-      const constDefRe = new RegExp(
-        `\\b(?:export\\s+)?const\\s+${constName}\\s*(?::\\s*[^=]+)?=\\s*['"\`]([\\s\\S]*?)['"\`]`,
+      const constDefBacktickRe = new RegExp(
+        `\\b(?:export\\s+)?const\\s+${constName}\\s*(?::\\s*[^=]+)?=\\s*\`([\\s\\S]*?)\``,
       );
-      const here = src.match(constDefRe);
+      const constDefDQRe = new RegExp(
+        `\\b(?:export\\s+)?const\\s+${constName}\\s*(?::\\s*[^=]+)?=\\s*"((?:\\\\.|[^"\\\\])*)"`,
+      );
+      const constDefSQRe = new RegExp(
+        `\\b(?:export\\s+)?const\\s+${constName}\\s*(?::\\s*[^=]+)?=\\s*'((?:\\\\.|[^'\\\\])*)'`,
+      );
+      const here =
+        src.match(constDefBacktickRe) ||
+        src.match(constDefDQRe) ||
+        src.match(constDefSQRe);
       if (here) {
         whenToUseRaw = here[1];
       } else {
@@ -202,7 +217,10 @@ for (const f of promptFiles) {
         for (const sibling of promptFiles) {
           if (sibling === f) continue;
           const siblingSrc = readFileSync(join(builtInDir, sibling), "utf8");
-          const sm = siblingSrc.match(constDefRe);
+          const sm =
+            siblingSrc.match(constDefBacktickRe) ||
+            siblingSrc.match(constDefDQRe) ||
+            siblingSrc.match(constDefSQRe);
           if (sm) {
             whenToUseRaw = sm[1];
             break;
@@ -212,9 +230,14 @@ for (const f of promptFiles) {
     }
   }
   if (whenToUseRaw) {
+    // 完整保留 whenToUse 文本（折叠空白即可）。源码里多数句子里就含 `.`、`...`、引号，
+    // 简单 split('.') 会把 `Use this agent when the user asks questions ("Can Claude...", ...)`
+    // 在 `Claude` 处截断——OC-R 已经在 PR1 review 中点名这个问题，必须保留全文。
+    // Markdown 表格单元里禁止裸 `|`、`\n`、`<br>` 等会破表，统一转义。
     whenToUseSummary = whenToUseRaw
+      .replace(/\r?\n/g, " ")
       .replace(/\s+/g, " ")
-      .split(/[.。!?！？]/)[0]
+      .replace(/\|/g, "\\|")
       .trim();
   }
 
@@ -274,7 +297,7 @@ const md = [
   ``,
   `**正表**：源码定义 ${items.length} 个内置 agent（位于 \`${builtInRel}/\`）。`,
   ``,
-  `| id | whenToUse（首句节选，详见源码） | modelHint | defaultEnabled | 来源 |`,
+  `| id | whenToUse（源码原文，未截断） | modelHint | defaultEnabled | 来源 |`,
   `|---|---|---|---|---|`,
   ...items.map(
     (i) =>

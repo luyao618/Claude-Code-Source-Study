@@ -814,26 +814,17 @@
     "top_level_directories": 86,
     "top_level_files": 15,
     "total_top_level": 101,
-    "static_imported_in_commands_ts": 92,
-    "dynamically_required_in_commands_ts": 16,
-    "dynamically_required_only": [
-      "agents-platform",
-      "assistant",
+    "static_imported_dirs_in_commands_ts": 82,
+    "static_imported_files_in_commands_ts": 10,
+    "dynamically_required_dirs_in_commands_ts": 3,
+    "dynamically_required_files_in_commands_ts": 6,
+    "dynamically_required_dirs_only": [
       "bridge",
-      "brief",
-      "buddy",
-      "force-snip",
-      "fork",
-      "peers",
-      "proactive",
       "remote-setup",
-      "remoteControlServer",
-      "subscribe-pr",
-      "torch",
-      "ultraplan",
-      "voice",
-      "workflows"
+      "voice"
     ],
-    "dirs_not_referenced_in_commands_ts": []
+    "dirs_not_referenced_in_commands_ts": [
+      "review"
+    ]
   }
 }

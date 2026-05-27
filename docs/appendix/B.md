@@ -5,9 +5,11 @@
 - 一级目录：86
 - 一级文件：15
 - 一级条目合计：101
-- `commands.ts` 中静态 import 引用到的目录：92
-- `commands.ts` 中条件 require 装载的目录：16（其中 16 个仅以 require 形态装载）
-- 未被 `commands.ts` 任意 import/require 引用的一级目录：0
+- `commands.ts` 中静态 `import` 引用的一级**目录**：82
+- `commands.ts` 中静态 `import` 引用的一级**文件**：10
+- `commands.ts` 中条件 `require` 装载的一级**目录**：3（其中 3 个仅以 require 形态装载）
+- `commands.ts` 中条件 `require` 装载的一级**文件**：6
+- 未被 `commands.ts` 任意 import/require 引用的一级目录：1（`review`；可能通过 plugin 注册或为遗留目录）
 
 ## 一级目录
 
@@ -120,23 +122,10 @@
 | `ultraplan` | `commands/ultraplan.tsx` |
 | `version` | `commands/version.ts` |
 
-## 条件 require 装载的目录（16）
+## 条件 require 装载的目录（3）
 
 | 名称 | 路径 |
 |---|---|
-| `agents-platform` | `commands/agents-platform/` |
-| `assistant` | `commands/assistant/` |
 | `bridge` | `commands/bridge/` |
-| `brief` | `commands/brief/` |
-| `buddy` | `commands/buddy/` |
-| `force-snip` | `commands/force-snip/` |
-| `fork` | `commands/fork/` |
-| `peers` | `commands/peers/` |
-| `proactive` | `commands/proactive/` |
 | `remote-setup` | `commands/remote-setup/` |
-| `remoteControlServer` | `commands/remoteControlServer/` |
-| `subscribe-pr` | `commands/subscribe-pr/` |
-| `torch` | `commands/torch/` |
-| `ultraplan` | `commands/ultraplan/` |
 | `voice` | `commands/voice/` |
-| `workflows` | `commands/workflows/` |

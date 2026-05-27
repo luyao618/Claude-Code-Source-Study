@@ -105,7 +105,9 @@ const MonitorTool = feature('MONITOR_TOOL')
 | `CHICAGO_MCP` | 16 | Computer Use MCP |
 | `BUDDY` | 16 | Buddy 模式 |
 
-这些 flag 中，`KAIROS`（希腊语「恰当时机」）出现 154 次，几乎是第二名的 1.5 倍 —— 它对应的是 Claude Code 的「助手」模式，这是一个内部大型实验功能。
+这些 flag 中，`KAIROS`（希腊语「恰当时机」）出现 154 次，几乎是第二名的 1.5 倍 —— 它对应的是 Claude Code 的「助手」（Kairos Assistant）模式，本质上是一个把 Claude Code 内核当成"主动型聊天助手"使用的内部大型实验功能：相比默认的请求-响应循环，它会在更多触发点主动开口（如长任务结束、idle 提醒、定时简报），并依赖 `KAIROS_BRIEF`、`KAIROS_CHANNELS`、`KAIROS_GITHUB_WEBHOOKS` 等一系列同前缀的子 flag 协同。所以严格来说 `KAIROS` 不是"助手模式"这么宽泛，而是"主动型助手"的总开关。
+
+> **关于剩下 74 个 flag**：完整 89 个 flag 没有全部展开 —— 一是大量 flag 属于尚未对外公开的实验功能（如 `KAIROS_*` 子家族、`TEAMMEM_*`、`BUDDY` 内部细分），列出明细对读者价值有限且容易过期；二是 Top 15 已覆盖每个主要功能域的入口，沿着 `tools.ts`、`commands.ts`、`query.ts` 里的 `feature(...)` 调用点向下追，剩下的 flag 都能就近找到，本章的目的是讲清"门控机制"而不是"flag 全表"。如果要看全表，最权威的方式是在源码里 `grep -r "feature('" cli/` 自己跑一遍。
 
 ### 1.4 feature() 的全栈影响
 
@@ -152,7 +154,7 @@ const contextCollapse = feature('CONTEXT_COLLAPSE')
 
 ### 1.5 编译期 + 运行时双重门控：Ablation Baseline
 
-一个特别精巧的用法是 `cli.tsx` 中的 Ablation Baseline（消融实验基线）。它展示了编译期 `feature()` 和运行时环境变量**组合使用**的模式：
+一个特别精巧的用法是 `cli.tsx` 中的 Ablation Baseline。**先解释一下名字** —— 在内部实验流水线里，开发者需要一个"什么花哨功能都关掉"的基线版本来对比一个新功能到底带来了多大效果，这种"去掉某条件作为对照组"的做法在机器学习里叫"消融实验"（Ablation Study），所以这里的"基线"指的就是"实验对照组"。对外部读者来说，它的意义在于：这是一个**编译期 `feature()` 和运行时环境变量组合使用**的范本，外部构建里这整段会被 DCE 删掉，所以你不会真的在你的 `claude` 里遇到它，但模式本身可以借鉴。
 
 ```typescript
 // entrypoints/cli.tsx:16-26
@@ -553,7 +555,9 @@ function isScratchpadGateEnabled(): boolean {
 }
 ```
 
-这展示了三层如何嵌套：`feature()` 决定 coordinator 代码是否存在 → 环境变量决定 coordinator 是否激活 → GrowthBook 决定 coordinator 内部的 scratchpad 子功能是否启用。
+这里调用名带 `Statsig`、所在文件却叫 `growthbook.ts`，并不是命名错误，而是**迁移期的兼容层**：项目历史上用 Statsig 做实验平台，现在正在迁到 GrowthBook，`services/analytics/growthbook.ts:792-836` 的注释明确写道这个函数是"MIGRATION ONLY"——它先查 GrowthBook 缓存，未命中再回退到 `config.cachedStatsigGates`。也就是说，Statsig 是"上一代"实验平台、GrowthBook 是"这一代"，两者通过这种命名前缀 + 旧缓存兜底的方式共存在同一个文件里，直到所有 gate 完成迁移。
+
+这展示了三层如何嵌套：`feature()` 决定 coordinator 代码是否存在 → 环境变量决定 coordinator 是否激活 → GrowthBook（含 Statsig 兼容回退）决定 coordinator 内部的 scratchpad 子功能是否启用。
 
 ```mermaid
 graph LR

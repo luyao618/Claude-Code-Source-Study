@@ -113,7 +113,7 @@ Review the code changes on the given branch...
 
 | 字段 | 类型 | 默认值 | 源码位置 |
 |------|------|--------|---------|
-| `name` | string | undefined（显示名，不影响 Skill 标识） | `loadSkillsDir.ts:238-240` — `displayName` |
+| `name` | string | undefined（显示名 `displayName`，不影响 Skill 标识；Skill 标识始终是目录名 `entry.name`） | `loadSkillsDir.ts:238-240` — `displayName` |
 | `description` | string | 从 Markdown 正文首行提取 | `loadSkillsDir.ts:208-214` |
 | `allowed-tools` | string/string[] | `[]` | `loadSkillsDir.ts:242-245` |
 | `argument-hint` | string | undefined | `loadSkillsDir.ts:246-249` |
@@ -520,6 +520,8 @@ Plugin 中的命令自动带有 Plugin 名称前缀。命名逻辑在 `getComman
 // 例：my-plugin:sub:deploy
 ```
 
+嵌套目录形式只有在 plugin 把命令文件按 namespace 分层组织时才会出现 —— 例如 `commands/sub/deploy.md` 会被注册成 `my-plugin:sub:deploy`，相对路径里的 `/` 会按层级转换为 `:`。普通的扁平 `commands/build.md` 不会带 namespace。
+
 ### 3.4 Plugin 变量替换
 
 Plugin 命令支持特有的变量替换（`utils/plugins/loadPluginCommands.ts:340-377`）：
@@ -787,7 +789,7 @@ MCP Skill 有一个关键安全限制：**不执行 Shell 命令嵌入**（`load
 
 ---
 
-## Output Style：体验层的第三条扩展路径
+## 六、Output Style：体验层的第三条扩展路径
 
 前面五节一直在围着 Skill / Agent / Plugin / Hook 这条"行为面"主线转 —— 谁注入 prompt、谁调工具、谁拦截事件。但 Claude Code 还藏着另一条扩展路径，叫 Output Style。它跟 Skill 看起来都是 `.md` 文件、都吃 frontmatter，第一眼很容易混为一谈；实际上两者切入对话的位置完全不同 —— Skill 是把内容注入到 user/assistant 这一侧，Output Style 则是在 system prompt 末端追加一段 `# Output Style: ...` 风格指令（`constants/prompts.ts:151-157`），并可选地省略 `getSimpleDoingTasksSection()` 那段默认任务清单（`constants/prompts.ts:564-567`），intro / system / actions / tools / tone / efficiency 以及 memory / env / language / MCP 等其余 system sections 一概照常保留。前者在"一次回合里要做什么"上加料，后者只是在原有 system prompt 之上追加风格指令、调整输出腔调，并不会顶替或换掉 system 那一侧。
 
@@ -866,7 +868,7 @@ Plugin 则是这三者的"打包发行单元"。一个完整的 plugin 可以同
 
 ---
 
-## 六、实战示例
+## 七、实战示例
 
 ### 示例 1：代码审查 Skill
 
@@ -969,9 +971,75 @@ Important:
 1. 每次文件被编辑/写入后，从 stdin JSON 中提取 `file_path` 字段，自动运行 ESLint 修复
 2. 当 Agent 即将停止时，异步运行测试套件；如果测试失败（退出码 2），唤醒模型继续修复（注意 `Stop` 事件的退出码 2 含义是"继续对话"）
 
+### 示例 4：完整 Plugin 包
+
+把前面 Skill / Agent / Hook / Output Style 一起打包成一个 plugin，就是开发者交付给团队的最小完整单元：
+
+```
+team-toolkit/
+├── plugin.json
+├── commands/
+│   └── stand-up.md
+├── skills/
+│   └── review-pr/
+│       └── SKILL.md
+├── agents/
+│   └── test-fixer.md
+├── hooks/
+│   └── hooks.json
+└── output-styles/
+    └── concise-zh.md
+```
+
+`plugin.json` 把所有相对路径写死，并通过 `userConfig` 暴露一项最小用户配置：
+
+```json
+{
+  "name": "team-toolkit",
+  "version": "1.0.0",
+  "description": "团队内部共用的 review / test / output 套件",
+  "commands": "./commands",
+  "skills": "./skills",
+  "agents": "./agents",
+  "hooks": "./hooks/hooks.json",
+  "outputStyles": "./output-styles",
+  "mcpServers": {
+    "internal-search": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["./mcp-server/index.js"]
+    }
+  },
+  "userConfig": {
+    "githubToken": {
+      "type": "string",
+      "title": "GitHub Token",
+      "description": "用于 review-pr Skill 调用 GitHub API",
+      "required": true,
+      "sensitive": true
+    }
+  }
+}
+```
+
+`output-styles/concise-zh.md` 给 plugin 用户默认套上简洁风格（注意 `force-for-plugin` 只对 plugin 来源生效，会覆盖用户在 `/output-style` 里的偏好）：
+
+```markdown
+---
+name: "concise-zh"
+description: "简洁中文回答，没有客套"
+keep-coding-instructions: true
+force-for-plugin: true
 ---
 
-## 七、可迁移的设计模式
+用简短、直接的中文回答。先给结论再展开理由，不要客气话。
+```
+
+安装后，Plugin 会把 `commands/stand-up.md` 暴露为 `/team-toolkit:stand-up`、把 `skills/review-pr/` 注册为 `/team-toolkit:review-pr`、把 `agents/test-fixer.md` 加入可调用的 Agent 池、把 `hooks/hooks.json` 中的 hooks 接进事件总线，并自动把 `concise-zh` 作为输出腔调启用 —— 这就是前面四档扩展点合在一起、走完整 Plugin 发行流程的样子。
+
+---
+
+## 八、可迁移的设计模式
 
 ### 模式 1：Markdown-as-Config + Frontmatter 约定
 
@@ -997,8 +1065,6 @@ Claude Code 的扩展系统（Agent、Skill、Plugin）都遵循同一模式：
 4. 通过 realpath 去重处理符号链接和重复路径
 
 **适用场景**：任何需要多层配置合并的系统（VS Code 的 settings 层级、npm 的 config 链、Kubernetes 的 overlay 模式）。
-
----
 
 ---
 

@@ -412,11 +412,13 @@ if (isStaleConnection && getFeatureValue_CACHED_MAY_BE_STALE(
 
 Claude Code 的 API 调用默认走流式（SSE），失败时自动降级到非流式；某些不支持 SSE 端点的代理返回 404 时也会走相同的降级路径。这一组机制涉及 `claude.ts` 内部的 `queryModel` 主流程、Stream Idle Watchdog、Stall 监控、`executeNonStreamingRequest` 包装、以及 404 端点降级，链路深、状态多，单独成章更易维持代码与叙事的对齐度。
 
-> 这部分内容已迁移到[第 34 章：DirectConnect 与上游代理](./25-DirectConnect-与上游代理.md)。本节作为占位锚点保留，便于从历史目录直接跳转，并提示读者：流式降级与本章的 `withRetry` 主循环、传输层长连接是三条互不相同的代码路径，请勿混淆。
+> 这部分内容已迁移到[第 25 章：DirectConnect 与上游代理](./25-DirectConnect-与上游代理.md)。本节作为占位锚点保留，便于从历史目录直接跳转，并提示读者：流式降级与本章的 `withRetry` 主循环、传输层长连接是三条互不相同的代码路径，请勿混淆。
 
-## 客户端传输层：WebSocket / SSE / Hybrid 三态
+---
 
-到此为止讨论的都是面向模型 API（`api.anthropic.com/messages`）的请求-响应往返。但 Claude Code 还有一条独立的传输路径 —— **客户端与会话服务的长连接**。Bridge、Teleport、远程容器都依赖它在浏览器、容器、CLI 之间双向同步事件。它的失败模式和模型 API 完全不同：断网不再是"重发一次 POST"那么简单，而是要面对**断线重连、事件重放、token 刷新、休眠唤醒、批量上传与背压、多副本切换**。
+## 五、客户端传输层：WebSocket / SSE / Hybrid 三态
+
+到此为止讨论的都是面向模型 API（`api.anthropic.com/messages`）的请求-响应往返。但 Claude Code 还有一条独立的传输路径 —— **客户端与会话服务的长连接**。这条路径承载的就是 **CCR**（Claude Cloud Runtime，会话云端运行时）—— 它把每个 Claude Code 会话托管在云侧 worker 里，再通过本节的 WebSocket / SSE / Hybrid 把事件流双向同步到本地 CLI 和远端浏览器/手机端（Bridge / Teleport）。后文出现的 `CCR v2`、`worker`、`worker_epoch`、`Bridge`、`Teleport` 都是这套架构里的角色，下一章 C24 会专门拆解；本节只把它们当作"长连接对侧"的代号使用。它的失败模式和模型 API 完全不同：断网不再是"重发一次 POST"那么简单，而是要面对**断线重连、事件重放、token 刷新、休眠唤醒、批量上传与背压、多副本切换**。
 
 `cli/transports/` 目录维护了三个共享 `Transport` 接口的实现，由一个轻量级 dispatcher 根据环境变量挑选：
 
@@ -744,7 +746,7 @@ if (response.status === 409) {
 
 ---
 
-## 五、连接错误分类与用户友好提示
+## 六、连接错误分类与用户友好提示
 
 模型 API 重试层和传输层共享同一套底层错误工具，集中在 `services/api/errorUtils.ts`。
 
@@ -842,7 +844,7 @@ type NestedAPIError = {
 
 ---
 
-## 六、资源泄漏防护
+## 七、资源泄漏防护
 
 ### 7.1 流资源释放
 
@@ -889,7 +891,7 @@ return (input, init) => {
 
 ---
 
-## 七、完整的 API 调用生命周期
+## 八、完整的 API 调用生命周期
 
 把模型 API 重试链与传输层放在同一张图里，可以看到 Claude Code 完整的对外通信形态：
 
@@ -948,7 +950,7 @@ sequenceDiagram
 
 ---
 
-## 八、可迁移的设计模式
+## 九、可迁移的设计模式
 
 ### 模式 1：AsyncGenerator 重试层
 

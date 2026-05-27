@@ -1,6 +1,10 @@
 # 第 26 章：Ink 框架深度定制 — 在终端中运行 React
 
+> 本章是《深入 Claude Code 源码》系列第 26 章，也是"终端 UI 与多模态输入"这一篇的开篇。前面几章我们走完了网络层的两条暗线（Bridge IPC、DirectConnect 与 Upstream Proxy），从这一章起视线转回 CLI 本机：用户敲下回车看到的那一帧画面，到底是怎么从一棵 React 树变成屏幕上 ANSI 字节的。
+>
 > 本章深入 Claude Code 的 forked Ink 框架（`ink/` 目录，96 个 `.ts` / `.tsx` 文件、19,842 行），揭示如何在终端中构建一个完整的 React 渲染引擎：从自定义 Reconciler、Yoga 布局、双缓冲渲染管线，到虚拟滚动、鼠标事件、文本选择等深度定制。这一版还要把视线拉到与 `ink/` 配套的 `native-ts/` 目录——团队把原本走 WASM / NAPI 的三段原生模块（`yoga-layout` / `color-diff` / `file-index`）重新写成了纯 TypeScript 实现，Ink 的布局引擎就是其中第一段。
+>
+> **术语速查**：本章会反复出现几个 ANSI / 终端协议缩写——**DECSTBM**（DEC Set Top/Bottom Margin，CSI `r`，定义滚动区域上下边界，让终端用硬件指令滚动而非重写整屏）、**DEC 2026**（"Synchronized Output"，CSI `?2026h/l`，把一帧多次写入包成 BSU/ESU 块让终端原子刷新避免半帧闪烁）、**OSC 8**（OSC `8;params;URI ST` 序列，把一段文本标成可点击超链接，iTerm2/WezTerm 支持）、**DA1**（Primary Device Attributes，CSI `c`，VT100 起所有终端都会回的"自报家门"查询，本章用它做能力探测哨兵）、**BiDi**（Bidirectional Text，阿拉伯文/希伯来文等 RTL 字符在 LTR 文本里的视觉重排算法）。后文出现时不再展开。
 
 ## 为什么要 Fork Ink？
 
@@ -748,8 +752,6 @@ TerminalQuerier 的 DECRQM 查询机制用于探测其他终端能力（如 Kitt
 第三段 `file-index/` 替换的是 `vendor/file-index-src`——一个包了 nucleo（helix-editor 出的 fzf 风格模糊搜索库）的 Rust NAPI 模块。TS 版本逐字段复刻了 nucleo 的打分常量：`SCORE_MATCH=16`、`BONUS_BOUNDARY=8`、`BONUS_CAMEL=6`、`BONUS_CONSECUTIVE=4`、`BONUS_FIRST_CHAR=8`、`PENALTY_GAP_START=3`、`PENALTY_GAP_EXTENSION=1`，所以输出排序行为与原模块对齐。这段最值得提的是它选择"按时间切片"而不是"按数量切片"——`CHUNK_MS = 4`，每跑 4ms 就 `await` 一次让出事件循环；M 系列芯片下 5k 路径打分约 2ms（按 `native-ts/file-index/index.ts` 顶部注释自述），但老 Windows 机器可能要 15ms+，按时间切片让慢机也能保持响应。
 
 把这三段叠起来看，会发现 `native-ts/` 的设计意图很统一：**Claude Code 是一个长会话 CLI，而不是一次性的渲染任务**。每多一段 WASM / NAPI，就多一份冷启动延迟、多一处跨平台二进制分发、多一条 OOM / dlopen 失败的链路。把这些都搬回 JS 进程后，整个 CLI 重新变成"纯 npm 包"，安装体验回到 `npm i` 直接能跑——这是 `ink/layout/yoga.ts:302` 那句"no WASM loading"背后真正想表达的事。代价当然存在：纯 TS Yoga 比 C++ 慢（章节六中提到的 `recordYogaMs` 帧统计，正是为了在真机上盯着这个代价是否还可接受），highlight.js 的语法覆盖比 syntect 少几个 token，纯 JS 模糊搜索吃 CPU 比 Rust 多——但都被换成了"可以在长会话里 hot-fix 的纯 TS 代码"。这就是为什么这一节要把视线从 `ink/` 拉到 `native-ts/`：原生模块的取舍，本来就是 Ink 渲染管线的延伸。
-
----
 
 ---
 

@@ -412,7 +412,7 @@ if (isStaleConnection && getFeatureValue_CACHED_MAY_BE_STALE(
 
 Claude Code 的 API 调用默认走流式（SSE），失败时自动降级到非流式；某些不支持 SSE 端点的代理返回 404 时也会走相同的降级路径。这一组机制涉及 `claude.ts` 内部的 `queryModel` 主流程、Stream Idle Watchdog、Stall 监控、`executeNonStreamingRequest` 包装、以及 404 端点降级，链路深、状态多，单独成章更易维持代码与叙事的对齐度。
 
-> 这部分内容已迁移到[第 34 章：DirectConnect 与上游代理](./25-DirectConnect-与上游代理.md)。本节作为占位锚点保留，便于从历史目录直接跳转，并提示读者：流式降级与本章的 `withRetry` 主循环、传输层长连接是三条互不相同的代码路径，请勿混淆。
+> 这部分内容已迁移到[第 25 章：DirectConnect 与上游代理](./25-DirectConnect-与上游代理.md)。本节作为占位锚点保留，便于从历史目录直接跳转，并提示读者：流式降级与本章的 `withRetry` 主循环、传输层长连接是三条互不相同的代码路径，请勿混淆。
 
 ## 客户端传输层：WebSocket / SSE / Hybrid 三态
 

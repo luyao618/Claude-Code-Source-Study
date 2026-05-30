@@ -1,10 +1,10 @@
-# Chapter 32: Command System Overview — How Slash Commands Are Aggregated and Extended
+# Chapter 32: Command System Overview (命令系统全景) — How Slash Commands Are Aggregated and Extended
 
-> This is Chapter 32 of *Deep Dive into Claude Code Source*. We dig into `commands.ts` and its surrounding modules to show how Claude Code unifies built-in commands, user-defined Skills, Plugin commands, Bundled Skills, MCP Skills, and Workflow commands under a single type system — with lazy loading, conditional registration, and dynamic discovery.
+> This is Chapter 32 of *Deep Dive into Claude Code Source* — a source-code study (源码学习) of Claude Code. We dig into `commands.ts` and its surrounding modules to show how Claude Code unifies built-in commands, user-defined Skills, Plugin commands, Bundled Skills, MCP Skills, and Workflow commands under a single type system — with lazy loading, conditional registration (注册), and dynamic discovery.
 
 ## Why does Claude Code need a command system?
 
-When you type `/commit`, `/compact`, or `/review` in the Claude Code REPL, you are using a **slash command**. They look like simple shortcuts, but inside Claude Code each one carries a surprising amount of weight:
+When you type `/commit`, `/compact`, or `/review` in the Claude Code REPL, you are using a **slash command (斜杠命令)**. They look like simple shortcuts, but inside Claude Code each one carries a surprising amount of weight:
 
 1. **Some commands run locally** (for example `/clear`, which wipes the conversation history).
 2. **Some commands generate a Prompt and send it to the model** (for example `/commit`, which produces a code-review prompt).
@@ -22,7 +22,7 @@ This chapter answers all three.
 
 > **Chapter roadmap**: §1 the Command type system (three execution models) → §2 command aggregation (unifying six sources) → §3 Skill loading (from Markdown to Command) → §4 the remaining command sources → §5 the SkillTool bridge (how the model invokes commands) → §6 caching and invalidation → §7 special command patterns → §8 portable patterns. §1–§3 answer "what does a command look like, where does it come from, how does a Skill become a command"; §4–§5 fill in the remaining sources and the bridge; §6–§7 are the supporting infrastructure.
 
-## 1. The Command type system: three execution models, one shape
+## 1. The Command type system (Command 类型体系): three execution models, one shape
 
 ### 1.1 The Command union type
 
@@ -167,7 +167,7 @@ switch (command.type) {
 
 ---
 
-## 2. Command aggregation: unifying six sources
+## 2. Command aggregation (命令聚合): unifying six sources
 
 `commands.ts` is the **aggregation hub** for the entire command system. It merges commands from six different sources into one unified list.
 
@@ -398,7 +398,7 @@ export function meetsAvailabilityRequirement(cmd: Command): boolean {
 
 ## 3. Skill loading: from Markdown to Command
 
-Skills are Claude Code's extension mechanism — write a Markdown file and you have a new command. `skills/loadSkillsDir.ts` implements the pipeline that converts a file on disk into a `Command` object.
+Skills are Claude Code's extension mechanism — write a Markdown file and you have a new command. `skills/loadSkillsDir.ts` implements the pipeline (链路) that converts a file on disk into a `Command` object.
 
 ### 3.1 Skill directory layout and loading layers
 
@@ -737,7 +737,7 @@ The split has a security motivation: MCP Skills travel through `AppState`, not t
 
 ---
 
-## 6. Cache management and invalidation
+## 6. Cache management and invalidation (缓存与失效)
 
 The command system leans heavily on `memoize` to cache load results, but those caches have to invalidate correctly in several scenarios:
 
@@ -854,7 +854,7 @@ Merge isomorphic objects from different sources (all implementing the `Command` 
 
 Instead of loading every possible extension at startup, discover them gradually as the user interacts (for example through file operations). Use a signal / event mechanism to notify dependents to clear their caches.
 
-**Where this applies**: submodule configuration discovery in large monorepos, on-demand activation of IDE plugins, and any system where the catalog of extensions could be enormous but each session uses only a small slice.
+**Where this applies**: submodule (子模块) configuration discovery in large monorepos, on-demand activation of IDE plugins, and any system where the catalog of extensions could be enormous but each session uses only a small slice.
 
 ---
 
@@ -862,7 +862,7 @@ Instead of loading every possible extension at startup, discover them gradually 
 
 ## Next chapter
 
-[Chapter 33: State management and the cross-process bridge — bridging state between the React world and beyond](./33-state-management-and-cross-process-bridge.md)
+[Chapter 33: State management and the cross-process bridge (跨进程桥) — bridging state between the React world and beyond](./33-state-management-and-cross-process-bridge.md)
 
 We dig into the six files under `state/` and `bridge/bridgePointer.ts`, and see how a minimal 35-line Store implementation serves both React components and the non-React tool system — with a side note on how cross-process state crosses the bridge to remote endpoints.
 

@@ -1,0 +1,549 @@
+{
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "items": [
+    {
+      "name": "PreToolUse",
+      "category": "event",
+      "wire_type": "PreToolUse",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:414-423",
+        "utils/hooks.ts:3394-3436",
+        "services/tools/toolHooks.ts (executePreToolHooks)"
+      ],
+      "trigger": "工具被调度执行之前；可用 exit 2 / decision:'block' 阻断本次工具调用，hook 输出会作为 system reminder 反馈给模型。",
+      "payload": [
+        "session_id",
+        "transcript_path",
+        "cwd",
+        "permission_mode?",
+        "agent_id?",
+        "agent_type?",
+        "hook_event_name='PreToolUse'",
+        "tool_name",
+        "tool_input",
+        "tool_use_id"
+      ]
+    },
+    {
+      "name": "PostToolUse",
+      "category": "event",
+      "wire_type": "PostToolUse",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:436-446",
+        "utils/hooks.ts:3450-3477",
+        "services/tools/toolHooks.ts:56"
+      ],
+      "trigger": "工具调用成功完成之后；hook 可通过 decision:'block' 给模型注入反馈（不影响工具结果本身）。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='PostToolUse'",
+        "tool_name",
+        "tool_input",
+        "tool_response",
+        "tool_use_id"
+      ]
+    },
+    {
+      "name": "PostToolUseFailure",
+      "category": "event",
+      "wire_type": "PostToolUseFailure",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:448-459",
+        "utils/hooks.ts:3492-3527",
+        "services/tools/toolHooks.ts:212"
+      ],
+      "trigger": "工具调用失败 / 被中断之后；payload 携带 error 字符串与 is_interrupt 标记，hook 可向模型注入修复建议。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='PostToolUseFailure'",
+        "tool_name",
+        "tool_input",
+        "tool_use_id",
+        "error",
+        "is_interrupt?"
+      ]
+    },
+    {
+      "name": "Notification",
+      "category": "event",
+      "wire_type": "Notification",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:473-482",
+        "utils/hooks.ts:3570-3592",
+        "services/notifier.ts:25",
+        "cli/print.ts:1366",
+        "services/mcp/elicitationHandler.ts:183",
+        "services/mcp/elicitationHandler.ts:283",
+        "services/mcp/elicitationHandler.ts:298",
+        "services/mcp/elicitationHandler.ts:307"
+      ],
+      "trigger": "需要向用户弹出系统通知前（待权限确认 / 待 elicitation / 输入空闲提醒等）；hook 可替换或抑制通知。在 REPL 之外执行。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='Notification'",
+        "message",
+        "title?",
+        "notification_type"
+      ]
+    },
+    {
+      "name": "UserPromptSubmit",
+      "category": "event",
+      "wire_type": "UserPromptSubmit",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:484-491",
+        "utils/hooks.ts:3826-3855",
+        "utils/processUserInput/processUserInput.ts:182"
+      ],
+      "trigger": "用户在 REPL 中提交 prompt 之后、消息入队 QueryEngine 之前；hook 可改写 prompt 或注入额外 system 消息。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='UserPromptSubmit'",
+        "prompt"
+      ]
+    },
+    {
+      "name": "SessionStart",
+      "category": "event",
+      "wire_type": "SessionStart",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:493-502",
+        "utils/hooks.ts:3867-3892",
+        "utils/sessionStart.ts:132"
+      ],
+      "trigger": "会话开始或 resume/clear/compact 后重启 session；hook 可注入 system reminder（如自定义 agent 引导语）。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='SessionStart'",
+        "source='startup'|'resume'|'clear'|'compact'",
+        "agent_type?",
+        "model?"
+      ]
+    },
+    {
+      "name": "SessionEnd",
+      "category": "event",
+      "wire_type": "SessionEnd",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:758-765",
+        "utils/hooks.ts:4097-4141",
+        "utils/gracefulShutdown.ts:473",
+        "screens/REPL.tsx:1774",
+        "commands/clear/conversation.ts:69"
+      ],
+      "trigger": "会话结束（logout / clear / resume 切换 / prompt_input_exit 等）；同步触发，关停 Ink 之后直接写 stderr。默认 1.5s 超时（CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS 覆盖）。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='SessionEnd'",
+        "reason ∈ EXIT_REASONS"
+      ]
+    },
+    {
+      "name": "Stop",
+      "category": "event",
+      "wire_type": "Stop",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:513-527",
+        "utils/hooks.ts:3639-3697",
+        "query/stopHooks.ts:180"
+      ],
+      "trigger": "主线程在一轮回合结束、准备进入 idle 之前；hook 可 exit 2 / decision:'block' 让模型继续执行，用于强制完成额外步骤。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='Stop'",
+        "stop_hook_active",
+        "last_assistant_message?"
+      ]
+    },
+    {
+      "name": "StopFailure",
+      "category": "event",
+      "wire_type": "StopFailure",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:529-538",
+        "utils/hooks.ts:3594-3627",
+        "query.ts:1174",
+        "query.ts:1181",
+        "query.ts:1263"
+      ],
+      "trigger": "回合以 assistant 错误（API 错误 / 取消 / overload）收尾时，与 Stop 互斥；payload 携带最后一条 assistant message 与错误字段，主要用于审计 / 告警。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='StopFailure'",
+        "error (SDKAssistantMessageError, 缺省 'unknown')",
+        "error_details?",
+        "last_assistant_message?"
+      ]
+    },
+    {
+      "name": "SubagentStart",
+      "category": "event",
+      "wire_type": "SubagentStart",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:540-548",
+        "utils/hooks.ts:3932-3952",
+        "tools/AgentTool/runAgent.ts:532"
+      ],
+      "trigger": "AgentTool 创建并启动一个 subagent 之前；payload 给出 agent_id + agent_type，便于 hook 给子 agent 注入额外 system reminder。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='SubagentStart'",
+        "agent_id",
+        "agent_type"
+      ]
+    },
+    {
+      "name": "SubagentStop",
+      "category": "event",
+      "wire_type": "SubagentStop",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:550-567",
+        "utils/hooks.ts:3639-3697",
+        "query/stopHooks.ts:180"
+      ],
+      "trigger": "subagent 完成回合、准备返回结果给父 agent 之前；Stop 的 subagent 变体，executeStopHooks 在传入 subagentId 时切到此事件。可阻断让子 agent 继续工作。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='SubagentStop'",
+        "stop_hook_active",
+        "agent_id",
+        "agent_transcript_path",
+        "agent_type",
+        "last_assistant_message?"
+      ]
+    },
+    {
+      "name": "PreCompact",
+      "category": "event",
+      "wire_type": "PreCompact",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:569-577",
+        "utils/hooks.ts:3961-4025",
+        "services/compact/compact.ts:413",
+        "services/compact/compact.ts:818",
+        "commands/compact/compact.ts:160"
+      ],
+      "trigger": "压缩流程开始之前（手动 /compact 或 token 自动压缩）；hook 可返回 newCustomInstructions 覆盖默认指令，并把 displayMessage 显示给用户。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='PreCompact'",
+        "trigger='manual'|'auto'",
+        "custom_instructions: string|null"
+      ]
+    },
+    {
+      "name": "PostCompact",
+      "category": "event",
+      "wire_type": "PostCompact",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:579-589",
+        "utils/hooks.ts:4034-4089",
+        "services/compact/compact.ts:723",
+        "services/compact/compact.ts:1069"
+      ],
+      "trigger": "压缩完成、summary 已写入会话之后；hook 输出仅作为 displayMessage 展示给用户，不参与后续模型上下文。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='PostCompact'",
+        "trigger='manual'|'auto'",
+        "compact_summary"
+      ]
+    },
+    {
+      "name": "PermissionRequest",
+      "category": "event",
+      "wire_type": "PermissionRequest",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:425-434",
+        "utils/hooks.ts:4157-4192",
+        "utils/permissions/permissions.ts:409",
+        "cli/structuredIO.ts:798",
+        "hooks/toolPermission/PermissionContext.ts:222"
+      ],
+      "trigger": "权限引擎判定需要弹出权限对话框之前；hook 可程序化批准 / 拒绝，免去交互。在 REPL（含 SDK structuredIO 通道）与 PermissionContext 内都会触发。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='PermissionRequest'",
+        "tool_name",
+        "tool_input",
+        "permission_suggestions?: PermissionUpdate[]"
+      ]
+    },
+    {
+      "name": "PermissionDenied",
+      "category": "event",
+      "wire_type": "PermissionDenied",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:461-471",
+        "utils/hooks.ts:3529-3562",
+        "services/tools/toolExecution.ts:1081"
+      ],
+      "trigger": "权限引擎判定一次工具调用被拒绝之后，先于错误结果返回模型；fire-and-forget，主要用于审计 / 告警。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='PermissionDenied'",
+        "tool_name",
+        "tool_input",
+        "tool_use_id",
+        "reason"
+      ]
+    },
+    {
+      "name": "Setup",
+      "category": "event",
+      "wire_type": "Setup",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:504-511",
+        "utils/hooks.ts:3902-3922",
+        "utils/sessionStart.ts:203"
+      ],
+      "trigger": "会话初始化 / 周期性维护阶段，紧随 SessionStart 之后；payload trigger 区分 'init' 与 'maintenance'。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='Setup'",
+        "trigger='init'|'maintenance'"
+      ]
+    },
+    {
+      "name": "TeammateIdle",
+      "category": "event",
+      "wire_type": "TeammateIdle",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:591-599",
+        "utils/hooks.ts:3709-3729",
+        "query/stopHooks.ts:403"
+      ],
+      "trigger": "teammate（多人协作中的另一个 agent）即将进入 idle 状态时；hook 可 exit 2 让其继续工作，用于强制完成轮询任务。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='TeammateIdle'",
+        "teammate_name",
+        "team_name"
+      ]
+    },
+    {
+      "name": "TaskCreated",
+      "category": "event",
+      "wire_type": "TaskCreated",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:601-612",
+        "utils/hooks.ts:3745-3773",
+        "tools/TaskCreateTool/TaskCreateTool.ts:93"
+      ],
+      "trigger": "TaskCreateTool 创建任务前；hook 可阻断创建并向模型回馈拒绝理由（如校验任务标题命名规范）。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='TaskCreated'",
+        "task_id",
+        "task_subject",
+        "task_description?",
+        "teammate_name?",
+        "team_name?"
+      ]
+    },
+    {
+      "name": "TaskCompleted",
+      "category": "event",
+      "wire_type": "TaskCompleted",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:614-625",
+        "utils/hooks.ts:3789-3817",
+        "tools/TaskUpdateTool/TaskUpdateTool.ts:235"
+      ],
+      "trigger": "TaskUpdateTool 将任务置为 completed 之前；hook 可阻断完成（例如强制要求附录 / 验收脚本通过）。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='TaskCompleted'",
+        "task_id",
+        "task_subject",
+        "task_description?",
+        "teammate_name?",
+        "team_name?"
+      ]
+    },
+    {
+      "name": "Elicitation",
+      "category": "event",
+      "wire_type": "Elicitation",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:627-643",
+        "utils/hooks.ts:4470-4523",
+        "services/mcp/elicitationHandler.ts:228"
+      ],
+      "trigger": "MCP 服务器发起 elicitation 请求、需要向用户弹出对话框前；hook 可程序化返回 accept/decline/cancel 与表单内容，跳过 UI。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='Elicitation'",
+        "mcp_server_name",
+        "message",
+        "mode='form'|'url'?",
+        "url?",
+        "elicitation_id?",
+        "requested_schema?"
+      ]
+    },
+    {
+      "name": "ElicitationResult",
+      "category": "event",
+      "wire_type": "ElicitationResult",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:645-660",
+        "utils/hooks.ts:4525-4575",
+        "services/mcp/elicitationHandler.ts:273"
+      ],
+      "trigger": "用户已经响应 MCP elicitation、即将把结果发回服务器之前；hook 可观察或改写最终响应（含 decline 转 block）。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='ElicitationResult'",
+        "mcp_server_name",
+        "elicitation_id?",
+        "mode='form'|'url'?",
+        "action='accept'|'decline'|'cancel'",
+        "content?"
+      ]
+    },
+    {
+      "name": "ConfigChange",
+      "category": "event",
+      "wire_type": "ConfigChange",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:670-678",
+        "utils/hooks.ts:4214-4239",
+        "utils/settings/changeDetector.ts:292",
+        "utils/settings/changeDetector.ts:344",
+        "utils/skills/skillChangeDetector.ts:267"
+      ],
+      "trigger": "配置文件 watcher 检测到 user/project/local/policy settings 或 skills 目录变化时；hook 可 exit 2 阻断本次变更生效（policy_settings 例外，hook 仅审计、不可阻断）。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='ConfigChange'",
+        "source ∈ CONFIG_CHANGE_SOURCES",
+        "file_path?"
+      ]
+    },
+    {
+      "name": "WorktreeCreate",
+      "category": "event",
+      "wire_type": "WorktreeCreate",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:709-716",
+        "utils/hooks.ts:4928-4958",
+        "utils/worktree.ts:716",
+        "utils/worktree.ts:913",
+        "utils/worktree.ts:1262"
+      ],
+      "trigger": "需要为本会话创建 worktree 时；若用户配置了该 hook，则替代默认 git worktree 流程，stdout 中的路径作为新 worktree 根目录。无配置时回退到 git worktree。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='WorktreeCreate'",
+        "name (slug，已经过 validateWorktreeSlug)"
+      ]
+    },
+    {
+      "name": "WorktreeRemove",
+      "category": "event",
+      "wire_type": "WorktreeRemove",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:718-725",
+        "utils/hooks.ts:4967-5003",
+        "utils/worktree.ts:827",
+        "utils/worktree.ts:968"
+      ],
+      "trigger": "会话结束 / 用户主动清理 worktree 时；若 hook 配置存在则替代默认 git worktree remove；返回 false 表示无 hook 配置、走默认路径。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='WorktreeRemove'",
+        "worktree_path"
+      ]
+    },
+    {
+      "name": "InstructionsLoaded",
+      "category": "event",
+      "wire_type": "InstructionsLoaded",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:695-707",
+        "utils/hooks.ts:4335-4369",
+        "utils/claudemd.ts:1060",
+        "utils/attachments.ts:1760"
+      ],
+      "trigger": "CLAUDE.md 或 .claude/rules/*.md 等指令文件被加载进上下文时（session_start / nested_traversal / path_glob_match / include / compact 五种场景）；fire-and-forget，仅用于观察与审计，不能阻断。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='InstructionsLoaded'",
+        "file_path",
+        "memory_type ∈ {User, Project, Local, Managed}",
+        "load_reason ∈ INSTRUCTIONS_LOAD_REASONS",
+        "globs?",
+        "trigger_file_path?",
+        "parent_file_path?"
+      ]
+    },
+    {
+      "name": "CwdChanged",
+      "category": "event",
+      "wire_type": "CwdChanged",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:727-735",
+        "utils/hooks.ts:4260-4276",
+        "utils/hooks/fileChangedWatcher.ts:148"
+      ],
+      "trigger": "会话 cwd 发生切换之后（如 /cd 命令、worktree 切换）；hook 输出可声明 watchPaths 让 FileChanged watcher 重新订阅，并向 REPL 推 systemMessage。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='CwdChanged'",
+        "old_cwd",
+        "new_cwd"
+      ]
+    },
+    {
+      "name": "FileChanged",
+      "category": "event",
+      "wire_type": "FileChanged",
+      "source_files": [
+        "entrypoints/sdk/coreSchemas.ts:737-745",
+        "utils/hooks.ts:4278-4294",
+        "utils/hooks/fileChangedWatcher.ts:85"
+      ],
+      "trigger": "FileChangedWatcher 监听到 watchPaths 内文件 add/change/unlink 之后；hook 可输出新的 watchPaths 动态扩缩订阅集，输出失败将作为系统消息提示用户。",
+      "payload": [
+        "...BaseHookInput",
+        "hook_event_name='FileChanged'",
+        "file_path",
+        "event='change'|'add'|'unlink'"
+      ]
+    },
+    {
+      "name": "agent",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts:129-129"
+      ]
+    },
+    {
+      "name": "command",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts:33-33"
+      ]
+    },
+    {
+      "name": "http",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts:98-98"
+      ]
+    },
+    {
+      "name": "prompt",
+      "category": "command_type",
+      "source_files": [
+        "schemas/hooks.ts:68-68"
+      ]
+    }
+  ],
+  "counts": {
+    "events": 27,
+    "command_types": 4,
+    "events_with_trigger": 27
+  }
+}

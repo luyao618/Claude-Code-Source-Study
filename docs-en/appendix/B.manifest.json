@@ -1,0 +1,830 @@
+{
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "items": [
+    {
+      "name": "add-dir",
+      "category": "directory",
+      "source_files": [
+        "commands/add-dir/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "agents",
+      "category": "directory",
+      "source_files": [
+        "commands/agents/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "ant-trace",
+      "category": "directory",
+      "source_files": [
+        "commands/ant-trace/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "autofix-pr",
+      "category": "directory",
+      "source_files": [
+        "commands/autofix-pr/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "backfill-sessions",
+      "category": "directory",
+      "source_files": [
+        "commands/backfill-sessions/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "branch",
+      "category": "directory",
+      "source_files": [
+        "commands/branch/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "break-cache",
+      "category": "directory",
+      "source_files": [
+        "commands/break-cache/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "bridge",
+      "category": "directory",
+      "source_files": [
+        "commands/bridge/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "btw",
+      "category": "directory",
+      "source_files": [
+        "commands/btw/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "bughunter",
+      "category": "directory",
+      "source_files": [
+        "commands/bughunter/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "chrome",
+      "category": "directory",
+      "source_files": [
+        "commands/chrome/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "clear",
+      "category": "directory",
+      "source_files": [
+        "commands/clear/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "color",
+      "category": "directory",
+      "source_files": [
+        "commands/color/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "compact",
+      "category": "directory",
+      "source_files": [
+        "commands/compact/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "config",
+      "category": "directory",
+      "source_files": [
+        "commands/config/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "context",
+      "category": "directory",
+      "source_files": [
+        "commands/context/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "copy",
+      "category": "directory",
+      "source_files": [
+        "commands/copy/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "cost",
+      "category": "directory",
+      "source_files": [
+        "commands/cost/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "ctx_viz",
+      "category": "directory",
+      "source_files": [
+        "commands/ctx_viz/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "debug-tool-call",
+      "category": "directory",
+      "source_files": [
+        "commands/debug-tool-call/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "desktop",
+      "category": "directory",
+      "source_files": [
+        "commands/desktop/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "diff",
+      "category": "directory",
+      "source_files": [
+        "commands/diff/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "doctor",
+      "category": "directory",
+      "source_files": [
+        "commands/doctor/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "effort",
+      "category": "directory",
+      "source_files": [
+        "commands/effort/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "env",
+      "category": "directory",
+      "source_files": [
+        "commands/env/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "exit",
+      "category": "directory",
+      "source_files": [
+        "commands/exit/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "export",
+      "category": "directory",
+      "source_files": [
+        "commands/export/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "extra-usage",
+      "category": "directory",
+      "source_files": [
+        "commands/extra-usage/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "fast",
+      "category": "directory",
+      "source_files": [
+        "commands/fast/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "feedback",
+      "category": "directory",
+      "source_files": [
+        "commands/feedback/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "files",
+      "category": "directory",
+      "source_files": [
+        "commands/files/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "good-claude",
+      "category": "directory",
+      "source_files": [
+        "commands/good-claude/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "heapdump",
+      "category": "directory",
+      "source_files": [
+        "commands/heapdump/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "help",
+      "category": "directory",
+      "source_files": [
+        "commands/help/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "hooks",
+      "category": "directory",
+      "source_files": [
+        "commands/hooks/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "ide",
+      "category": "directory",
+      "source_files": [
+        "commands/ide/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "install-github-app",
+      "category": "directory",
+      "source_files": [
+        "commands/install-github-app/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "install-slack-app",
+      "category": "directory",
+      "source_files": [
+        "commands/install-slack-app/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "issue",
+      "category": "directory",
+      "source_files": [
+        "commands/issue/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "keybindings",
+      "category": "directory",
+      "source_files": [
+        "commands/keybindings/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "login",
+      "category": "directory",
+      "source_files": [
+        "commands/login/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "logout",
+      "category": "directory",
+      "source_files": [
+        "commands/logout/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "mcp",
+      "category": "directory",
+      "source_files": [
+        "commands/mcp/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "memory",
+      "category": "directory",
+      "source_files": [
+        "commands/memory/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "mobile",
+      "category": "directory",
+      "source_files": [
+        "commands/mobile/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "mock-limits",
+      "category": "directory",
+      "source_files": [
+        "commands/mock-limits/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "model",
+      "category": "directory",
+      "source_files": [
+        "commands/model/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "oauth-refresh",
+      "category": "directory",
+      "source_files": [
+        "commands/oauth-refresh/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "onboarding",
+      "category": "directory",
+      "source_files": [
+        "commands/onboarding/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "output-style",
+      "category": "directory",
+      "source_files": [
+        "commands/output-style/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "passes",
+      "category": "directory",
+      "source_files": [
+        "commands/passes/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "perf-issue",
+      "category": "directory",
+      "source_files": [
+        "commands/perf-issue/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "permissions",
+      "category": "directory",
+      "source_files": [
+        "commands/permissions/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "plan",
+      "category": "directory",
+      "source_files": [
+        "commands/plan/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "plugin",
+      "category": "directory",
+      "source_files": [
+        "commands/plugin/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "pr_comments",
+      "category": "directory",
+      "source_files": [
+        "commands/pr_comments/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "privacy-settings",
+      "category": "directory",
+      "source_files": [
+        "commands/privacy-settings/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "rate-limit-options",
+      "category": "directory",
+      "source_files": [
+        "commands/rate-limit-options/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "release-notes",
+      "category": "directory",
+      "source_files": [
+        "commands/release-notes/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "reload-plugins",
+      "category": "directory",
+      "source_files": [
+        "commands/reload-plugins/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "remote-env",
+      "category": "directory",
+      "source_files": [
+        "commands/remote-env/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "remote-setup",
+      "category": "directory",
+      "source_files": [
+        "commands/remote-setup/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "rename",
+      "category": "directory",
+      "source_files": [
+        "commands/rename/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "reset-limits",
+      "category": "directory",
+      "source_files": [
+        "commands/reset-limits/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "resume",
+      "category": "directory",
+      "source_files": [
+        "commands/resume/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "review",
+      "category": "directory",
+      "source_files": [
+        "commands/review/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "rewind",
+      "category": "directory",
+      "source_files": [
+        "commands/rewind/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "sandbox-toggle",
+      "category": "directory",
+      "source_files": [
+        "commands/sandbox-toggle/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "session",
+      "category": "directory",
+      "source_files": [
+        "commands/session/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "share",
+      "category": "directory",
+      "source_files": [
+        "commands/share/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "skills",
+      "category": "directory",
+      "source_files": [
+        "commands/skills/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "stats",
+      "category": "directory",
+      "source_files": [
+        "commands/stats/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "status",
+      "category": "directory",
+      "source_files": [
+        "commands/status/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "stickers",
+      "category": "directory",
+      "source_files": [
+        "commands/stickers/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "summary",
+      "category": "directory",
+      "source_files": [
+        "commands/summary/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "tag",
+      "category": "directory",
+      "source_files": [
+        "commands/tag/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "tasks",
+      "category": "directory",
+      "source_files": [
+        "commands/tasks/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "teleport",
+      "category": "directory",
+      "source_files": [
+        "commands/teleport/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "terminalSetup",
+      "category": "directory",
+      "source_files": [
+        "commands/terminalSetup/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "theme",
+      "category": "directory",
+      "source_files": [
+        "commands/theme/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "thinkback",
+      "category": "directory",
+      "source_files": [
+        "commands/thinkback/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "thinkback-play",
+      "category": "directory",
+      "source_files": [
+        "commands/thinkback-play/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "upgrade",
+      "category": "directory",
+      "source_files": [
+        "commands/upgrade/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "usage",
+      "category": "directory",
+      "source_files": [
+        "commands/usage/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "vim",
+      "category": "directory",
+      "source_files": [
+        "commands/vim/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "voice",
+      "category": "directory",
+      "source_files": [
+        "commands/voice/"
+      ],
+      "notes": "一级命令目录"
+    },
+    {
+      "name": "advisor",
+      "category": "file",
+      "source_files": [
+        "commands/advisor.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "bridge-kick",
+      "category": "file",
+      "source_files": [
+        "commands/bridge-kick.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "brief",
+      "category": "file",
+      "source_files": [
+        "commands/brief.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "commit-push-pr",
+      "category": "file",
+      "source_files": [
+        "commands/commit-push-pr.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "commit",
+      "category": "file",
+      "source_files": [
+        "commands/commit.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "createMovedToPluginCommand",
+      "category": "file",
+      "source_files": [
+        "commands/createMovedToPluginCommand.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "init-verifiers",
+      "category": "file",
+      "source_files": [
+        "commands/init-verifiers.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "init",
+      "category": "file",
+      "source_files": [
+        "commands/init.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "insights",
+      "category": "file",
+      "source_files": [
+        "commands/insights.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "install",
+      "category": "file",
+      "source_files": [
+        "commands/install.tsx"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "review",
+      "category": "file",
+      "source_files": [
+        "commands/review.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "security-review",
+      "category": "file",
+      "source_files": [
+        "commands/security-review.ts"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "statusline",
+      "category": "file",
+      "source_files": [
+        "commands/statusline.tsx"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "ultraplan",
+      "category": "file",
+      "source_files": [
+        "commands/ultraplan.tsx"
+      ],
+      "notes": "一级命令文件"
+    },
+    {
+      "name": "version",
+      "category": "file",
+      "source_files": [
+        "commands/version.ts"
+      ],
+      "notes": "一级命令文件"
+    }
+  ],
+  "runtime_summary": {
+    "top_level_directories": 86,
+    "top_level_files": 15,
+    "total_top_level": 101,
+    "static_imported_dirs_in_commands_ts": 82,
+    "static_imported_files_in_commands_ts": 10,
+    "dynamically_required_dirs_in_commands_ts": 3,
+    "dynamically_required_files_in_commands_ts": 6,
+    "dynamically_required_dirs_only": [
+      "bridge",
+      "remote-setup",
+      "voice"
+    ],
+    "dirs_not_referenced_in_commands_ts": [
+      "review"
+    ]
+  }
+}

@@ -1,0 +1,101 @@
+{
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "items": [
+    {
+      "name": "local_bash",
+      "category": "default-registered",
+      "wire_type": "local_bash",
+      "default_registered": true,
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks/LocalShellTask/"
+      ],
+      "notes": "LocalShellTask 在 tasks.ts getAllTasks() 主体数组中默认装载"
+    },
+    {
+      "name": "local_agent",
+      "category": "default-registered",
+      "wire_type": "local_agent",
+      "default_registered": true,
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks/LocalAgentTask/"
+      ],
+      "notes": "LocalAgentTask 在 tasks.ts getAllTasks() 主体数组中默认装载"
+    },
+    {
+      "name": "remote_agent",
+      "category": "default-registered",
+      "wire_type": "remote_agent",
+      "default_registered": true,
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks/RemoteAgentTask/"
+      ],
+      "notes": "RemoteAgentTask 在 tasks.ts getAllTasks() 主体数组中默认装载"
+    },
+    {
+      "name": "in_process_teammate",
+      "category": "in-process",
+      "wire_type": "in_process_teammate",
+      "default_registered": false,
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks/InProcessTeammateTask/"
+      ],
+      "notes": "InProcessTeammateTask 不通过 tasks.ts 注册，属于 in-process 特例"
+    },
+    {
+      "name": "local_workflow",
+      "category": "feature-gated",
+      "wire_type": "local_workflow",
+      "default_registered": false,
+      "feature_flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks/LocalWorkflowTask/"
+      ],
+      "notes": "LocalWorkflowTask 在 tasks.ts 中受 feature('WORKFLOW_SCRIPTS') 条件装载"
+    },
+    {
+      "name": "monitor_mcp",
+      "category": "feature-gated",
+      "wire_type": "monitor_mcp",
+      "default_registered": false,
+      "feature_flags": [
+        "MONITOR_TOOL"
+      ],
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks/MonitorMcpTask/"
+      ],
+      "notes": "MonitorMcpTask 在 tasks.ts 中受 feature('MONITOR_TOOL') 条件装载"
+    },
+    {
+      "name": "dream",
+      "category": "default-registered",
+      "wire_type": "dream",
+      "default_registered": true,
+      "source_files": [
+        "Task.ts",
+        "tasks.ts",
+        "tasks/DreamTask/"
+      ],
+      "notes": "DreamTask 在 tasks.ts getAllTasks() 主体数组中默认装载"
+    }
+  ],
+  "counts": {
+    "wire_total": 7,
+    "default_registered": 4,
+    "feature_gated": 2,
+    "in_process": 1
+  }
+}

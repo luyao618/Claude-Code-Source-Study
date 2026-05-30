@@ -1,0 +1,508 @@
+{
+  "source_commit": "290fdc9481a70612bc5823aa4ed225c52c52aad3",
+  "items": [
+    {
+      "name": "AgentTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/AgentTool/AgentTool.tsx:1-1398",
+        "tools.ts:3-3"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "AskUserQuestionTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/AskUserQuestionTool/AskUserQuestionTool.tsx:1-266",
+        "tools.ts:73-73"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "BashTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/BashTool/BashTool.tsx:1-1144",
+        "tools.ts:5-5"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "BriefTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/BriefTool/BriefTool.ts:1-205",
+        "tools.ts:13-13"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "ConfigTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/ConfigTool/ConfigTool.ts:1-468",
+        "tools.ts:81-81"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "CronCreateTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:29-35"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "CronDeleteTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:29-35"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "CronListTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:29-35"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "CtxInspectTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:110-112"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "EnterPlanModeTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/EnterPlanModeTool/EnterPlanModeTool.ts:1-127",
+        "tools.ts:78-78"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "EnterWorktreeTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/EnterWorktreeTool/EnterWorktreeTool.ts:1-128",
+        "tools.ts:79-79"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "ExitPlanModeTool",
+      "category": "family",
+      "source_files": [
+        "tools/ExitPlanModeTool/prompt.ts:1-30"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "ExitPlanModeV2Tool",
+      "category": "leaf",
+      "source_files": [
+        "tools.ts:57-57"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "ExitWorktreeTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/ExitWorktreeTool/ExitWorktreeTool.ts:1-330",
+        "tools.ts:80-80"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "FileEditTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/FileEditTool/FileEditTool.ts:1-626",
+        "tools.ts:6-6"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "FileReadTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/FileReadTool/FileReadTool.ts:1-1184",
+        "tools.ts:7-7"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "FileWriteTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/FileWriteTool/FileWriteTool.ts:1-435",
+        "tools.ts:8-8"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "GlobTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/GlobTool/GlobTool.ts:1-199",
+        "tools.ts:9-9"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "GrepTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/GrepTool/GrepTool.ts:1-578",
+        "tools.ts:59-59"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "ListMcpResourcesTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/ListMcpResourcesTool/ListMcpResourcesTool.ts:1-124",
+        "tools.ts:75-75"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "ListPeersTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:126-128"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "LSPTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/LSPTool/LSPTool.ts:1-861",
+        "tools.ts:74-74"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "McpAuthTool",
+      "category": "family",
+      "source_files": [
+        "tools/McpAuthTool/McpAuthTool.ts:1-216"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "MCPTool",
+      "category": "family",
+      "source_files": [
+        "tools/MCPTool/MCPTool.ts:1-78"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "MonitorTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:39-41"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "NotebookEditTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/NotebookEditTool/NotebookEditTool.ts:1-491",
+        "tools.ts:10-10"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "OverflowTestTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:107-109"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "PowerShellTool",
+      "category": "family",
+      "source_files": [
+        "tools/PowerShellTool/PowerShellTool.tsx:1-1001"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "PushNotificationTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:45-49"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "ReadMcpResourceTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/ReadMcpResourceTool/ReadMcpResourceTool.ts:1-159",
+        "tools.ts:76-76"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "RemoteTriggerTool",
+      "category": "family+feature-gated",
+      "source_files": [
+        "tools/RemoteTriggerTool/RemoteTriggerTool.ts:1-162",
+        "tools.ts:36-38"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "REPLTool",
+      "category": "family+feature-gated",
+      "source_files": [
+        "tools/REPLTool/constants.ts:1-47",
+        "tools.ts:16-19"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "ScheduleCronTool",
+      "category": "family",
+      "source_files": [
+        "tools/ScheduleCronTool/prompt.ts:1-136"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "SendMessageTool",
+      "category": "family",
+      "source_files": [
+        "tools/SendMessageTool/SendMessageTool.ts:1-918"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "SendUserFileTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:42-44"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "SkillTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/SkillTool/SkillTool.ts:1-1109",
+        "tools.ts:4-4"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "SleepTool",
+      "category": "family+feature-gated",
+      "source_files": [
+        "tools/SleepTool/prompt.ts:1-18",
+        "tools.ts:25-28"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "SnipTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:123-125"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "SubscribePRTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:50-62"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "SuggestBackgroundPRTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:20-24"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "SyntheticOutputTool",
+      "category": "family",
+      "source_files": [
+        "tools/SyntheticOutputTool/SyntheticOutputTool.ts:1-164"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "TaskCreateTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/TaskCreateTool/TaskCreateTool.ts:1-139",
+        "tools.ts:82-82"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TaskGetTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/TaskGetTool/TaskGetTool.ts:1-129",
+        "tools.ts:83-83"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TaskListTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/TaskListTool/TaskListTool.ts:1-117",
+        "tools.ts:85-85"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TaskOutputTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/TaskOutputTool/TaskOutputTool.tsx:1-584",
+        "tools.ts:54-54"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TaskStopTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/TaskStopTool/TaskStopTool.ts:1-132",
+        "tools.ts:12-12"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TaskUpdateTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/TaskUpdateTool/TaskUpdateTool.ts:1-407",
+        "tools.ts:84-84"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TeamCreateTool",
+      "category": "family",
+      "source_files": [
+        "tools/TeamCreateTool/TeamCreateTool.ts:1-241"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "TeamDeleteTool",
+      "category": "family",
+      "source_files": [
+        "tools/TeamDeleteTool/TeamDeleteTool.ts:1-140"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=未在 tools.ts 中检测到装载（可能由 coordinator/SDK 子集另行注入）"
+    },
+    {
+      "name": "TerminalCaptureTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:113-116"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "TestingPermissionTool",
+      "category": "leaf",
+      "source_files": [
+        "tools.ts:58-58"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TodoWriteTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/TodoWriteTool/TodoWriteTool.ts:1-116",
+        "tools.ts:56-56"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "ToolSearchTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/ToolSearchTool/ToolSearchTool.ts:1-472",
+        "tools.ts:77-77"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "TungstenTool",
+      "category": "leaf",
+      "source_files": [
+        "tools.ts:60-60"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "VerifyPlanExecutionTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:91-106"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "WebBrowserTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:117-119"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    },
+    {
+      "name": "WebFetchTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/WebFetchTool/WebFetchTool.ts:1-319",
+        "tools.ts:11-11"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "WebSearchTool",
+      "category": "family+default",
+      "source_files": [
+        "tools/WebSearchTool/WebSearchTool.ts:1-436",
+        "tools.ts:55-55"
+      ],
+      "notes": "family=tools/ 下有顶层同名目录；register=tools.ts 顶部 `import` 默认装载"
+    },
+    {
+      "name": "WorkflowTool",
+      "category": "feature-gated",
+      "source_files": [
+        "tools.ts:129-149"
+      ],
+      "notes": "family=否（仅 tools.ts 内引用）；register=tools.ts 中 feature/env/coordinator 条件装载"
+    }
+  ]
+}

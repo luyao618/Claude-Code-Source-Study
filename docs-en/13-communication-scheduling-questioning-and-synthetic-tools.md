@@ -1,4 +1,4 @@
-# Chapter 13: Communication, Scheduling, Questioning, and Synthetic Tools — The Ten Narrow Channels Between the Agent and the Outside World
+# Chapter 13: Communication, Scheduling, Questioning, and Synthetic Tools (合成工具) — The Ten Narrow Channels Between the Agent and the Outside World
 
 > This chapter is the third deep dive into the tool family in the *Deep Dive into Claude Code Source* series. The previous two covered the `Tool` protocol skeleton, and the engineering consistency that the file, code, and LSP family share around the unwritten rule of "read before write". This one rotates the camera 180°: instead of watching the agent move local code, we watch it speak — how it reaches out to grab a web page, how it pins itself to cron, how it talks to another agent, how it puts a multiple-choice question to the user, and how it hands in a machine-readable final answer.
 
@@ -561,7 +561,7 @@ Don't decide whether a tool is enabled by a single flag. Claude Code's approach 
 - Build-time gates govern code size and attack surface; runtime gates govern rollout and rollback.
 - Topology-related gates belong in `isEnabled()` rather than `validateInput()` — so the tool disappears in environments where it should not be used, and the model never sees a tool that "looks callable but errors when called".
 
-**Applicable scenarios**: any SaaS-ified or graduallyrollable agent platform; multi-tenant agent systems that need to trim the tool set dynamically by user role / session type.
+**Applicable scenarios**: any SaaS-ified or gradually rolled-out agent platform; multi-tenant agent systems that need to trim the tool set dynamically by user role / session type.
 
 ### Pattern 2: attach the constraint to the tool_result, not pile it into the system prompt
 

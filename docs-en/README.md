@@ -25,7 +25,7 @@ Rules:
 
 - **One-to-one file mapping.** Every file in `docs/` (except `docs/archive/`) gets exactly one counterpart in `docs-en/` with the same numeric prefix. No splitting, no merging.
 - **`docs/archive/` is NOT translated.** It is historical material and out of scope.
-- **`appendix/*.manifest.json` is copied verbatim.** These are machine-readable indexes; do not translate field values that are identifiers, paths, or symbol names. Only translate human-readable description strings if any.
+- **`appendix/*.manifest.json` is copied verbatim — no translation, including description fields.** These are machine-readable indexes consumed by tooling; keeping them byte-identical avoids drift between the Chinese and English trees and lets the build cross-reference either edition.
 - **Asset paths stay relative to the file.** Images, diagrams, and code snippets referenced by the Chinese chapter must resolve from the English chapter too — copy or symlink assets into a sibling location if the original used a relative path that no longer resolves.
 
 ## 2. File naming rule

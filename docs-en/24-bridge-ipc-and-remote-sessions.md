@@ -4,7 +4,7 @@
 
 The first time a reader sees the `bridge/` directory — alongside the equally unfamiliar `remote/`, `commands/bridge/`, `commands/remote-setup/`, `commands/remote-env/` — the gut reaction is usually "so they turned a CLI into a server." It is not that dramatic. This stack of code does exactly one thing: **it exposes the Claude Code process running on your laptop as a session that can be lit up from a phone, taken over from a browser, and continued with new instructions from a web UI**.
 
-Why does this deserve its own chapter? Because it splits what looks like a single-process CLI into **two ends**: the end where you press Enter, and the end where the work actually happens, glued together by a pipeline of WebSocket, JWT, subprocess, control frames, and message transcoding. When any segment of that pipeline fails, the other end only sees "disconnected." The engineering thinking Claude Code applies on this wire is the same temperament as the conversation main loop (對話主循環), the tool system, and the agent orchestration we have already seen — push asynchrony, failure, and renewal into the open, and shrink the "happy path" down to a small slice.
+Why does this deserve its own chapter? Because it splits what looks like a single-process CLI into **two ends**: the end where you press Enter, and the end where the work actually happens, glued together by a pipeline of WebSocket, JWT, subprocess, control frames, and message transcoding. When any segment of that pipeline fails, the other end only sees "disconnected." The engineering thinking Claude Code applies on this wire is the same temperament as the conversation main loop (对话主循环), the tool system, and the agent orchestration we have already seen — push asynchrony, failure, and renewal into the open, and shrink the "happy path" down to a small slice.
 
 > **Style note**: This chapter follows the same three-act shape as chapter 1 (*Project overview*) and chapter 2 (*Startup optimization*) — problem first → source-code evidence → design rationale — and closes with portable design patterns plus a worked example.
 >
@@ -227,7 +227,7 @@ Regular conversation messages go straight to the upper UI for rendering; control
 
 ---
 
-## 7. Permission back-propagation: the full round trip of a control_request
+## 7. Permission back-propagation (权限回灌): the full round trip of a control_request
 
 Back to the local side. Before BashTool runs `rm`, it needs a `can_use_tool` confirmation. In a normal terminal session, the REPL renders a confirmation prompt and you press y/n. In Bridge mode, that prompt has no UI to render — you might be on the subway, and there is nobody at the local terminal.
 

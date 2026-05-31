@@ -13,7 +13,6 @@ It is not an architecture overview waving at the system from a thousand feet up.
 - 🔍 **A real product, not a demo** — learn from a production-grade AI product instead of a toy
 - 🏗️ **Full-stack coverage** — compile-time optimization, runtime state management, Prompt Cache, Bridge IPC, terminal rendering
 - 🎯 **Built for practice** — the chapter order mirrors the path a session takes from launch to output, and every chapter distills patterns you can reuse directly
-- 🌐 **English edition** — original prose written for English readers; technical terms keep their canonical form
 
 ## Table of contents
 

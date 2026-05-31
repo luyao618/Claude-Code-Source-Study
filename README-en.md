@@ -1,5 +1,7 @@
 # Deep Dive into Claude Code Source
 
+> 🌐 Read in: [简体中文](./README.md) · **English**
+
 > **Learn full-stack AI agent engineering by reading the source of Anthropic's AI coding assistant.**
 
 Claude Code is Anthropic's AI command-line coding assistant — and one of the strongest AI coding products shipping today. Its source code is a tour through the whole stack you need to build a real agent: system-prompt engineering, multi-agent orchestration, a tool system, permission and safety layers, Bridge IPC, remote sessions, enterprise proxying, and a terminal UI.

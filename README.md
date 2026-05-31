@@ -1,5 +1,7 @@
 # 深入 Claude Code 源码
 
+> 🌐 Read in: **简体中文** · [English](./README-en.md)
+
 > **从 Anthropic 的 AI 编程助手源码中，学会构建 AI Agent 应用的全栈技术**
 
 Claude Code 是 Anthropic 推出的 AI 命令行编程助手，也是目前最好的 AI Coding 产品之一。它的源码涵盖了 System Prompt 工程、多 Agent 编排、工具系统、权限安全、Bridge IPC、远程会话、企业代理、终端 UI 等完整技术栈。
